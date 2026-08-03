@@ -77,17 +77,31 @@ Convención: columnas en `snake_case` en la base de datos; las server actions la
 - **2026-07-23** — `sections.status` y `lessons.status` (text, default 'published', check in ('published','draft')). Permite marcar capítulos y lecciones como borrador; un capítulo en borrador oculta también sus lecciones al alumno.
 - **2026-07-23** — bucket de Storage `lesson-media` (público) + políticas RLS (lectura pública, escritura/borrado solo admins). Usado para subir vídeos (`video_file`) e imágenes insertadas en el editor de texto enriquecido. Ver sección Storage abajo.
 - **2026-07-23** — `purchases.payment_method` + `purchases.external_reference`, unique en `(payment_method, external_reference)` y unique en `(user_id, course_id)`. Necesario para el flujo de pago con Stripe/Whop — ver sección Integraciones externas.
+- **2026-08-02** — bucket `lesson-media` pasado a **privado** (`storage.buckets.public = false`); la policy de lectura pública total se sustituyó por `lesson_media_public_read_images` (solo lee `images/*`, los `videos/*` ya no tienen ninguna policy de lectura). Trigger `on_auth_user_created` en `auth.users` que crea la fila en `profiles` automáticamente (función `public.handle_new_user()`, `security definer`). Ver sección Storage y Seguridad abajo.
+- **2026-08-02** — policy `courses_public_read_published` (RLS, `for select to anon using (status = 'published')`). Sin ella, un visitante sin sesión no podía leer ninguna fila de `courses` y `/`, `/cursos`, `/cursos/[id]` mostraban "Curso no encontrado" a cualquiera no logueado — lo encontró el test de Playwright `e2e/access-control.spec.ts`. Confirmado con la clave anónima y sin sesión que ahora sí devuelve las filas con `status = 'published'`.
 
 ## Seguridad
 
-No se ha confirmado si las tablas tienen Row Level Security (RLS) activado — el control de acceso admin se hace a mano en cada server action (`profiles.is_admin`). Antes de exponer una tabla nueva a queries desde el cliente, verificar/crear políticas RLS en el dashboard de Supabase.
+RLS **sí está activo** en todas las tablas (confirmado el 2026-08-02 consultando cada una con la clave `anon`, con y sin sesión). Estado verificado por tabla:
+
+| tabla | sin sesión (anon) | con sesión (authenticated) |
+|---|---|---|
+| `courses` | solo `status = 'published'` (policy `courses_public_read_published`) | todas las filas |
+| `sections` / `lessons` | nada | `lessons` solo devuelve filas de cursos comprados por ese usuario (o si es admin) — verificado con una cuenta sin compra: 0 filas |
+| `purchases` | nada | solo su propia fila, no las de otros alumnos |
+| `profiles` | nada | solo su propia fila |
+
+El control de acceso admin además se repite a mano en cada server action (`profiles.is_admin`, ver `requireAdmin()`) — RLS y el chequeo de código son dos capas independientes, no confiar solo en una.
+
+- **`profiles`** se crea sola: trigger `on_auth_user_created` (`after insert on auth.users`) inserta la fila con `name` sacado de `raw_user_meta_data->>'name'` e `is_admin = false`. `registerAction` ya no inserta el perfil a mano (ver `src/app/register/actions.ts`) — así el perfil existe también si el usuario se crea por otra vía (invitación, magic link, panel de Supabase).
 
 ## Storage
 
-- **`lesson-media`** (bucket público) — creado el 2026-07-23. Contiene:
-  - `videos/` — archivos de vídeo subidos directamente por el admin para bloques de tipo `video_file`.
-  - `images/` — imágenes insertadas dentro del editor de texto enriquecido (bloques `text`).
-- La subida se hace desde el navegador con el cliente de Supabase del propio admin (`src/lib/storage/uploadLessonMedia.ts`), no hay server action de por medio. El control de acceso lo hacen las políticas RLS del bucket (solo `profiles.is_admin` puede subir/borrar; la lectura es pública para que los alumnos puedan ver el contenido).
+- **`lesson-media`** (bucket **privado** desde el 2026-08-02, antes público) — creado el 2026-07-23. Contiene:
+  - `videos/` — archivos de vídeo subidos directamente por el admin para bloques de tipo `video_file`. **Sin lectura pública**: solo se puede leer generando una URL firmada con el cliente admin (service role), que se salta RLS. Eso lo hace `src/lib/storage/media.ts` (`getSignedVideoUrl`), llamado desde `src/app/cursos/[id]/aprender/page.tsx` **después** de comprobar que el usuario es admin o compró el curso, y desde `src/lib/storage/actions.ts` (`getVideoPreviewUrlAction`) para la previsualización del admin en el editor.
+  - `images/` — imágenes insertadas dentro del editor de texto enriquecido (bloques `text`). Sigue con lectura pública (policy `lesson_media_public_read_images`, filtra por `(storage.foldername(name))[1] = 'images'`).
+- La subida ya **no** se hace desde el navegador: pasa por el route handler `src/app/api/admin/media/upload/route.ts`, que comprueba `requireAdmin()` y sube con el cliente admin (service role). `src/lib/storage/uploadLessonMedia.ts` (cliente) solo hace `fetch()` a ese endpoint.
+- **Ojo con `video_url` en `lessons.blocks`**: para bloques `video_file`, este campo puede contener dos formatos según cuándo se subió el vídeo — una ruta relativa nueva (`videos/uuid.mp4`) o una URL pública antigua de cuando el bucket era público (`.../object/public/lesson-media/videos/uuid.mp4`, de antes del 2026-08-02). `extractStoragePath()` en `src/lib/storage/media.ts` normaliza ambos casos antes de firmar la URL — no hizo falta migrar los datos existentes.
 
 ## Integraciones externas
 

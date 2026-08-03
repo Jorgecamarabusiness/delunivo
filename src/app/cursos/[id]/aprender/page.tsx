@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { AprenderView } from "./AprenderView";
+import { resolveBlocksForViewing } from "@/lib/storage/media";
 import type { ContentBlock, Lesson, Section } from "@/types";
 
 function NotFound() {
@@ -78,28 +79,35 @@ export default async function AprenderPage({
       .order("order_index", { ascending: true }),
   ]);
 
-  const sections: Section[] = (sectionsData ?? []).map((section) => ({
-    id: section.id,
-    courseId: section.course_id,
-    title: section.title,
-    order: section.order_index,
-    status: "published",
-    lessons: (lessonsData ?? [])
-      .filter((lesson) => lesson.section_id === section.id)
-      .map(
-        (lesson): Lesson => ({
-          id: lesson.id,
-          sectionId: lesson.section_id,
-          courseId: lesson.course_id,
-          title: lesson.title,
-          order: lesson.order_index,
-          duration: 0,
-          isPreview: false,
-          status: "published",
-          blocks: (lesson.blocks ?? []) as ContentBlock[],
-        })
+  const sections: Section[] = await Promise.all(
+    (sectionsData ?? []).map(async (section) => ({
+      id: section.id,
+      courseId: section.course_id,
+      title: section.title,
+      order: section.order_index,
+      status: "published" as const,
+      lessons: await Promise.all(
+        (lessonsData ?? [])
+          .filter((lesson) => lesson.section_id === section.id)
+          .map(async (lesson): Promise<Lesson> => ({
+            id: lesson.id,
+            sectionId: lesson.section_id,
+            courseId: lesson.course_id,
+            title: lesson.title,
+            order: lesson.order_index,
+            duration: 0,
+            isPreview: false,
+            status: "published",
+            // Las URLs de vídeo se firman aquí, DESPUÉS de comprobar arriba que
+            // el usuario es admin o ha comprado el curso. No mover esta
+            // resolución antes de esa comprobación.
+            blocks: await resolveBlocksForViewing(
+              (lesson.blocks ?? []) as ContentBlock[]
+            ),
+          }))
       ),
-  }));
+    }))
+  );
 
   return (
     <AprenderView

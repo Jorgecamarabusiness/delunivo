@@ -1,27 +1,23 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
-
-const BUCKET = "lesson-media";
-
 export async function uploadLessonMedia(
   file: File,
   folder: "videos" | "images"
-): Promise<{ url: string | null; error: string | null }> {
-  const supabase = createClient();
+): Promise<{ path: string | null; url: string | null; error: string | null }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("folder", folder);
 
-  const extension = file.name.split(".").pop() ?? "bin";
-  const path = `${folder}/${crypto.randomUUID()}.${extension}`;
-
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    cacheControl: "3600",
-    upsert: false,
+  const response = await fetch("/api/admin/media/upload", {
+    method: "POST",
+    body: formData,
   });
 
-  if (error) {
-    return { url: null, error: error.message };
+  const data = await response.json();
+
+  if (!response.ok) {
+    return { path: null, url: null, error: data.error ?? "No se pudo subir el archivo." };
   }
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return { url: data.publicUrl, error: null };
+  return { path: data.path, url: data.url ?? null, error: null };
 }

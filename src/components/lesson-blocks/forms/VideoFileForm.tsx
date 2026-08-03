@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { uploadLessonMedia } from "@/lib/storage/uploadLessonMedia";
+import { getVideoPreviewUrlAction } from "@/lib/storage/actions";
 
 export function VideoFileForm({
   initialTitle = "",
@@ -22,9 +23,25 @@ export function VideoFileForm({
   submitLabel: string;
 }) {
   const [title, setTitle] = useState(initialTitle);
-  const [videoUrl, setVideoUrl] = useState(initialUrl);
+  // videoPath es lo que se persiste (ruta estable en el bucket); previewUrl es
+  // solo para el <video> de este formulario y caduca a los 30 min.
+  const [videoPath, setVideoPath] = useState(initialUrl);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!initialUrl) return;
+    let cancelled = false;
+
+    getVideoPreviewUrlAction(initialUrl).then((url) => {
+      if (!cancelled) setPreviewUrl(url);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialUrl]);
 
   async function handleFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -38,20 +55,21 @@ export function VideoFileForm({
 
     setIsUploading(false);
 
-    if (!result.url) {
+    if (!result.path) {
       setUploadError(result.error ?? "No se pudo subir el vídeo.");
       return;
     }
 
-    setVideoUrl(result.url);
+    setVideoPath(result.path);
+    setPreviewUrl(result.url);
   }
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        if (!title.trim() || !videoUrl) return;
-        onSubmit(title.trim(), videoUrl);
+        if (!title.trim() || !videoPath) return;
+        onSubmit(title.trim(), videoPath);
       }}
     >
       <label className="block text-xs font-medium text-muted-foreground">
@@ -70,10 +88,10 @@ export function VideoFileForm({
           Archivo de vídeo
         </span>
 
-        {videoUrl ? (
+        {previewUrl ? (
           <video
             controls
-            src={videoUrl}
+            src={previewUrl}
             className="mt-2 aspect-video w-full max-w-sm rounded-md bg-muted"
           />
         ) : null}
@@ -82,7 +100,7 @@ export function VideoFileForm({
           <span className="inline-flex cursor-pointer items-center rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground hover:text-background">
             {isUploading
               ? "Subiendo..."
-              : videoUrl
+              : videoPath
                 ? "Cambiar vídeo"
                 : "Subir vídeo"}
           </span>
@@ -120,7 +138,7 @@ export function VideoFileForm({
         <Button
           type="submit"
           variant="primary"
-          disabled={!title.trim() || !videoUrl || isSaving || isUploading}
+          disabled={!title.trim() || !videoPath || isSaving || isUploading}
         >
           {isSaving ? "Guardando..." : submitLabel}
         </Button>

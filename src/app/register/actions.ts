@@ -41,16 +41,10 @@ export async function registerAction(
     return { error: "No se pudo crear la cuenta. Inténtalo de nuevo." };
   }
 
-  const { error: profileError } = await supabase.from("profiles").insert({
-    id: data.user.id,
-    name,
-    email,
-    is_admin: false,
-  });
-
-  if (profileError) {
-    return { error: profileError.message };
-  }
+  // La fila en "profiles" la crea el trigger on_auth_user_created (ver
+  // docs/database.md) a partir de raw_user_meta_data.name — no hace falta
+  // insertarla a mano aquí, y así el perfil existe también si el usuario se
+  // crea por otra vía (invitación, magic link, panel de Supabase, etc.).
 
   redirect(`/cursos/${MAIN_COURSE_ID}`);
 }
