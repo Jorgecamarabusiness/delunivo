@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { login, ACCOUNTS, MAIN_COURSE_ID } from "./helpers";
+import { login, ACCOUNTS, MAIN_COURSE_ID, IVANORGANICO_PREFIX } from "./helpers";
 
 test("si la lección tiene un vídeo subido, su URL nunca es pública", async ({ page }) => {
   await login(page, ACCOUNTS.student.email, ACCOUNTS.student.password);
-  await page.goto(`/cursos/${MAIN_COURSE_ID}/aprender`);
+  await page.goto(`${IVANORGANICO_PREFIX}/cursos/${MAIN_COURSE_ID}/aprender`);
 
   const video = page.locator("video").first();
   const count = await video.count();

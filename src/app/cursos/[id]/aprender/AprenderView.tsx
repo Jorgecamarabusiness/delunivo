@@ -24,9 +24,11 @@ function formatDuration(seconds: number): string {
 export function AprenderView({
   course,
   initialLessonId,
+  basePath,
 }: {
   course: CourseWithContent;
   initialLessonId?: string;
+  basePath: string;
 }) {
   const sections = useMemo(
     () => [...course.sections].sort((a, b) => a.order - b.order),
@@ -89,7 +91,7 @@ export function AprenderView({
     <div className="flex h-screen flex-col bg-background text-foreground">
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <Link
-          href={`/cursos/${course.id}`}
+          href={`${basePath}/cursos/${course.id}`}
           className="text-sm font-medium hover:underline"
         >
           ← Volver a la ficha del curso

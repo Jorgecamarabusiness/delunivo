@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { requireOrgAdmin } from "@/lib/auth/requireOrgAdmin";
 
 type ActionResult = {
   error: string | null;
@@ -17,7 +17,7 @@ export async function createLessonAction(
   void _formData;
 
   const supabase = await createClient();
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { courseId });
   if (adminCheck.error) {
     throw new Error(adminCheck.error);
   }
@@ -58,7 +58,7 @@ export async function createSectionAction(
   courseId: string
 ): Promise<CreateSectionResult> {
   const supabase = await createClient();
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { courseId });
   if (adminCheck.error) return { ok: false, error: adminCheck.error };
 
   const { count } = await supabase
@@ -96,7 +96,7 @@ export async function updateCourseTitleAction(
   title: string
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { courseId });
   if (adminCheck.error) return adminCheck;
 
   const trimmed = title.trim();
@@ -122,7 +122,7 @@ export async function updateCourseStatusAction(
   status: "published" | "draft"
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { courseId });
   if (adminCheck.error) return adminCheck;
 
   const { error } = await supabase
@@ -144,7 +144,7 @@ export async function updateSectionTitleAction(
   title: string
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { sectionId });
   if (adminCheck.error) return adminCheck;
 
   const trimmed = title.trim();
@@ -169,7 +169,7 @@ export async function updateSectionStatusAction(
   status: "published" | "draft"
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { sectionId });
   if (adminCheck.error) return adminCheck;
 
   const { data: section, error } = await supabase
@@ -193,7 +193,7 @@ export async function updateLessonStatusAction(
   status: "published" | "draft"
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { lessonId });
   if (adminCheck.error) return adminCheck;
 
   const { data: lesson, error } = await supabase
@@ -217,7 +217,7 @@ export async function deleteSectionAction(
   courseId: string
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { courseId });
   if (adminCheck.error) return adminCheck;
 
   const { error: lessonsError } = await supabase
@@ -245,7 +245,7 @@ export async function deleteLessonAction(
   courseId: string
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { courseId });
   if (adminCheck.error) return adminCheck;
 
   const { error } = await supabase.from("lessons").delete().eq("id", lessonId);
@@ -264,7 +264,7 @@ export async function reorderSectionsAction(
   orderedSectionIds: string[]
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { courseId });
   if (adminCheck.error) return adminCheck;
 
   const results = await Promise.all(
@@ -290,7 +290,7 @@ export async function reorderLessonsAction(
   orderedLessonIds: string[]
 ): Promise<ActionResult> {
   const supabase = await createClient();
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { sectionId });
   if (adminCheck.error) return adminCheck;
 
   const results = await Promise.all(

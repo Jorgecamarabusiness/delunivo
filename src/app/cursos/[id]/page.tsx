@@ -3,14 +3,17 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { BuyCourseButton } from "./BuyCourseButton";
 import { createClient } from "@/lib/supabase/server";
+import { orgPath } from "@/lib/organizations/orgPath";
 
-function NotFound() {
+async function NotFound() {
+  const homeHref = await orgPath("/");
+
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">
       <Header />
       <div className="mx-auto flex flex-1 flex-col items-center gap-4 px-6 py-24 text-center">
         <p className="text-sm text-muted-foreground">Curso no encontrado.</p>
-        <Link href="/" className="text-sm font-medium hover:underline">
+        <Link href={homeHref} className="text-sm font-medium hover:underline">
           ← Volver al inicio
         </Link>
       </div>
@@ -29,7 +32,9 @@ export default async function CursoDetallePage({
 
   const { data: course } = await supabase
     .from("courses")
-    .select("id, title, price, long_description, learning_points, status")
+    .select(
+      "id, title, price, long_description, learning_points, status, organization_id"
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -45,8 +50,8 @@ export default async function CursoDetallePage({
   let hasPurchased = false;
 
   if (user) {
-    const [{ data: profile }, { data: purchase }] = await Promise.all([
-      supabase.from("profiles").select("is_admin").eq("id", user.id).single(),
+    const [{ data: isOrgAdmin }, { data: purchase }] = await Promise.all([
+      supabase.rpc("is_org_admin", { org_id: course.organization_id }),
       supabase
         .from("purchases")
         .select("id")
@@ -55,7 +60,7 @@ export default async function CursoDetallePage({
         .maybeSingle(),
     ]);
 
-    isAdmin = profile?.is_admin ?? false;
+    isAdmin = Boolean(isOrgAdmin);
     hasPurchased = Boolean(purchase);
   }
 
@@ -68,6 +73,8 @@ export default async function CursoDetallePage({
     .map((paragraph: string) => paragraph.trim())
     .filter((paragraph: string) => paragraph.length > 0);
   const learningPoints = course.learning_points ?? [];
+  const aprenderHref = await orgPath(`/cursos/${course.id}/aprender`);
+  const loginHref = await orgPath("/login");
 
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">
@@ -116,7 +123,7 @@ export default async function CursoDetallePage({
                 <>
                   <p className="text-sm font-medium">Ya tienes acceso a este curso.</p>
                   <Link
-                    href={`/cursos/${course.id}/aprender`}
+                    href={aprenderHref}
                     className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition-colors hover:bg-foreground/90"
                   >
                     Ir al curso →
@@ -131,7 +138,7 @@ export default async function CursoDetallePage({
                     <BuyCourseButton courseId={course.id} />
                   ) : (
                     <Link
-                      href="/login"
+                      href={loginHref}
                       className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition-colors hover:bg-foreground/90"
                     >
                       Inicia sesión para comprar

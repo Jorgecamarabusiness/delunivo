@@ -16,12 +16,13 @@ type WhopMembership = {
 };
 
 export async function getWhopMembershipByLicenseKey(
-  licenseKey: string
+  licenseKey: string,
+  apiKey: string
 ): Promise<WhopMembership | null> {
   const response = await fetch(
     `${WHOP_API_BASE}/memberships/${encodeURIComponent(licenseKey)}`,
     {
-      headers: { Authorization: `Bearer ${process.env.WHOP_API_KEY}` },
+      headers: { Authorization: `Bearer ${apiKey}` },
       cache: "no-store",
     }
   );
@@ -30,13 +31,10 @@ export async function getWhopMembershipByLicenseKey(
   return response.json();
 }
 
-export function isWhopMembershipValid(membership: WhopMembership): boolean {
+export function isWhopMembershipValid(
+  membership: WhopMembership,
+  expectedProductId: string
+): boolean {
   if (INVALID_STATUSES.has(membership.status)) return false;
-
-  const expectedProductId = process.env.WHOP_PRODUCT_ID;
-  if (expectedProductId && membership.product?.id !== expectedProductId) {
-    return false;
-  }
-
-  return true;
+  return membership.product?.id === expectedProductId;
 }

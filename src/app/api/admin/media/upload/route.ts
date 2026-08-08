@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { requireAnyOrgAdmin } from "@/lib/auth/requireOrgAdmin";
 import { getSignedVideoUrl } from "@/lib/storage/media";
 
 const BUCKET = "lesson-media";
@@ -26,7 +26,10 @@ function isFolder(value: FormDataEntryValue | null): value is "videos" | "images
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
-  const adminCheck = await requireAdmin(supabase);
+  // No recibimos courseId/organizationId en esta ruta (ver Fase 9 del plan):
+  // solo comprobamos que sea admin de ALGUNA organización, no de la
+  // propietaria concreta de la lección donde acabará este archivo.
+  const adminCheck = await requireAnyOrgAdmin(supabase);
   if (adminCheck.error) {
     return NextResponse.json({ error: adminCheck.error }, { status: 403 });
   }

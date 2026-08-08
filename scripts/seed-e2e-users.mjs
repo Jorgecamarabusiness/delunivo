@@ -54,14 +54,34 @@ async function upsertTestUser(email, name) {
 async function main() {
   const results = {};
 
+  const { data: course, error: courseError } = await admin
+    .from("courses")
+    .select("organization_id")
+    .eq("id", MAIN_COURSE_ID)
+    .single();
+  if (courseError || !course) {
+    throw new Error(
+      `No se encontró el curso ${MAIN_COURSE_ID} o le falta organization_id. ` +
+        "¿Se aplicó la migración multi-tenant (Fase 1) en este proyecto de Supabase?"
+    );
+  }
+  const organizationId = course.organization_id;
+
   results.admin = await upsertTestUser("e2e-admin@playwright.test", "E2E Admin");
-  await admin.from("profiles").update({ is_admin: true }).eq("id", results.admin.id);
+  const { error: adminMembershipError } = await admin
+    .from("organization_admins")
+    .upsert(
+      { organization_id: organizationId, user_id: results.admin.id, role: "admin" },
+      { onConflict: "organization_id,user_id" }
+    );
+  if (adminMembershipError) throw adminMembershipError;
 
   results.student = await upsertTestUser("e2e-student-con-compra@playwright.test", "E2E Con Compra");
   const { error: purchaseError } = await admin.from("purchases").upsert(
     {
       user_id: results.student.id,
       course_id: MAIN_COURSE_ID,
+      organization_id: organizationId,
       amount_paid: 0,
       payment_method: "stripe",
       external_reference: `e2e-seed-${results.student.id}`,
@@ -69,6 +89,19 @@ async function main() {
     { onConflict: "user_id,course_id" }
   );
   if (purchaseError) throw purchaseError;
+
+  const { error: studentMembershipError } = await admin
+    .from("organization_students")
+    .upsert(
+      {
+        organization_id: organizationId,
+        user_id: results.student.id,
+        status: "active",
+        joined_via: "purchase",
+      },
+      { onConflict: "organization_id,user_id" }
+    );
+  if (studentMembershipError) throw studentMembershipError;
 
   results.noAccess = await upsertTestUser("e2e-student-sin-compra@playwright.test", "E2E Sin Compra");
 

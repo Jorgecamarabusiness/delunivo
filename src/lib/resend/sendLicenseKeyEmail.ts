@@ -7,9 +7,10 @@ export async function sendLicenseKeyEmail(params: {
 }) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const fromAddress = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
+  const from = `Aularia <${fromAddress}>`;
 
   await resend.emails.send({
-    from: fromAddress,
+    from,
     to: params.to,
     subject: `Tu código de acceso a ${params.courseTitle}`,
     html: `

@@ -1,5 +1,6 @@
 import { CourseBarChart } from "./CourseBarChart";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
 
 const MESES = [
   "Ene",
@@ -33,18 +34,54 @@ function lastSixMonths(): { key: string; label: string }[] {
 
 export default async function EstadisticasPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const [
-    { data: courses },
-    { data: purchases },
-    { data: lessons },
-    { data: videoViews },
-  ] = await Promise.all([
-    supabase.from("courses").select("id, title"),
-    supabase.from("purchases").select("course_id, amount_paid, purchased_at"),
-    supabase.from("lessons").select("id, course_id"),
-    supabase.from("video_views").select("user_id, lesson_id"),
+  const membership = user
+    ? await getCurrentOrgMembership(supabase, user.id)
+    : null;
+
+  // Sin organización propia (super_admin sin empresa) no hay estadísticas
+  // que mostrar todavía — no hay vista de plataforma cross-organización
+  // (Fase 6).
+  if (!membership) {
+    return (
+      <div className="mx-auto w-full max-w-5xl px-6 py-12">
+        <h1 className="text-2xl font-bold tracking-tight">Estadísticas</h1>
+        <p className="mt-8 text-sm text-muted-foreground">
+          Todavía no hay cursos publicados.
+        </p>
+      </div>
+    );
+  }
+
+  const { data: courses } = await supabase
+    .from("courses")
+    .select("id, title")
+    .eq("organization_id", membership.organizationId);
+
+  const courseIds = (courses ?? []).map((course) => course.id);
+
+  const [{ data: purchases }, { data: lessons }] = await Promise.all([
+    supabase
+      .from("purchases")
+      .select("course_id, amount_paid, purchased_at")
+      .eq("organization_id", membership.organizationId),
+    courseIds.length > 0
+      ? supabase.from("lessons").select("id, course_id").in("course_id", courseIds)
+      : Promise.resolve({ data: [] as { id: string; course_id: string }[] }),
   ]);
+
+  const lessonIds = (lessons ?? []).map((lesson) => lesson.id);
+
+  const { data: videoViews } =
+    lessonIds.length > 0
+      ? await supabase
+          .from("video_views")
+          .select("user_id, lesson_id")
+          .in("lesson_id", lessonIds)
+      : { data: [] as { user_id: string; lesson_id: string }[] };
 
   const lessonToCourse = new Map<string, string>();
   for (const lesson of lessons ?? []) {

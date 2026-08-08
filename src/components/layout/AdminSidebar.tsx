@@ -67,6 +67,62 @@ function BookIcon({ className }: { className?: string }) {
   );
 }
 
+function PaletteIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 21a9 9 0 1 1 9-9c0 1.5-1 2.5-2.5 2.5h-2a2 2 0 0 0-1.5 3.3c.4.5.2 1.3-.5 1.9-.7.6-1.6 1.3-2.5 1.3Z"
+      />
+      <circle cx="7.5" cy="10.5" r="1.25" fill="currentColor" stroke="none" />
+      <circle cx="11" cy="7" r="1.25" fill="currentColor" stroke="none" />
+      <circle cx="15.5" cy="8" r="1.25" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function ReceiptIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      className={className}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5V3Z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 8h6M9 12h6M9 16h3" />
+    </svg>
+  );
+}
+
+function CreditCardIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      className={className}
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 15h4" />
+    </svg>
+  );
+}
+
 function ChevronIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -98,19 +154,19 @@ function ArrowLeftIcon({ className }: { className?: string }) {
 
 type AdminSidebarProps = {
   adminName: string;
-  course: { id: string; title: string } | null;
 };
 
-export function AdminSidebar({ adminName, course }: AdminSidebarProps) {
+export function AdminSidebar({ adminName }: AdminSidebarProps) {
   const [expanded, setExpanded] = useState(true);
   const pathname = usePathname();
 
   const navItems = [
     { href: "/admin", label: "Inicio", Icon: HomeIcon },
     { href: "/admin/usuarios", label: "Usuarios", Icon: UsersIcon },
-    ...(course
-      ? [{ href: `/admin/cursos/${course.id}`, label: course.title, Icon: BookIcon }]
-      : []),
+    { href: "/admin/marca", label: "Marca", Icon: PaletteIcon },
+    { href: "/admin/configuracion", label: "Cobros", Icon: CreditCardIcon },
+    { href: "/admin/facturacion", label: "Facturación", Icon: ReceiptIcon },
+    { href: "/admin/cursos", label: "Cursos", Icon: BookIcon },
   ];
 
   return (

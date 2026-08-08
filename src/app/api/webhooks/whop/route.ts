@@ -27,11 +27,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   }
 
-  const membership = await getWhopMembershipByLicenseKey(membershipId);
+  // Este webhook es solo el aviso por email de la license key — la compra
+  // real se registra en redeemWhopLicenseAction (por organización, Fase 5).
+  // Aquí seguimos con la clave/producto global a propósito: el payload de
+  // Whop no trae qué organización es, y para saberlo haría falta ya tener
+  // una clave con la que preguntarle a Whop — sin rediseñar el webhook de
+  // Whop en sí (un endpoint por organización, o mapear producto->organización
+  // antes de llamar a la API) esto se queda de un solo tenant. No bloquea el
+  // flujo de compra real, solo este email de cortesía. Ver Fase 9 del plan.
+  const membership = await getWhopMembershipByLicenseKey(
+    membershipId,
+    process.env.WHOP_API_KEY!
+  );
 
   if (
     membership &&
-    isWhopMembershipValid(membership) &&
+    isWhopMembershipValid(membership, process.env.WHOP_PRODUCT_ID!) &&
     membership.license_key &&
     membership.user?.email
   ) {

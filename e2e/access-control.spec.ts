@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { login, ACCOUNTS, MAIN_COURSE_ID } from "./helpers";
+import { login, ACCOUNTS, MAIN_COURSE_ID, IVANORGANICO_PREFIX } from "./helpers";
+
+// /admin nunca lleva prefijo (la organización se resuelve por membership, no
+// por la URL — ver docs/database.md, "Enrutamiento por RUTA"). Las rutas
+// públicas de curso sí lo llevan.
+const LESSON_URL = `${IVANORGANICO_PREFIX}/cursos/${MAIN_COURSE_ID}/aprender`;
 
 test.describe("control de acceso", () => {
   test("sin sesión, /admin redirige a /login", async ({ page }) => {
@@ -8,7 +13,7 @@ test.describe("control de acceso", () => {
   });
 
   test("sin sesión, la vista de lección redirige a /login", async ({ page }) => {
-    await page.goto(`/cursos/${MAIN_COURSE_ID}/aprender`);
+    await page.goto(LESSON_URL);
     await expect(page).toHaveURL(/\/login/);
   });
 
@@ -22,8 +27,10 @@ test.describe("control de acceso", () => {
     page,
   }) => {
     await login(page, ACCOUNTS.noAccess.email, ACCOUNTS.noAccess.password);
-    await page.goto(`/cursos/${MAIN_COURSE_ID}/aprender`);
-    await expect(page).toHaveURL(new RegExp(`/cursos/${MAIN_COURSE_ID}$`));
+    await page.goto(LESSON_URL);
+    await expect(page).toHaveURL(
+      new RegExp(`${IVANORGANICO_PREFIX}/cursos/${MAIN_COURSE_ID}$`)
+    );
   });
 
   test("el admin entra a /admin", async ({ page }) => {
@@ -34,7 +41,7 @@ test.describe("control de acceso", () => {
 
   test("un alumno con compra entra a la vista de la lección", async ({ page }) => {
     await login(page, ACCOUNTS.student.email, ACCOUNTS.student.password);
-    await page.goto(`/cursos/${MAIN_COURSE_ID}/aprender`);
-    await expect(page).toHaveURL(new RegExp(`/cursos/${MAIN_COURSE_ID}/aprender`));
+    await page.goto(LESSON_URL);
+    await expect(page).toHaveURL(new RegExp(`${IVANORGANICO_PREFIX}/cursos/${MAIN_COURSE_ID}/aprender`));
   });
 });

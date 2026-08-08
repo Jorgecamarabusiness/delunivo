@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { requireOrgAdmin } from "@/lib/auth/requireOrgAdmin";
 import type { ContentBlock } from "@/types";
 
 type ActionResult = {
@@ -16,7 +16,7 @@ export async function updateLessonBlocksAction(
 ): Promise<ActionResult> {
   const supabase = await createClient();
 
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { lessonId });
   if (adminCheck.error) return adminCheck;
 
   const { error } = await supabase
@@ -37,7 +37,7 @@ export async function updateLessonTitleAction(
 ): Promise<ActionResult> {
   const supabase = await createClient();
 
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { lessonId });
   if (adminCheck.error) return adminCheck;
 
   const trimmed = title.trim();
@@ -63,7 +63,7 @@ export async function deleteLessonAction(
 ): Promise<ActionResult> {
   const supabase = await createClient();
 
-  const adminCheck = await requireAdmin(supabase);
+  const adminCheck = await requireOrgAdmin(supabase, { courseId });
   if (adminCheck.error) return adminCheck;
 
   const { error } = await supabase.from("lessons").delete().eq("id", lessonId);

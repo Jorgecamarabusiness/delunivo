@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { AprenderView } from "./AprenderView";
 import { resolveBlocksForViewing } from "@/lib/storage/media";
+import { orgPath } from "@/lib/organizations/orgPath";
 import type { ContentBlock, Lesson, Section } from "@/types";
 
 function NotFound() {
@@ -12,6 +13,21 @@ function NotFound() {
       <Header />
       <div className="mx-auto flex flex-1 items-center px-6 py-24">
         <p className="text-sm text-muted-foreground">Curso no encontrado.</p>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
+function AccessRevoked() {
+  return (
+    <div className="flex flex-1 flex-col bg-background text-foreground">
+      <Header />
+      <div className="mx-auto flex flex-1 flex-col items-center justify-center gap-2 px-6 py-24 text-center">
+        <p className="text-sm font-semibold">Tu acceso a este curso ha sido revocado.</p>
+        <p className="text-sm text-muted-foreground">
+          Contacta con el administrador de la organización si crees que es un error.
+        </p>
       </div>
       <Footer />
     </div>
@@ -31,7 +47,7 @@ export default async function AprenderPage({
 
   const { data: course } = await supabase
     .from("courses")
-    .select("id, title")
+    .select("id, title, organization_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -44,24 +60,33 @@ export default async function AprenderPage({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect(await orgPath("/login"));
   }
 
-  const [{ data: profile }, { data: purchase }] = await Promise.all([
-    supabase.from("profiles").select("is_admin").eq("id", user.id).single(),
-    supabase
-      .from("purchases")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("course_id", id)
-      .maybeSingle(),
-  ]);
+  const [{ data: isOrgAdmin }, { data: purchase }, { data: isActiveStudent }] =
+    await Promise.all([
+      supabase.rpc("is_org_admin", { org_id: course.organization_id }),
+      supabase
+        .from("purchases")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("course_id", id)
+        .maybeSingle(),
+      supabase.rpc("is_org_student", { org_id: course.organization_id }),
+    ]);
 
-  const isAdmin = profile?.is_admin ?? false;
+  const isAdmin = Boolean(isOrgAdmin);
   const hasPurchased = Boolean(purchase);
 
   if (!isAdmin && !hasPurchased) {
-    redirect(`/cursos/${id}`);
+    redirect(await orgPath(`/cursos/${id}`));
+  }
+
+  // Compró el curso pero ya no está activo en el roster de la organización
+  // (lo echaron) — RLS ya le bloquea sections/lessons; esto solo da un
+  // mensaje claro en vez de una página vacía.
+  if (!isAdmin && !isActiveStudent) {
+    return <AccessRevoked />;
   }
 
   const [{ data: sectionsData }, { data: lessonsData }] = await Promise.all([
@@ -113,6 +138,7 @@ export default async function AprenderPage({
     <AprenderView
       course={{ id: course.id, title: course.title, sections }}
       initialLessonId={initialLessonId}
+      basePath={await orgPath("")}
     />
   );
 }

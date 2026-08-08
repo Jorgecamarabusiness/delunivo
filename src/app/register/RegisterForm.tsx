@@ -12,6 +12,18 @@ export function RegisterForm() {
     initialState
   );
 
+  if (state.checkEmail) {
+    return (
+      <div className="mt-10 rounded-md border border-border p-6 text-center">
+        <p className="text-sm font-semibold">Revisa tu correo</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Te hemos enviado un enlace para confirmar tu cuenta. Ábrelo para
+          poder iniciar sesión.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <form action={formAction} className="mt-10 flex flex-col gap-5">
       <div className="flex flex-col gap-2">
