@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
+import { readableTextColor } from "@/lib/organizations/brandColor";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,10 +16,18 @@ const geistMono = Geist_Mono({
 
 export async function generateMetadata(): Promise<Metadata> {
   const organization = await getCurrentOrganization();
-  const name = organization?.name ?? "Aularia";
+
+  if (!organization) {
+    return {
+      title: "Aularia — crea y vende tus cursos online",
+      description:
+        "Monta tu escuela online con tu propia marca, sube tus cursos y cobra a tus alumnos. 20€/mes.",
+    };
+  }
+
   return {
-    title: name,
-    description: `Crea y vende cursos en línea con ${name}.`,
+    title: organization.name,
+    description: `Cursos online de ${organization.name}.`,
   };
 }
 
@@ -28,18 +37,27 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const organization = await getCurrentOrganization();
+  const brandColor = organization?.primaryColor ?? null;
+  const brandTextColor = readableTextColor(brandColor);
 
   return (
     <html
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       style={
-        organization?.primaryColor
-          ? ({ "--accent": organization.primaryColor } as React.CSSProperties)
+        brandColor
+          ? ({
+              "--accent": brandColor,
+              // Calculado a partir del propio color: una empresa con marca clara
+              // necesita texto oscuro encima, no el blanco por defecto.
+              ...(brandTextColor
+                ? { "--accent-foreground": brandTextColor }
+                : {}),
+            } as React.CSSProperties)
           : undefined
       }
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
 }

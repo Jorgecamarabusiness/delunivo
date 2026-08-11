@@ -1,73 +1,56 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { createClient } from "@/lib/supabase/server";
+import { Container } from "@/components/ui/Container";
+import { CourseCard } from "@/components/courses/CourseCard";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
 import { orgPath } from "@/lib/organizations/orgPath";
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="flex flex-1 flex-col bg-background text-foreground">
-      <Header />
-      <div className="mx-auto flex flex-1 items-center px-6 py-24">
-        <p className="text-sm text-muted-foreground">{message}</p>
-      </div>
-      <Footer />
-    </div>
-  );
-}
+import { getPublishedCourses } from "@/lib/courses/publicCourses";
 
 export default async function CursosPage() {
   const organization = await getCurrentOrganization();
 
+  // Sin empresa resuelta (dominio raíz) no hay catálogo que enseñar: ahí lo que
+  // hay es la web de Aularia.
   if (!organization) {
-    return <EmptyState message="No hay cursos disponibles." />;
+    redirect("/");
   }
 
-  const supabase = await createClient();
-  const { data: courses } = await supabase
-    .from("courses")
-    .select("id, title, price")
-    .eq("organization_id", organization.id)
-    .eq("status", "published")
-    .order("created_at", { ascending: true });
+  const courses = await getPublishedCourses(organization.id);
 
-  if (!courses || courses.length === 0) {
-    return <EmptyState message="Todavía no hay cursos publicados." />;
-  }
-
+  // Con un solo curso, un listado de un elemento es un paso de más.
   if (courses.length === 1) {
     redirect(await orgPath(`/cursos/${courses[0].id}`));
   }
 
-  const cursosPrefix = await orgPath("/cursos");
+  const prefix = await orgPath("");
 
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">
       <Header />
 
       <main className="flex-1">
-        <section className="mx-auto max-w-4xl px-6 py-16">
-          <h1 className="text-2xl font-bold tracking-tight">Cursos</h1>
+        <Container width="md" className="py-12 sm:py-16">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Cursos de {organization.name}
+          </h1>
 
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {courses.map((course) => (
-              <Link
-                key={course.id}
-                href={`${cursosPrefix}/${course.id}`}
-                className="rounded-lg border border-border p-6 transition-colors hover:bg-muted"
-              >
-                <h2 className="text-lg font-semibold leading-snug">
-                  {course.title}
-                </h2>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  ${course.price}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
+          {courses.length === 0 ? (
+            <p className="mt-8 text-sm text-muted-foreground">
+              Todavía no hay cursos publicados. Vuelve pronto.
+            </p>
+          ) : (
+            <div className="mt-10 grid gap-6 sm:grid-cols-2">
+              {courses.map((course) => (
+                <CourseCard
+                  key={course.id}
+                  course={course}
+                  href={`${prefix}/cursos/${course.id}`}
+                />
+              ))}
+            </div>
+          )}
+        </Container>
       </main>
 
       <Footer />

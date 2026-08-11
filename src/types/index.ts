@@ -1,3 +1,11 @@
+/**
+ * Resultado estándar de una server action que la UI pinta con `useActionState`:
+ * `error: null` es éxito. Se prefiere esto a `throw` en cualquier action que se
+ * dispare desde un formulario — un throw sin capturar acaba en la pantalla
+ * genérica de error de Next, sin mensaje útil para el usuario.
+ */
+export type ActionResult = { error: string | null };
+
 export type CourseStatus = "published" | "draft";
 
 export interface Section {

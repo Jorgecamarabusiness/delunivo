@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Webhook } from "standardwebhooks";
 import { getWhopMembershipByLicenseKey, isWhopMembershipValid } from "@/lib/whop/client";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendLicenseKeyEmail } from "@/lib/resend/sendLicenseKeyEmail";
+import { sendLicenseKeyEmail } from "@/lib/email/templates";
 import { MAIN_COURSE_ID } from "@/lib/courses/mainCourse";
 
 export async function POST(request: NextRequest) {

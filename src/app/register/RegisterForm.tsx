@@ -1,97 +1,69 @@
 "use client";
 
 import { useActionState } from "react";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { Field } from "@/components/ui/Field";
+import { Input } from "@/components/ui/Input";
 import { registerAction, type RegisterState } from "./actions";
 
-const initialState: RegisterState = { error: null };
+const INITIAL: RegisterState = { error: null };
 
 export function RegisterForm() {
-  const [state, formAction, pending] = useActionState(
-    registerAction,
-    initialState
-  );
-
-  if (state.checkEmail) {
-    return (
-      <div className="mt-10 rounded-md border border-border p-6 text-center">
-        <p className="text-sm font-semibold">Revisa tu correo</p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Te hemos enviado un enlace para confirmar tu cuenta. Ábrelo para
-          poder iniciar sesión.
-        </p>
-      </div>
-    );
-  }
+  const [state, formAction, pending] = useActionState(registerAction, INITIAL);
 
   return (
-    <form action={formAction} className="mt-10 flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        <label htmlFor="name" className="text-sm font-medium">
-          Nombre completo
-        </label>
-        <input
+    <form action={formAction} className="mt-8 flex flex-col gap-5">
+      <Field label="Nombre completo" htmlFor="name">
+        <Input
           id="name"
           name="name"
           type="text"
           placeholder="Tu nombre"
           required
-          className="rounded-md border border-border px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-accent"
+          autoComplete="name"
         />
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="email" className="text-sm font-medium">
-          Correo electrónico
-        </label>
-        <input
+      <Field label="Correo electrónico" htmlFor="email">
+        <Input
           id="email"
           name="email"
           type="email"
           placeholder="tu@email.com"
           required
-          className="rounded-md border border-border px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-accent"
+          autoComplete="email"
         />
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="password" className="text-sm font-medium">
-          Contraseña
-        </label>
-        <input
+      <Field label="Contraseña" htmlFor="password">
+        <Input
           id="password"
           name="password"
           type="password"
           placeholder="••••••••"
           required
           minLength={6}
-          className="rounded-md border border-border px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-accent"
+          autoComplete="new-password"
         />
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="confirmPassword" className="text-sm font-medium">
-          Confirmar contraseña
-        </label>
-        <input
+      <Field label="Confirmar contraseña" htmlFor="confirmPassword">
+        <Input
           id="confirmPassword"
           name="confirmPassword"
           type="password"
           placeholder="••••••••"
           required
           minLength={6}
-          className="rounded-md border border-border px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-accent"
+          autoComplete="new-password"
         />
-      </div>
+      </Field>
 
-      {state.error && (
-        <p className="text-sm font-medium text-red-600" role="alert">
-          {state.error}
-        </p>
-      )}
+      {state.error && <Alert variant="error">{state.error}</Alert>}
 
-      <Button type="submit" variant="primary" disabled={pending} className="mt-2">
-        {pending ? "Creando cuenta..." : "Crear cuenta"}
+      <Button type="submit" variant="primary" disabled={pending}>
+        {pending ? "Creando cuenta…" : "Crear cuenta"}
       </Button>
     </form>
   );

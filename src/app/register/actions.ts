@@ -1,14 +1,18 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { orgPath } from "@/lib/organizations/orgPath";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
+import { createUnverifiedUser } from "@/lib/auth/accounts";
+import {
+  issueVerificationCode,
+  CODE_TTL_MINUTES,
+} from "@/lib/auth/verificationCodes";
+import { sendSignupCodeEmail } from "@/lib/email/templates";
 
 export type RegisterState = {
   error: string | null;
-  checkEmail?: boolean;
 };
 
 export async function registerAction(
@@ -30,78 +34,60 @@ export async function registerAction(
   if (!name || !email || !password) {
     return { error: "Completa todos los campos." };
   }
-
   if (password !== confirmPassword) {
     return { error: "Las contraseñas no coinciden." };
   }
+  if (password.length < 6) {
+    return { error: "La contraseña debe tener al menos 6 caracteres." };
+  }
 
-  const supabase = await createClient();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const admin = createAdminClient();
 
-  const { data, error } = await supabase.auth.signUp({
+  const { userId, error: createError } = await createUnverifiedUser(admin, {
     email,
     password,
-    options: {
-      data: { name },
-      // Igual que en /forgot-password: con la plantilla de email por
-      // defecto, este enlace pasa primero por el servidor de Supabase y
-      // luego redirige aquí. /login no necesita sesión para nada, así que
-      // sirve como destino simple sin importar cómo llegue la redirección.
-      emailRedirectTo: `${siteUrl}${await orgPath("/login")}`,
-    },
+    name,
   });
-
-  if (error) {
-    return { error: error.message };
+  if (createError || !userId) {
+    return { error: createError ?? "No se pudo crear la cuenta." };
   }
 
-  if (!data.user) {
-    return { error: "No se pudo crear la cuenta. Inténtalo de nuevo." };
-  }
-
-  // La fila en "profiles" la crea el trigger on_auth_user_created (ver
-  // docs/database.md) a partir de raw_user_meta_data.name — no hace falta
-  // insertarla a mano aquí, y así el perfil existe también si el usuario se
-  // crea por otra vía (invitación, magic link, panel de Supabase, etc.).
+  // La fila en "profiles" la crea el trigger on_auth_user_created a partir de
+  // raw_user_meta_data.name — ver docs/database.md.
 
   // Registrarse en /o/<slug> añade al roster de ESA organización aunque el
-  // usuario no haya comprado nada todavía. Se hace con el cliente admin
-  // porque la policy de organization_students solo permite insertar a los
-  // admins de la organización, no al propio alumno; y se hace ya (el id de
-  // auth.users existe aunque falte confirmar el correo) para no depender de
-  // que vuelva a pasar por aquí tras confirmar. Igual que en el resto de
-  // altas: si ya existe una fila (incluida 'removed'), no se toca — nunca se
-  // reactiva a alguien expulsado por este camino.
-  const admin = createAdminClient();
-  const { data: existingMembership } = await admin
+  // alumno no haya comprado nada todavía. Con el cliente admin porque la policy
+  // de organization_students solo deja insertar a los admins de la
+  // organización, no al propio alumno.
+  const { error: membershipError } = await admin
     .from("organization_students")
-    .select("id")
-    .eq("organization_id", organization.id)
-    .eq("user_id", data.user.id)
-    .maybeSingle();
+    .insert({
+      organization_id: organization.id,
+      user_id: userId,
+      status: "active",
+      joined_via: "self_register",
+    });
 
-  if (!existingMembership) {
-    const { error: membershipError } = await admin
-      .from("organization_students")
-      .insert({
-        organization_id: organization.id,
-        user_id: data.user.id,
-        status: "active",
-        joined_via: "self_register",
-      });
-
-    if (membershipError) {
-      return { error: membershipError.message };
-    }
+  if (membershipError) {
+    return { error: membershipError.message };
   }
 
-  // Con "Confirm email" activado en Supabase, signUp() no devuelve sesión
-  // hasta que el usuario abra el enlace de su correo — en ese caso no hay
-  // nada más que hacer aquí que avisarle. Si no está activado, sí hay sesión
-  // y se entra directo, como antes.
-  if (!data.session) {
-    return { error: null, checkEmail: true };
+  const { code, error: codeError } = await issueVerificationCode(email, "signup");
+  if (codeError) {
+    return { error: codeError };
   }
 
-  redirect(await orgPath("/cursos"));
+  const { error: emailError } = await sendSignupCodeEmail({
+    to: email,
+    code,
+    minutes: CODE_TTL_MINUTES,
+  });
+  if (emailError) {
+    return { error: emailError };
+  }
+
+  const nextPath = await orgPath("/cursos");
+  redirect(
+    `${await orgPath("/verificar")}?email=${encodeURIComponent(email)}&next=${encodeURIComponent(nextPath)}`
+  );
 }

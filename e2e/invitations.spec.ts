@@ -30,7 +30,15 @@ test("invitar a un alumno desde /admin/usuarios crea una invitación pendiente",
   await page.getByPlaceholder("correo@alumno.com").fill(invitedEmail);
   await page.getByRole("button", { name: "Invitar alumno" }).click();
 
-  await expect(page.getByText("Invitación enviada.")).toBeVisible();
+  // La invitación se guarda ANTES de mandar el correo, y si el envío falla por
+  // un motivo externo (Resend sin dominio verificado o sin clave válida en CI)
+  // la action lo dice sin perder la invitación. Lo que se prueba aquí es que la
+  // invitación existe y se lista, no que Resend esté configurado.
+  await expect(
+    page
+      .getByText("Invitación enviada.")
+      .or(page.getByText(/no se pudo enviar el correo/i))
+  ).toBeVisible();
   await expect(page.getByRole("cell", { name: invitedEmail })).toBeVisible();
 
   const admin = adminClient();

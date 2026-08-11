@@ -2,22 +2,41 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
+import { Field } from "@/components/ui/Field";
+import { Input, inputClassName } from "@/components/ui/Input";
 import { uploadLessonMedia } from "@/lib/storage/uploadLessonMedia";
 import { updateBrandingAction } from "./actions";
 
 type Organization = {
   name: string;
   tagline_template: string | null;
+  hero_subtitle: string | null;
+  featured_course_id: string | null;
   logo_url: string | null;
   primary_color: string | null;
 };
 
-export function BrandingForm({ organization }: { organization: Organization }) {
+export type CourseOption = { id: string; title: string };
+
+export function BrandingForm({
+  organization,
+  courses,
+}: {
+  organization: Organization;
+  courses: CourseOption[];
+}) {
   const router = useRouter();
   const [name, setName] = useState(organization.name);
   const [taglineTemplate, setTaglineTemplate] = useState(
     organization.tagline_template ?? ""
+  );
+  const [heroSubtitle, setHeroSubtitle] = useState(
+    organization.hero_subtitle ?? ""
+  );
+  const [featuredCourseId, setFeaturedCourseId] = useState(
+    organization.featured_course_id ?? ""
   );
   const [primaryColor, setPrimaryColor] = useState(
     organization.primary_color ?? "#16a34a"
@@ -54,6 +73,8 @@ export function BrandingForm({ organization }: { organization: Organization }) {
     const formData = new FormData();
     formData.set("name", name);
     formData.set("taglineTemplate", taglineTemplate);
+    formData.set("heroSubtitle", heroSubtitle);
+    formData.set("featuredCourseId", featuredCourseId);
     formData.set("primaryColor", primaryColor);
     formData.set("logoUrl", logoUrl);
 
@@ -71,41 +92,75 @@ export function BrandingForm({ organization }: { organization: Organization }) {
 
   return (
     <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium" htmlFor="name">
-          Nombre
-        </label>
-        <input
+      <Field label="Nombre" htmlFor="name">
+        <Input
           id="name"
           value={name}
           onChange={(event) => setName(event.target.value)}
           required
-          className="rounded-md border border-border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-accent"
         />
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium" htmlFor="tagline">
-          Mensaje de bienvenida
-        </label>
-        <input
+      <Field
+        label="Titular de tu página de inicio"
+        htmlFor="tagline"
+        hint={
+          <>
+            El texto grande de tu portada. Escribe {"{admin}"} donde quieras que
+            aparezca tu nombre.
+          </>
+        }
+      >
+        <Input
           id="tagline"
           value={taglineTemplate}
           onChange={(event) => setTaglineTemplate(event.target.value)}
-          placeholder="Aprende dropshipping orgánico junto a cientos de usuarios con {admin}"
-          className="rounded-md border border-border px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-accent"
+          placeholder="Aprende dropshipping orgánico junto a cientos de alumnos con {admin}"
         />
-        <p className="text-xs text-muted-foreground">
-          Se muestra en grande en tu página de inicio. Usa {"{admin}"} donde
-          quieras que aparezca tu nombre.
-        </p>
-      </div>
+      </Field>
+
+      <Field
+        label="Frase de apoyo"
+        htmlFor="heroSubtitle"
+        hint="Va debajo del titular, en letra más pequeña. Opcional."
+      >
+        <Input
+          id="heroSubtitle"
+          value={heroSubtitle}
+          onChange={(event) => setHeroSubtitle(event.target.value)}
+          placeholder="Todo lo que necesitas para empezar a vender desde cero."
+        />
+      </Field>
+
+      <Field
+        label="Curso destacado"
+        htmlFor="featuredCourse"
+        hint="Es el que protagoniza tu portada, con su imagen y su precio. Si no eliges ninguno, se usa el más antiguo."
+      >
+        <select
+          id="featuredCourse"
+          value={featuredCourseId}
+          onChange={(event) => setFeaturedCourseId(event.target.value)}
+          className={inputClassName}
+        >
+          <option value="">El más antiguo (automático)</option>
+          {courses.map((course) => (
+            <option key={course.id} value={course.id}>
+              {course.title}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      {courses.length === 0 && (
+        <Alert variant="info">
+          Todavía no tienes ningún curso publicado, así que tu portada aparecerá
+          sin cursos. Publica uno desde &quot;Cursos&quot;.
+        </Alert>
+      )}
 
       <div className="flex items-end gap-4">
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" htmlFor="logo">
-            Logo
-          </label>
+        <Field label="Logo" htmlFor="logo">
           <input
             id="logo"
             type="file"
@@ -114,9 +169,9 @@ export function BrandingForm({ organization }: { organization: Organization }) {
             className="text-sm"
           />
           {uploading && (
-            <p className="text-xs text-muted-foreground">Subiendo...</p>
+            <p className="text-xs text-muted-foreground">Subiendo…</p>
           )}
-        </div>
+        </Field>
         {logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -127,10 +182,11 @@ export function BrandingForm({ organization }: { organization: Organization }) {
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium" htmlFor="color">
-          Color principal
-        </label>
+      <Field
+        label="Color principal"
+        htmlFor="color"
+        hint="Se usa en los botones y detalles de tu portal. El texto de encima se ajusta solo a negro o blanco para que siempre se lea."
+      >
         <input
           id="color"
           type="color"
@@ -138,18 +194,15 @@ export function BrandingForm({ organization }: { organization: Organization }) {
           onChange={(event) => setPrimaryColor(event.target.value)}
           className="h-10 w-20 rounded-md border border-border"
         />
-      </div>
+      </Field>
 
-      <div className="flex items-center gap-3">
+      {error && <Alert variant="error">{error}</Alert>}
+      {saved && <Alert variant="success">Cambios guardados.</Alert>}
+
+      <div>
         <Button type="submit" disabled={pending || uploading}>
-          {pending ? "Guardando..." : "Guardar cambios"}
+          {pending ? "Guardando…" : "Guardar cambios"}
         </Button>
-        {saved && <p className="text-sm text-muted-foreground">Guardado.</p>}
-        {error && (
-          <p className="text-sm font-medium text-red-600" role="alert">
-            {error}
-          </p>
-        )}
       </div>
     </form>
   );

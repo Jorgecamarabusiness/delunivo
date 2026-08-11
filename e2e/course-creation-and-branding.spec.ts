@@ -34,9 +34,9 @@ test("editar la marca cambia el nombre visible en el portal público", async ({ 
 
   await login(page, org.owner.email, org.owner.password, org.prefix);
   await page.goto("/admin/marca");
-  await page.getByLabel("Nombre").fill(newName);
+  await page.getByLabel("Nombre", { exact: true }).fill(newName);
   await page.getByRole("button", { name: "Guardar cambios" }).click();
-  await expect(page.getByText("Guardado.")).toBeVisible();
+  await expect(page.getByText("Cambios guardados.")).toBeVisible();
 
   await page.goto(org.prefix + "/");
   await expect(page.locator("header")).toContainText(newName);

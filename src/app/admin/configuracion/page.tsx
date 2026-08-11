@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
 import { stripe } from "@/lib/stripe/client";
-import { buttonClassName } from "@/components/ui/Button";
-import { connectStripeAction } from "./actions";
+import { describeStripeError } from "@/lib/stripe/errors";
+import { Alert } from "@/components/ui/Alert";
+import { StripeConnectButton } from "./StripeConnectButton";
 import { WhopForm } from "./WhopForm";
 
 const STRIPE_STATUS_LABEL: Record<string, string> = {
@@ -60,17 +61,27 @@ export default async function ConfiguracionPage({
   // Al volver del onboarding de Stripe, re-consulta el estado real de la
   // cuenta — el webhook de Connect podría no haber llegado todavía (sobre
   // todo en local, sin túnel público configurado para recibirlo).
+  //
+  // En try/catch porque una cuenta borrada en Stripe (o una clave de otro modo)
+  // haría reventar la página entera, dejando al owner sin forma de reconectar.
+  let stripeError: string | null = null;
   if (stripeReturn === "return" && integrations?.stripe_account_id) {
-    const account = await stripe.accounts.retrieve(integrations.stripe_account_id);
-    stripeStatus =
-      account.charges_enabled && account.details_submitted
-        ? "connected"
-        : "pending";
+    try {
+      const account = await stripe.accounts.retrieve(
+        integrations.stripe_account_id
+      );
+      stripeStatus =
+        account.charges_enabled && account.details_submitted
+          ? "connected"
+          : "pending";
 
-    await supabase
-      .from("organization_integrations")
-      .update({ stripe_connect_status: stripeStatus })
-      .eq("organization_id", membership.organizationId);
+      await supabase
+        .from("organization_integrations")
+        .update({ stripe_connect_status: stripeStatus })
+        .eq("organization_id", membership.organizationId);
+    } catch (error) {
+      stripeError = describeStripeError(error);
+    }
   }
 
   return (
@@ -88,11 +99,20 @@ export default async function ConfiguracionPage({
             ? STRIPE_STATUS_LABEL[stripeStatus] ?? stripeStatus
             : "Todavía no conectado — las ventas con tarjeta se cobran hoy en la cuenta principal de la plataforma."}
         </p>
-        <form action={connectStripeAction} className="mt-4">
-          <button type="submit" className={buttonClassName("primary", "md")}>
-            {stripeStatus ? "Revisar conexión con Stripe" : "Conectar con Stripe"}
-          </button>
-        </form>
+        {stripeError && (
+          <Alert variant="error" className="mt-4">
+            {stripeError}
+          </Alert>
+        )}
+
+        <StripeConnectButton isConnected={Boolean(stripeStatus)} />
+
+        <p className="mt-4 text-xs text-muted-foreground">
+          Stripe te pedirá tu documento de identidad y una cuenta bancaria: es
+          un requisito legal para poder recibir dinero, no lo decide Aularia.
+          Ya te llevamos el país, el tipo de cuenta y tus datos rellenos, y solo
+          te pedirá lo imprescindible para empezar a cobrar.
+        </p>
       </div>
 
       <div className="mt-6 rounded-lg border border-border p-6">

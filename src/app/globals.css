@@ -6,6 +6,9 @@
   --border: #e4e4e7;
   --muted: #f4f4f5;
   --muted-foreground: #71717a;
+
+  /* Color de marca de cada empresa. El layout raíz lo sobreescribe en <html>
+     con organizations.primary_color; este es el verde de Aularia por defecto. */
   --accent: #16a34a;
   --accent-foreground: #ffffff;
 }
@@ -23,6 +26,8 @@
 }
 
 @theme {
+  /* Ojo: estos radios SOBREESCRIBEN los de Tailwind. En este proyecto
+     rounded-md = 0.75rem, no el valor por defecto. */
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
@@ -31,5 +36,8 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Geist se carga en layout.tsx y se expone como --font-geist-sans. Antes
+     aquí había un `Arial, Helvetica` fijo que ganaba a la variable, así que la
+     fuente cargada no se aplicaba en ninguna parte del sitio. */
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }

@@ -11,6 +11,11 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // Los unit tests los ejecuta Node directamente (`node --test`), no el
+    // empaquetador de Next, y el resolvedor de módulos de Node exige la
+    // extensión en los imports relativos (`./slug.ts`). Es seguro porque
+    // `noEmit` está activo: TypeScript aquí solo comprueba tipos.
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "incremental": true,
     "plugins": [

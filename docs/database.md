@@ -38,9 +38,11 @@ Añadida el 2026-08-07. Una fila por cliente ("empresa"). Solo branding público
 | id | |
 | name | nombre visible del cliente |
 | slug | subdominio (`{slug}.aularia.app`), unique, solo `[a-z0-9-]`. Reservados a nivel de aplicación (no en BD): `www`, `app`, `admin`, `api` |
-| tagline_template | plantilla de copy tipo "Aprende {tema} junto a cientos de usuarios con {admin}" ({admin} se sustituye por el nombre del `owner_id`, o por `name` si no tiene). Usada desde la Fase 4 en el hero de `src/app/page.tsx`. **Hoy es `null` para las dos organizaciones existentes** (nadie la ha rellenado todavía) — con `null` se usa un genérico ("Aprende junto a cientos de usuarios con {admin}"). No hay UI para editarla todavía, solo SQL/dashboard. |
+| tagline_template | Titular grande de la portada de la empresa. Plantilla tipo "Aprende {tema} junto a cientos de usuarios con {admin}" ({admin} se sustituye por el nombre del `owner_id`, o por `name` si no tiene). Con `null` se usa un genérico. Editable en `/admin/marca`. |
+| hero_subtitle | **añadida el 2026-08-11** — frase de apoyo debajo del titular en la portada. Nullable, editable en `/admin/marca`. |
+| featured_course_id | **añadida el 2026-08-11** — uuid, FK -> courses.id `on delete set null`. Curso que protagoniza la portada (su `thumbnail_url` es la imagen del hero y su precio el "Desde X €"). Con `null`, `splitForLanding()` usa el curso publicado más antiguo. `updateBrandingAction` valida que el curso sea de esa misma empresa antes de guardarlo. |
 | logo_url | nullable |
-| primary_color | nullable |
+| primary_color | nullable. Se inyecta como `--accent` en `<html>` desde `src/app/layout.tsx`, junto con un `--accent-foreground` calculado (negro o blanco según la luminancia WCAG del color, ver `src/lib/organizations/brandColor.ts`) para que el texto de los botones siempre se lea. |
 | owner_id | uuid, FK -> auth.users.id — quien creó la organización |
 | created_at | |
 
@@ -122,6 +124,38 @@ Añadida el 2026-08-07. Invitaciones de alumnos y de co-admins (todavía sin flu
 
 **Implementado el 2026-08-07 (Fase 3)**: `src/app/admin/usuarios/actions.ts` (invitar/echar/reactivar/quitar admin/revocar invitación), `src/app/invitaciones/[token]/` (aceptación — crea cuenta con `admin.auth.admin.createUser()` si el correo no tenía una, o vincula la sesión actual si ya la tenía). El token en claro solo va en la URL del email (`src/lib/invitations/token.ts` + `src/lib/resend/sendInvitationEmail.ts`); en `invitations.token_hash` solo se guarda su SHA-256. Invitar co-admins está restringido a `role='owner'` a nivel de aplicación (la policy RLS de `invitations` permite insertar a cualquier `is_org_admin`, no distingue `invite_type` — el filtro más estricto vive en `inviteAdminAction`, no en SQL).
 
+### admin_emails
+Añadida el 2026-08-11. Lista de correos de prueba de la PLATAFORMA (no de ninguna empresa). Mientras el envío real está desactivado, todo email de la aplicación se redirige a las filas `is_active = true` en vez de ir a su destinatario real — ver "Emails" más abajo.
+
+| columna | notas |
+|---|---|
+| id | |
+| email | índice único sobre `lower(email)` (los correos no distinguen mayúsculas) |
+| label | nullable — para qué es ese correo |
+| is_active | boolean, default true |
+| created_at | |
+
+RLS: `admin_emails_super_admin_all` (`for all`, `is_super_admin()`) — solo para la pantalla de gestión `/admin/emails`. El envío de emails la lee con la service role key, porque quien manda un correo casi nunca es el super admin (suele ser un alumno registrándose).
+
+### verification_codes
+Añadida el 2026-08-11. Códigos temporales de 6 dígitos que sustituyen a los emails de confirmación y de recuperación de contraseña de Supabase Auth (su límite de envío se agotaba constantemente en pruebas).
+
+| columna | notas |
+|---|---|
+| id | |
+| email | |
+| code_hash | SHA-256 del código; **el código en claro solo viaja en el email**, igual que `invitations.token_hash` |
+| purpose | 'signup' \| 'password_reset' |
+| expires_at | 30 minutos (`CODE_TTL_MINUTES` en `src/lib/auth/verificationCodes.ts`) |
+| created_at | también es el reloj del límite de emisión, ver abajo |
+| consumed_at | nullable — un código solo sirve una vez; pedir uno nuevo consume los anteriores del mismo (email, purpose) |
+| attempts | máximo 5 intentos fallidos antes de invalidarlo |
+| created_at | |
+
+RLS activo y **sin ninguna policy, a propósito**: con RLS activo y cero policies nadie puede leerla ni escribirla salvo la service role key. Un código de verificación no debe ser legible por ningún cliente, ni siquiera por su propio destinatario — solo se comprueba en servidor. La comparación es en tiempo constante (`crypto.timingSafeEqual`).
+
+**Límite de emisión** (`checkIssueRateLimit`, 2026-08-11): máximo 3 códigos por correo y 60 en total cada 15 minutos, contando filas por `created_at` — sin tabla nueva. Cada código emitido es un email enviado, así que sin este tope cualquiera podía quemar la cuota de Resend pulsando "enviar otro código" o bombardear el buzón de una persona real metiendo su correo en `/forgot-password`. El tope de 5 intentos protege un código ya emitido, no su emisión: son dos cosas distintas.
+
 ### sections
 | columna | notas |
 |---|---|
@@ -157,14 +191,22 @@ Añadida el 2026-08-07. Invitaciones de alumnos y de co-admins (todavía sin flu
 | organization_id | uuid, FK -> organizations.id, **not null** — añadida el 2026-08-07, denormalizada desde `courses.organization_id` en el momento de insertar (evita un join extra en cada policy RLS y congela la atribución si algún día un curso cambia de organización). |
 
 ### video_views
+**Una fila = esa lección está completada por ese alumno.** No hay estado intermedio ni segundos vistos.
+
 | columna | notas |
 |---|---|
 | id | |
-| user_id | confirmado |
-| lesson_id | confirmado |
-| watched_seconds | inferido |
-| completed | inferido |
-| last_watched_at | inferido |
+| user_id | FK -> profiles.id |
+| lesson_id | FK -> lessons.id |
+| viewed_at | timestamptz, default now() |
+
+> **Corrección del 2026-08-11**: esta tabla estaba documentada con `watched_seconds`, `completed` y `last_watched_at` marcadas como "inferido" — **ninguna de las tres existe**. Confirmado contra el esquema real vía `GET /rest/v1/` (swagger de PostgREST). Es justo el caso que avisa el gotcha de "comprueba las columnas reales antes de escribir un insert".
+
+`unique(user_id, lesson_id)` (índice `video_views_user_lesson_key`, añadido el 2026-08-11): antes no existía y cada marcado creaba una fila nueva, por eso `/admin/estadisticas` tenía que deduplicar a mano con un `Set` de `user_id:lesson_id`.
+
+RLS: cada alumno ve, inserta y borra **solo sus propias filas** (`user_id = auth.uid()`); los admins ven las de lecciones de cursos de su(s) organización(es). La policy de DELETE (`video_views_owner_delete`) se añadió el 2026-08-11 — antes solo había de INSERT, así que desmarcar una lección no daba error pero tampoco borraba nada: la interfaz se quedaba desmarcada y la base de datos no.
+
+**Escrituras**: `setLessonCompletedAction` (`src/app/cursos/[id]/aprender/actions.ts`), con el cliente de sesión (no el admin) porque la RLS ya garantiza que nadie toca el progreso de otro. Hasta el 2026-08-11 **nadie escribía en esta tabla**: el progreso del aula vivía solo en un `useState` y se perdía al cerrar la pestaña, mientras `/admin/estadisticas` mostraba datos congelados de filas antiguas.
 
 ## Historial de migraciones aplicadas manualmente
 
@@ -180,6 +222,20 @@ Añadida el 2026-08-07. Invitaciones de alumnos y de co-admins (todavía sin flu
 - **2026-08-07** — Limpieza: policy `"Admins can upload videos"` (bucket `course-videos`) borrada — resto de una integración anterior ya no usada, confirmado con el usuario. Las 3 policies restantes de `storage.objects` sobre `lesson-media` (`Admins can delete/update/upload lesson media`) pasaron de `profiles.is_admin` a `is_super_admin()` — ver nota en Storage sobre por qué no quedaron aisladas por organización todavía. Duplicado de `purchases` ("Users can view own purchases" a rol `public`, redundante con "Users can view their own purchases" a `authenticated`) eliminado.
 - **2026-08-07 (Fase 4, sin cambios de esquema)** — Bug de aislamiento cross-tenant corregido en código (no en RLS, que ya estaba bien): `/admin/cursos` y `/admin/estadisticas` consultaban `courses`/`sections`/`lessons`/`video_views` sin filtrar por `organization_id`. Como la policy de `courses` permite leer cualquier fila `status='published'` de **cualquier** organización (no solo la propia — es la misma policy que necesita el sitio público), cualquier admin veía en su propio panel los cursos publicados (títulos y precio) de TODOS los demás clientes de la plataforma, mezclados con los suyos. `purchases`/`video_views` no llegaban a filtrarse mal (esas sí están bien aisladas por RLS), pero el ruido de cursos ajenos en el listado/estadísticas era real. Arreglado añadiendo `.eq("organization_id", ...)` (resuelto vía `getCurrentOrgMembership`) en ambas páginas.
 
+- **2026-08-11** — `admin_emails` y `verification_codes` (ver arriba); `organizations.hero_subtitle` y `organizations.featured_course_id`. SQL en `docs/sql/2026-08-11-emails-y-landings.sql`. Aparte del esquema, esta tanda cambió tres cosas grandes sin tocar la base de datos: los emails dejaron de salir por Supabase Auth y pasan todos por Resend con códigos propios; el enrutamiento por subdominio se eliminó (solo queda `/o/<slug>`); y se cerró una fuga cross-tenant en la ficha pública de curso. Ver las secciones correspondientes abajo.
+
+## Emails y verificación de cuenta
+
+Desde el 2026-08-11, **Supabase Auth no envía ningún email**. Ni el de confirmación de registro ni el de recuperación de contraseña: su límite de envío en el plan gratuito se agotaba constantemente al probar, y sus plantillas no se pueden editar sin configurar SMTP propio.
+
+- **Punto único de envío**: `src/lib/email/send.ts` (`sendEmail`). Nada llama a Resend directamente. Las plantillas concretas están en `src/lib/email/templates.ts` (código de registro, código de recuperación, invitación, license key de Whop) sobre el HTML común de `src/lib/email/layout.ts`.
+- **Redirección a correos de prueba**: si `EMAIL_DELIVERY_MODE` no vale exactamente `"live"`, TODO email va a las direcciones activas de `admin_emails` en vez de a su destinatario real, con el destinatario original en el asunto (`[→ pepe@gmail.com] Tu código`) y un aviso al principio del cuerpo. **El valor por defecto es el redirigido a propósito**: la cuenta de Resend no tiene dominio verificado, así que solo puede entregar al correo del titular y devolvería un 403 con cualquier otro destinatario. Se gestiona en `/admin/emails` (solo super admin).
+- **Registro**: `createUnverifiedUser` (`src/lib/auth/accounts.ts`) usa `admin.auth.admin.createUser({ email_confirm: false })`, que **no manda ningún email**. Luego se emite un código y se envía por Resend. Hasta verificarlo, Supabase bloquea el login por su cuenta con "Email not confirmed" — no hace falta ninguna columna ni gate propio.
+  - **Por qué `createUser` y no `signUp()`**: con la confirmación de correo activada, `signUp()` sobre un email que YA existe devuelve un usuario falso con un uuid inventado (protección anti-enumeración de Supabase). Ese uuid no está en `auth.users`, así que el insert siguiente reventaba con `organizations_owner_id_fkey` al crear una empresa. `createUser` da un error limpio.
+- **Verificación** (`/verificar`): al acertar el código se hace `updateUserById({ email_confirm: true })` y se inicia sesión sin volver a pedir la contraseña — `startSessionForVerifiedEmail()` genera un token con `admin.auth.admin.generateLink({ type: 'magiclink' })` (que **no envía email**, para eso existe) y lo canjea con `verifyOtp()` sobre el cliente con cookies. Si eso falla, se cae a `/login?verificado=1`.
+- **Login**: si Supabase responde "Email not confirmed", se emite y envía un código nuevo y se redirige a `/verificar` en vez de dejar al usuario en un callejón sin salida.
+- **Recuperación de contraseña**: `/forgot-password` emite un código `password_reset` (siempre redirige a `/reset-password`, exista o no la cuenta, para no filtrar qué correos están registrados) y `/reset-password` pide email + código + contraseña nueva. Ya no depende de la sesión en el fragmento `#` de la URL, así que `ResetPasswordForm` dejó de necesitar el cliente de navegador.
+
 ## Seguridad
 
 RLS **sí está activo** en todas las tablas. Desde el 2026-08-07 el modelo es multi-tenant: ningún admin de la organización X puede leer/escribir datos de la organización Y. Estado por tabla:
@@ -187,6 +243,8 @@ RLS **sí está activo** en todas las tablas. Desde el 2026-08-07 el modelo es m
 | tabla | sin sesión (anon) | con sesión (authenticated) |
 |---|---|---|
 | `courses` | solo `status = 'published'` (policy `courses_public_read_published`) | `status = 'published'` de cualquier organización, o todas las filas (incl. borradores) de las organizaciones donde es admin |
+| `admin_emails` | nada | solo `is_super_admin()` |
+| `verification_codes` | nada | **nada** — RLS activo sin ninguna policy: solo la service role key |
 | `sections` / `lessons` | nada | igual que `courses` para gestión de contenido; para VER una lección además hace falta `purchases` + seguir `active` en `organization_students` de esa organización (ver más abajo) |
 | `purchases` | nada | solo su propia fila; los admins ven las de su(s) propia(s) organización(es), nunca las de otra |
 | `profiles` | nada | solo su propia fila; los admins además ven los profiles de sus propios alumnos/co-admins (no los de otras organizaciones) |
@@ -194,6 +252,8 @@ RLS **sí está activo** en todas las tablas. Desde el 2026-08-07 el modelo es m
 | `organizations` | branding público (`name`, `slug`, `logo_url`, etc., lectura abierta) | igual + puede editar si es admin de esa organización |
 | `organization_billing` / `organization_integrations` | nada | solo admin/owner de esa organización (integrations: solo el owner) |
 | `organization_admins` / `organization_students` / `invitations` | nada | solo admins de esa organización (alumno: además puede leer su propia fila en `organization_students`) |
+
+**Fuga cross-tenant corregida el 2026-08-11 (ficha pública de curso)**: `src/app/cursos/[id]/page.tsx` buscaba el curso solo por `id`. Como la policy `courses_public_read_published` deja leer cualquier fila publicada de **cualquier** empresa (lo necesita el sitio público), `/o/empresaA/cursos/<id-de-empresaB>` renderizaba el curso de B con el Header, el logo y el color de A. Arreglado comparando `course.organization_id` con la organización que resuelve la URL: si no coinciden, el curso "no existe" en ese portal. Los tests de la Fase 10 cubrían `/admin/cursos` y `/admin/estadisticas`, pero no la ficha pública.
 
 El control de acceso admin se repite a mano en cada server action, ahora vía `requireOrgAdmin()`/`requireSuperAdmin()`/`requireAnyOrgAdmin()` (`src/lib/auth/requireOrgAdmin.ts`, reemplaza al antiguo `requireAdmin()`) — RLS y el chequeo de código son dos capas independientes, no confiar solo en una. Estos helpers llaman por RPC a las mismas funciones `security definer` que usan las policies (`is_org_admin`, `is_super_admin`), para no duplicar la lógica de "quién es admin de qué" en dos sitios.
 
@@ -251,7 +311,11 @@ El control de acceso admin se repite a mano en cada server action, ahora vía `r
 
 **Bug encontrado y corregido al confirmar esta decisión**: `resolveOrgSlug()` en `src/proxy.ts` parseaba `aularia.vercel.app` igual que `cliente1.aularia.app` (3 etiquetas) y trataba `"aularia"` como si fuera el slug de un cliente inexistente — habría roto el sitio entero. Arreglado: cualquier hostname `*.vercel.app` se trata como dominio raíz (sin slug), igual que `localhost`.
 
-### Enrutamiento por RUTA en vez de subdominio: `/o/<slug>`
+### Enrutamiento por RUTA, y solo por ruta: `/o/<slug>`
+
+**Actualización del 2026-08-11: la resolución por subdominio se ELIMINÓ de `src/proxy.ts`.** Solo funcionaba en local con `*.localhost` (Vercel no permite reclamar wildcards sobre `*.vercel.app`), así que producía un comportamiento distinto en local y en producción — justo lo contrario de lo que se quiere. Ahora `src/proxy.ts` no mira el `Host` para nada: la empresa sale exclusivamente de `/o/<slug>`, igual en localhost que en Vercel. Si algún día hay dominio propio, volver a añadirlo es un cambio local a ese archivo: todo lo demás consume el header `x-org-slug`, no la URL.
+
+El resto de esta sección (cómo funciona el rewrite, `orgPath()`, qué rutas van sin prefijo) sigue vigente tal cual:
 
 `*.vercel.app` no admite wildcards de subdominio propios, así que el enrutamiento de tenant de la Fase 1 (`cliente1.aularia.app`) no es alcanzable en producción sin dominio propio. El usuario decidió (2026-08-07) resolverlo con **rutas** en vez de comprar un dominio, e implementación **completa** (no solo el mecanismo base): cualquier URL con el prefijo `/o/<slug>` (ej. `aularia.vercel.app/o/cliente1`) enruta a esa organización, y toda la navegación interna se queda dentro de ese prefijo.
 

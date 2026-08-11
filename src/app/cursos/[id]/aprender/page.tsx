@@ -104,6 +104,14 @@ export default async function AprenderPage({
       .order("order_index", { ascending: true }),
   ]);
 
+  // Progreso guardado: una fila en video_views = lección completada. La RLS ya
+  // limita la lectura a las filas del propio usuario.
+  const { data: completedRows } = await supabase
+    .from("video_views")
+    .select("lesson_id")
+    .eq("user_id", user.id)
+    .in("lesson_id", (lessonsData ?? []).map((lesson) => lesson.id));
+
   const sections: Section[] = await Promise.all(
     (sectionsData ?? []).map(async (section) => ({
       id: section.id,
@@ -138,6 +146,7 @@ export default async function AprenderPage({
     <AprenderView
       course={{ id: course.id, title: course.title, sections }}
       initialLessonId={initialLessonId}
+      completedLessonIds={(completedRows ?? []).map((row) => row.lesson_id)}
       basePath={await orgPath("")}
     />
   );

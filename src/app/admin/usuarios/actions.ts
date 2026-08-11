@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgMembership, type OrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
 import { generateInvitationToken } from "@/lib/invitations/token";
-import { sendInvitationEmail } from "@/lib/resend/sendInvitationEmail";
+import { sendInvitationEmail } from "@/lib/email/templates";
 
 type ActionResult = { error: string | null };
 
@@ -69,7 +69,7 @@ async function createInvitation(
     return { error: error.message };
   }
 
-  await sendInvitationEmail({
+  const { error: emailError } = await sendInvitationEmail({
     to: email,
     organizationName: organization?.name ?? "tu organización",
     inviteType,
@@ -77,6 +77,16 @@ async function createInvitation(
   });
 
   revalidatePath("/admin/usuarios");
+
+  // La invitación ya está guardada y es válida; si el email no salió, se avisa
+  // para que el admin pueda revocarla y reintentar en vez de quedarse pensando
+  // que el correo se envió.
+  if (emailError) {
+    return {
+      error: `Invitación creada, pero no se pudo enviar el correo: ${emailError}`,
+    };
+  }
+
   return { error: null };
 }
 

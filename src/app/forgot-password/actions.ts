@@ -1,11 +1,17 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { orgPath } from "@/lib/organizations/orgPath";
+import { findUserByEmail } from "@/lib/auth/accounts";
+import {
+  issueVerificationCode,
+  CODE_TTL_MINUTES,
+} from "@/lib/auth/verificationCodes";
+import { sendPasswordResetCodeEmail } from "@/lib/email/templates";
 
 export type ForgotPasswordState = {
   error: string | null;
-  sent?: boolean;
 };
 
 export async function forgotPasswordAction(
@@ -18,24 +24,32 @@ export async function forgotPasswordAction(
     return { error: "Introduce tu correo electrónico." };
   }
 
-  const supabase = await createClient();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const admin = createAdminClient();
+  const user = await findUserByEmail(admin, email);
 
-  // Con la plantilla de email por defecto de Supabase (sin SMTP propio, no se
-  // puede editar), el enlace pasa primero por el servidor de Supabase y
-  // LUEGO redirige aquí con la sesión en el fragmento (#) de la URL, no en
-  // query params — por eso "redirectTo" apunta directo a la página, que la
-  // procesa en el cliente (ver ResetPasswordForm.tsx).
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteUrl}${await orgPath("/reset-password")}`,
-  });
+  // Si el correo no está registrado se sigue igual hasta la pantalla del
+  // código, sin enviar nada: responder distinto permitiría averiguar qué
+  // direcciones tienen cuenta.
+  if (user) {
+    const { code, error: codeError } = await issueVerificationCode(
+      email,
+      "password_reset"
+    );
+    if (codeError) {
+      return { error: codeError };
+    }
 
-  // Supabase no informa si el correo existe o no (evita poder comprobar qué
-  // emails están registrados) — mostramos el mismo mensaje de éxito siempre,
-  // salvo un fallo real de envío (rate limit, correo con formato inválido...).
-  if (error) {
-    return { error: "No se pudo enviar el correo. Inténtalo de nuevo en unos minutos." };
+    const { error: emailError } = await sendPasswordResetCodeEmail({
+      to: email,
+      code,
+      minutes: CODE_TTL_MINUTES,
+    });
+    if (emailError) {
+      return { error: emailError };
+    }
   }
 
-  return { error: null, sent: true };
+  redirect(
+    `${await orgPath("/reset-password")}?email=${encodeURIComponent(email)}`
+  );
 }

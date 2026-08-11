@@ -60,9 +60,17 @@ export async function createTestOrg(opts?: {
     throw orgError ?? new Error("No se pudo crear la organización de prueba.");
   }
 
+  const status = opts?.billingStatus ?? "active";
+
   const { error: billingError } = await admin.from("organization_billing").insert({
     organization_id: org.id,
-    platform_subscription_status: opts?.billingStatus ?? "active",
+    platform_subscription_status: status,
+    // Una empresa realmente 'active' ha pasado por un checkout, así que tiene
+    // cliente de Stripe. Sin este campo, /admin/facturacion ofrece
+    // "Reactivar suscripción" en vez de "Gestionar suscripción" — porque no hay
+    // ningún portal de Stripe que abrir (ver BillingActions.tsx). El id es
+    // ficticio: ningún test llega a llamar a la API de Stripe con él.
+    platform_stripe_customer_id: status === "active" ? `cus_e2e_${suffix}` : null,
   });
   if (billingError) throw billingError;
 
@@ -108,6 +116,20 @@ export async function destroyTestOrg(testOrg: TestOrg): Promise<void> {
 
   const userIds = [testOrg.owner.id, ...testOrg.extraUserIds];
   for (const userId of userIds) {
+    // Los códigos de verificación se guardan por email, no por user_id, así que
+    // hay que leerlo del perfil antes de borrarlo.
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("id", userId)
+      .maybeSingle();
+    if (profile?.email) {
+      await admin
+        .from("verification_codes")
+        .delete()
+        .eq("email", profile.email.toLowerCase());
+    }
+
     await admin.from("profiles").delete().eq("id", userId);
     await admin.auth.admin.deleteUser(userId).catch(() => {});
   }

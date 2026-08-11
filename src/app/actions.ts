@@ -1,14 +1,17 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { slugify, isReservedSlug } from "@/lib/organizations/slug";
-import { createPlatformSubscriptionCheckoutUrl } from "@/lib/stripe/platformSubscription";
+import { createUnverifiedUser } from "@/lib/auth/accounts";
+import {
+  issueVerificationCode,
+  CODE_TTL_MINUTES,
+} from "@/lib/auth/verificationCodes";
+import { sendSignupCodeEmail } from "@/lib/email/templates";
 
 export type CreateCompanyState = {
   error: string | null;
-  checkEmail?: boolean;
 };
 
 const MAX_SLUG_ATTEMPTS = 20;
@@ -49,44 +52,50 @@ export async function createCompanyAction(
   if (password !== confirmPassword) {
     return { error: "Las contraseñas no coinciden." };
   }
+  if (password.length < 6) {
+    return { error: "La contraseña debe tener al menos 6 caracteres." };
+  }
 
   const baseSlug = slugify(companyName);
   if (!baseSlug) {
     return { error: "Pon un nombre de empresa válido." };
   }
 
-  const supabase = await createClient();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { name },
-      emailRedirectTo: `${siteUrl}/login`,
-    },
-  });
-
-  if (error) {
-    return { error: error.message };
-  }
-  if (!data.user) {
-    return { error: "No se pudo crear la cuenta. Inténtalo de nuevo." };
-  }
-
   const admin = createAdminClient();
+
+  // Se comprueba el slug ANTES de crear la cuenta: si no hay dirección libre,
+  // mejor no dejar un usuario suelto sin empresa.
   const slug = await resolveUniqueSlug(admin, baseSlug);
   if (!slug) {
-    return { error: "No se pudo generar una dirección única para tu empresa. Prueba con otro nombre." };
+    return {
+      error:
+        "No se pudo generar una dirección única para tu empresa. Prueba con otro nombre.",
+    };
+  }
+
+  // `createUnverifiedUser` usa admin.createUser, NO signUp(): con la
+  // confirmación de correo activada, signUp() sobre un email ya registrado
+  // devuelve un usuario falso con un uuid inventado, y el insert siguiente
+  // reventaba con "organizations_owner_id_fkey". Ver src/lib/auth/accounts.ts.
+  const { userId, error: createError } = await createUnverifiedUser(admin, {
+    email,
+    password,
+    name,
+  });
+  if (createError || !userId) {
+    return { error: createError ?? "No se pudo crear la cuenta." };
   }
 
   const { data: organization, error: orgError } = await admin
     .from("organizations")
-    .insert({ name: companyName, slug, owner_id: data.user.id })
+    .insert({ name: companyName, slug, owner_id: userId })
     .select("id")
     .single();
 
   if (orgError || !organization) {
+    // Sin empresa, la cuenta recién creada no sirve para nada y además
+    // bloquearía reintentar con el mismo correo. Se deshace.
+    await admin.auth.admin.deleteUser(userId).catch(() => {});
     return { error: orgError?.message ?? "No se pudo crear la empresa." };
   }
 
@@ -94,7 +103,7 @@ export async function createCompanyAction(
     admin.from("organization_billing").insert({ organization_id: organization.id }),
     admin.from("organization_admins").insert({
       organization_id: organization.id,
-      user_id: data.user.id,
+      user_id: userId,
       role: "owner",
     }),
   ]);
@@ -105,20 +114,25 @@ export async function createCompanyAction(
     };
   }
 
-  // La fila en "profiles" la crea el trigger on_auth_user_created (ver
-  // docs/database.md), igual que en el registro de alumno normal.
+  // La fila en "profiles" la crea el trigger on_auth_user_created.
 
-  if (!data.session) {
-    return { error: null, checkEmail: true };
+  const { code, error: codeError } = await issueVerificationCode(email, "signup");
+  if (codeError) {
+    return { error: codeError };
   }
 
-  // Con sesión inmediata (confirm email desactivado), directo al pago —
-  // si Stripe falla, no bloqueamos el alta: la empresa ya existe en
-  // 'trialing' y puede suscribirse luego desde /admin/facturacion.
-  const checkoutUrl = await createPlatformSubscriptionCheckoutUrl(
-    organization.id,
-    data.user.id
-  );
+  const { error: emailError } = await sendSignupCodeEmail({
+    to: email,
+    code,
+    minutes: CODE_TTL_MINUTES,
+  });
+  if (emailError) {
+    return { error: emailError };
+  }
 
-  redirect(checkoutUrl ?? "/admin");
+  // Tras verificar el correo entra directo al panel; el cobro de la suscripción
+  // se ofrece ahí (/admin/facturacion), con la empresa ya en 'trialing'.
+  redirect(
+    `/verificar?email=${encodeURIComponent(email)}&next=${encodeURIComponent("/admin/facturacion")}`
+  );
 }

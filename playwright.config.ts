@@ -32,6 +32,15 @@ export default defineConfig({
     command: `npm run build && npm run start -- -p ${PORT}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
+    // `npm run build` completo entra justo en 180s en una máquina lenta o con
+    // la caché fría; si expira, TODOS los tests fallan de golpe y parece un
+    // problema del código.
+    timeout: 300_000,
+    env: {
+      // Sin esto, cada corrida de la suite manda invitaciones de verdad a los
+      // correos de `admin_emails`. Los tests comprueban el estado en base de
+      // datos, no que Resend entregue.
+      EMAIL_DELIVERY_MODE: "off",
+    },
   },
 });

@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { buttonClassName } from "@/components/ui/Button";
 import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
+import { formatPrice } from "@/lib/format";
 import { createCourseAction } from "./actions";
 
 export default async function AdminCoursesPage() {
@@ -30,7 +32,7 @@ export default async function AdminCoursesPage() {
 
   const { data: courses } = await supabase
     .from("courses")
-    .select("id, title, price")
+    .select("id, title, price, status")
     .eq("organization_id", membership.organizationId)
     .order("created_at", { ascending: true });
 
@@ -118,20 +120,34 @@ export default async function AdminCoursesPage() {
                 className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
-                  <h2 className="text-lg font-semibold leading-snug">
-                    {course.title}
-                  </h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-lg font-semibold leading-snug">
+                      {course.title}
+                    </h2>
+                    <Badge variant={course.status === "published" ? "solid" : "outline"}>
+                      {course.status === "published" ? "Publicado" : "Borrador"}
+                    </Badge>
+                  </div>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    ${course.price} · {sectionCounts.get(course.id) ?? 0}{" "}
-                    secciones · {lessonCounts.get(course.id) ?? 0} lecciones
+                    {formatPrice(Number(course.price))} ·{" "}
+                    {sectionCounts.get(course.id) ?? 0} secciones ·{" "}
+                    {lessonCounts.get(course.id) ?? 0} lecciones
                   </p>
                 </div>
-                <Link
-                  href={`/admin/cursos/${course.id}`}
-                  className={buttonClassName("outline", "md")}
-                >
-                  Editar currículum
-                </Link>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Link
+                    href={`/admin/cursos/${course.id}/ajustes`}
+                    className={buttonClassName("outline", "md")}
+                  >
+                    Ajustes
+                  </Link>
+                  <Link
+                    href={`/admin/cursos/${course.id}`}
+                    className={buttonClassName("neutral", "md")}
+                  >
+                    Currículum
+                  </Link>
+                </div>
               </Card>
             ))
           )}

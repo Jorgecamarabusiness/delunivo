@@ -1,6 +1,6 @@
 import { type ButtonHTMLAttributes } from "react";
 
-export type ButtonVariant = "primary" | "secondary" | "outline";
+export type ButtonVariant = "primary" | "neutral" | "secondary" | "outline";
 export type ButtonSize = "sm" | "md" | "lg";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -9,7 +9,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const baseStyles =
-  "inline-flex items-center justify-center rounded-full font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
 
 const sizeStyles: Record<ButtonSize, string> = {
   sm: "px-4 py-2 text-sm",
@@ -18,7 +18,11 @@ const sizeStyles: Record<ButtonSize, string> = {
 };
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: "bg-foreground text-background hover:bg-foreground/90",
+  // `primary` usa el color de marca de la empresa (--accent, que el layout raíz
+  // sobreescribe con organizations.primary_color). Antes era negro fijo, así que
+  // cambiar el color de marca no se notaba en ningún botón del sitio.
+  primary: "bg-accent text-accent-foreground hover:opacity-90",
+  neutral: "bg-foreground text-background hover:bg-foreground/90",
   secondary: "bg-muted text-foreground hover:bg-border",
   outline:
     "border border-border text-foreground hover:bg-foreground hover:text-background",

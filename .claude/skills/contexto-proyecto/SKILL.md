@@ -37,6 +37,7 @@ Se está transformando en **Aularia**: una plataforma SaaS multi-tenant que se v
 | 8 | Rebranding final a "Aularia" (package.json, copy, emails, favicon) | ✅ Hecha |
 | 9 | Bugs y limpieza encontrados sobre la marcha (lista viva) | 🔄 En curso permanente |
 | 10 | Suite de tests E2E con Playwright (pedida por el usuario, sustituye los scripts sueltos) | ✅ Hecha |
+| 11 | **Tanda del 2026-08-11**: emails propios por Resend, landings, design system, multi-tenant solo por rutas | ✅ Hecha |
 
 **Todas las fases numeradas están hechas o en curso permanente (Fase 9).** Si el usuario dice "sigue" sin más contexto, lo que queda es la lista viva de la Fase 9 (bugs/limpieza, ver "Pendientes" más abajo) o el bloqueo externo de la Fase 5 (cuenta bancaria en Stripe).
 
@@ -129,6 +130,22 @@ Se está transformando en **Aularia**: una plataforma SaaS multi-tenant que se v
 - **Gotcha nuevo**: `page.getByRole("alert")` sin acotar también matchea el `<div id="__next-route-announcer__" role="alert">` que inyecta el propio Next.js (siempre en el DOM, "visible" para Playwright aunque esté clip-eado por CSS) — cualquier espera contra "alert" a secas se resuelve casi al instante contra ese elemento vacío. Acotar con `page.locator("form").getByRole("alert")` o similar.
 - **Gotcha nuevo**: `window.confirm()` seguido de `window.prompt()` en la misma acción (`StudentActions.handleRemove`) — si se registran los dos `page.once("dialog", ...)` de golpe antes del click, AMBOS reaccionan al primer diálogo y el segundo se queda sin manejar ("Cannot accept dialog which is already handled!"). Hay que encadenarlos: registrar el segundo dentro del callback del primero.
 - **Nuevo requisito de CI**: `invitations.spec.ts` ejercita el envío real de email de invitación (Resend) — el Secret `RESEND_API_KEY` del repo en GitHub Actions tiene que ser una clave real, no el `'dummy'` de fallback que ya tenía `ci.yml`, o ese test fallará ahí (en local funciona porque `.env.local` ya tiene una clave real).
+
+### Fase 11 — Emails propios, landings, design system y rutas (2026-08-11)
+
+Tanda grande pedida de golpe por el usuario. Lo importante:
+
+- **Bug del alta de empresa (`organizations_owner_id_fkey`)**: con la confirmación de correo activada, `signUp()` sobre un email YA registrado devuelve un usuario falso con un uuid inventado (anti-enumeración de Supabase); el insert siguiente reventaba. Todo el alta de cuentas pasa ahora por `createUnverifiedUser()` (`src/lib/auth/accounts.ts`), que usa `admin.auth.admin.createUser` y da un error limpio.
+- **Supabase Auth ya no manda NINGÚN email.** Sistema propio en `src/lib/email/` (`send.ts` es el único punto de envío) + códigos de 6 dígitos de 30 min en `verification_codes`. `EMAIL_DELIVERY_MODE`: `live` (real), `off` (no envía — tests y CI), o sin poner = **redirige todo a los correos activos de `admin_emails`**, con el destinatario real en el asunto. Se gestiona en `/admin/emails` (solo super admin). Verificado de punta a punta contra Supabase y Resend reales.
+- **Resend no tiene dominio verificado** → solo puede entregar a `jorgecamarabusiness@gmail.com`. Por eso el modo redirigido es el DEFECTO, no una opción de desarrollo. `*.vercel.app` no se puede verificar en Resend (no controla los DNS): hace falta un dominio propio.
+- **Enrutamiento por subdominio ELIMINADO** de `src/proxy.ts`. Solo `/o/<slug>`, idéntico en localhost y en Vercel.
+- **Fuga cross-tenant cerrada**: `/o/empresaA/cursos/<id-de-B>` pintaba el curso de B con la marca de A (la RLS lo permite a propósito para el sitio público; el filtro va en la página).
+- **Landings**: `/` es la web de Aularia (el alta se mudó a `/crear-empresa`); `/o/<slug>` tiene hero con el curso destacado + hasta 3 más (4 máx.), y el enlace "Cursos" del header solo sale con **más de 4** cursos. Reglas centralizadas en `src/lib/courses/publicCourses.ts` (`LANDING_COURSE_LIMIT`, `shouldShowCoursesNav`, `splitForLanding`).
+- **`/admin/cursos/[id]/ajustes` (nueva)**: imagen, descripciones y precio del curso. `courses.thumbnail_url` existía en la BD desde el principio y no se editaba ni se mostraba en ningún sitio.
+- **Design system**: `globals.css` forzaba `font-family: Arial` y pisaba la Geist que sí se cargaba — todo el sitio se veía en Arial. `Button` variant `primary` pasó de negro fijo a `bg-accent` (el color de la empresa), con `--accent-foreground` calculado por luminancia WCAG (`src/lib/organizations/brandColor.ts`) para que nunca quede texto ilegible; el negro de antes es la variante `neutral`. Primitivas nuevas: `Alert`, `Input`/`Textarea`, `Field`, `Container`, `CourseCard`/`CourseThumbnail`, `AuthShell`. `formatPrice` (los precios ponían `$` cobrando en euros).
+- **Aula responsive**: `AprenderView` tenía un `<aside className="w-80">` sin ninguna clase responsive — en un móvil de 375px dejaba ~55px de contenido. Ahora es un cajón deslizante, y `h-[100dvh]` en vez de `h-screen`.
+- **Stripe**: `openBillingPortalAction` lanzaba un `throw` desnudo cuando el estado es `active` sin `platform_stripe_customer_id` (el caso real de los datos del usuario) → pantalla genérica de error de Next. Ahora las actions devuelven `ActionResult` y hay `src/app/admin/error.tsx` como red. Connect prellena país/tipo/email/nombre y usa `collection_options: { fields: "currently_due" }`; si hay una cuenta a medias sin `details_submitted` se borra y se recrea prellenada.
+- **Tests**: 28 pasan, 1 saltado (sin vídeo subido). Las contraseñas de `.env.e2e.local` caducan cuando alguien re-corre `seed-e2e-users.mjs` en otra máquina — si fallan 5-6 tests con timeout en `login()`, es eso: volver a correr el script y pegar la salida en `.env.e2e.local`.
 
 ## Patrones y gotchas a tener en cuenta siempre
 

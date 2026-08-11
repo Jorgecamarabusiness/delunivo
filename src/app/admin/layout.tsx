@@ -21,7 +21,7 @@ export default async function AdminLayout({
 
   const [{ data: profile }, { data: isSuperAdmin }, membership] =
     await Promise.all([
-      supabase.from("profiles").select("name").eq("id", user.id).single(),
+      supabase.from("profiles").select("name").eq("id", user.id).maybeSingle(),
       supabase.rpc("is_super_admin"),
       getCurrentOrgMembership(supabase, user.id),
     ]);
@@ -40,7 +40,10 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-screen flex-1 bg-background text-foreground">
-      <AdminSidebar adminName={profile?.name ?? ""} />
+      <AdminSidebar
+        adminName={profile?.name ?? ""}
+        isSuperAdmin={Boolean(isSuperAdmin)}
+      />
       <main className="min-w-0 flex-1">
         <AdminBillingGate status={billing?.platform_subscription_status ?? null}>
           {children}

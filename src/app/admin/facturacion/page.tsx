@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
-import { buttonClassName } from "@/components/ui/Button";
-import { subscribeAction, openBillingPortalAction } from "./actions";
+import { Alert } from "@/components/ui/Alert";
+import { BillingActions } from "./BillingActions";
 
 const STATUS_LABEL: Record<string, string> = {
   trialing: "En periodo de prueba",
@@ -55,7 +55,12 @@ export default async function FacturacionPage({
     .maybeSingle();
 
   const status = billing?.platform_subscription_status ?? "trialing";
-  const needsSubscribe = status !== "active";
+  // El portal de Stripe necesita un cliente real. Una empresa marcada como
+  // 'active' sin `platform_stripe_customer_id` (estado sembrado a mano, o un
+  // webhook que nunca llegó) no tiene nada que gestionar todavía: se le ofrece
+  // suscribirse, que es lo que de verdad le falta.
+  const canManage =
+    status === "active" && Boolean(billing?.platform_stripe_customer_id);
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
@@ -65,14 +70,14 @@ export default async function FacturacionPage({
       </p>
 
       {checkout === "success" && (
-        <p className="mt-6 rounded-md border border-border bg-muted px-4 py-3 text-sm font-medium">
+        <Alert variant="success" className="mt-6">
           Pago confirmado. Puede tardar unos segundos en reflejarse aquí.
-        </p>
+        </Alert>
       )}
       {checkout === "cancelled" && (
-        <p className="mt-6 rounded-md border border-border bg-muted px-4 py-3 text-sm font-medium">
+        <Alert variant="info" className="mt-6">
           Pago cancelado. Puedes intentarlo de nuevo cuando quieras.
-        </p>
+        </Alert>
       )}
 
       <div className="mt-8 rounded-lg border border-border p-6">
@@ -95,21 +100,7 @@ export default async function FacturacionPage({
           </p>
         )}
 
-        <div className="mt-6 flex gap-3">
-          {needsSubscribe ? (
-            <form action={subscribeAction}>
-              <button type="submit" className={buttonClassName("primary", "md")}>
-                {status === "trialing" ? "Suscribirse ahora" : "Reactivar suscripción"}
-              </button>
-            </form>
-          ) : (
-            <form action={openBillingPortalAction}>
-              <button type="submit" className={buttonClassName("outline", "md")}>
-                Gestionar suscripción
-              </button>
-            </form>
-          )}
-        </div>
+        <BillingActions canManage={canManage} status={status} />
       </div>
     </div>
   );

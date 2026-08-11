@@ -1,23 +1,28 @@
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
+import Link from "next/link";
+import { AuthShell } from "@/components/layout/AuthShell";
+import { orgPath } from "@/lib/organizations/orgPath";
+import { CODE_TTL_MINUTES } from "@/lib/auth/verificationCodes";
 import { ResetPasswordForm } from "./ResetPasswordForm";
 
-export default function ResetPasswordPage() {
+export default async function ResetPasswordPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ email?: string }>;
+}) {
+  const { email } = await searchParams;
+  const forgotHref = await orgPath("/forgot-password");
+
   return (
-    <div className="flex flex-1 flex-col bg-background text-foreground">
-      <Header />
-
-      <main className="flex flex-1 flex-col items-center justify-center px-6 py-24">
-        <div className="w-full max-w-sm">
-          <h1 className="text-center text-2xl font-bold tracking-tight">
-            Elige una nueva contraseña
-          </h1>
-
-          <ResetPasswordForm />
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+    <AuthShell
+      title="Elige una nueva contraseña"
+      subtitle={`Escribe el código de ${CODE_TTL_MINUTES} minutos que te hemos enviado por correo y tu contraseña nueva.`}
+      footer={
+        <Link href={forgotHref} className="font-medium underline">
+          Pedir otro código
+        </Link>
+      }
+    >
+      <ResetPasswordForm email={email ?? ""} />
+    </AuthShell>
   );
 }

@@ -1,64 +1,79 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
-import { requireOrgOwner } from "@/lib/auth/requireOrgAdmin";
+import { requireOwnerContext } from "@/lib/organizations/requireOwnerContext";
 import { stripe } from "@/lib/stripe/client";
+import { describeStripeError } from "@/lib/stripe/errors";
 import { createPlatformSubscriptionCheckoutUrl } from "@/lib/stripe/platformSubscription";
+import type { ActionResult } from "@/types";
 
-async function requireOwnerMembership() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Debes iniciar sesión para hacer esto.");
+// Ambas actions llevan la firma de `useActionState` (prevState, formData) para
+// que el formulario pueda pintar el error en pantalla en vez de reventar.
+export async function subscribeAction(
+  _prevState: ActionResult,
+  _formData: FormData
+): Promise<ActionResult> {
+  const auth = await requireOwnerContext();
+  if (!auth.ok) return { error: auth.error };
+  const { context } = auth;
 
-  const membership = await getCurrentOrgMembership(supabase, user.id);
-  if (!membership) throw new Error("No perteneces a ninguna organización.");
-
-  const ownerCheck = await requireOrgOwner(supabase, {
-    organizationId: membership.organizationId,
-  });
-  if (ownerCheck.error) throw new Error(ownerCheck.error);
-
-  return { userId: user.id, organizationId: membership.organizationId, supabase };
-}
-
-export async function subscribeAction() {
-  const { userId, organizationId } = await requireOwnerMembership();
-
-  const checkoutUrl = await createPlatformSubscriptionCheckoutUrl(
-    organizationId,
-    userId
-  );
-
-  if (!checkoutUrl) {
-    throw new Error("No se pudo iniciar el pago con Stripe.");
+  let checkoutUrl: string | null;
+  try {
+    checkoutUrl = await createPlatformSubscriptionCheckoutUrl(
+      context.organizationId,
+      context.userId
+    );
+  } catch (stripeError) {
+    return { error: describeStripeError(stripeError) };
   }
 
+  if (!checkoutUrl) {
+    return { error: "No se pudo iniciar el pago con Stripe. Inténtalo de nuevo." };
+  }
+
+  // Fuera del try: redirect() lanza NEXT_REDIRECT a propósito y no debe
+  // capturarse como si fuera un fallo de Stripe.
   redirect(checkoutUrl);
 }
 
-export async function openBillingPortalAction() {
-  const { organizationId, supabase } = await requireOwnerMembership();
+export async function openBillingPortalAction(
+  _prevState: ActionResult,
+  _formData: FormData
+): Promise<ActionResult> {
+  const auth = await requireOwnerContext();
+  if (!auth.ok) return { error: auth.error };
+  const { context } = auth;
 
-  const { data: billing } = await supabase
+  const { data: billing } = await context.supabase
     .from("organization_billing")
     .select("platform_stripe_customer_id")
-    .eq("organization_id", organizationId)
+    .eq("organization_id", context.organizationId)
     .maybeSingle();
 
+  // Puede pasar de verdad: el estado de la suscripción se puede haber puesto a
+  // 'active' a mano (seeds, pruebas) sin que ningún checkout real haya creado
+  // el cliente en Stripe. Antes esto lanzaba y el owner veía la pantalla
+  // genérica de error de Next.
   if (!billing?.platform_stripe_customer_id) {
-    throw new Error("Todavía no tienes ninguna suscripción activa.");
+    return {
+      error:
+        "No hay ninguna suscripción de Stripe asociada a esta empresa todavía. " +
+        "Suscríbete primero y podrás gestionarla desde aquí.",
+    };
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
-  const portalSession = await stripe.billingPortal.sessions.create({
-    customer: billing.platform_stripe_customer_id,
-    return_url: `${siteUrl}/admin/facturacion`,
-  });
+  let portalUrl: string;
+  try {
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: billing.platform_stripe_customer_id,
+      return_url: `${siteUrl}/admin/facturacion`,
+    });
+    portalUrl = portalSession.url;
+  } catch (stripeError) {
+    return { error: describeStripeError(stripeError) };
+  }
 
-  redirect(portalSession.url);
+  redirect(portalUrl);
 }

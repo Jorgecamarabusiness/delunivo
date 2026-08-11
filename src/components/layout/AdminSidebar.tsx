@@ -123,6 +123,23 @@ function CreditCardIcon({ className }: { className?: string }) {
   );
 }
 
+function ChartIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+      <path strokeLinecap="round" d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+    </svg>
+  );
+}
+
+function MailIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7l9 6 9-6" />
+    </svg>
+  );
+}
+
 function ChevronIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -154,19 +171,25 @@ function ArrowLeftIcon({ className }: { className?: string }) {
 
 type AdminSidebarProps = {
   adminName: string;
+  /** Solo el dueño de la plataforma ve la lista de correos de prueba. */
+  isSuperAdmin?: boolean;
 };
 
-export function AdminSidebar({ adminName }: AdminSidebarProps) {
+export function AdminSidebar({ adminName, isSuperAdmin }: AdminSidebarProps) {
   const [expanded, setExpanded] = useState(true);
   const pathname = usePathname();
 
   const navItems = [
     { href: "/admin", label: "Inicio", Icon: HomeIcon },
+    { href: "/admin/cursos", label: "Cursos", Icon: BookIcon },
     { href: "/admin/usuarios", label: "Usuarios", Icon: UsersIcon },
+    { href: "/admin/estadisticas", label: "Estadísticas", Icon: ChartIcon },
     { href: "/admin/marca", label: "Marca", Icon: PaletteIcon },
     { href: "/admin/configuracion", label: "Cobros", Icon: CreditCardIcon },
     { href: "/admin/facturacion", label: "Facturación", Icon: ReceiptIcon },
-    { href: "/admin/cursos", label: "Cursos", Icon: BookIcon },
+    ...(isSuperAdmin
+      ? [{ href: "/admin/emails", label: "Correos de prueba", Icon: MailIcon }]
+      : []),
   ];
 
   return (

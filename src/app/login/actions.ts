@@ -3,19 +3,16 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { orgPath } from "@/lib/organizations/orgPath";
+import { safeNextPath } from "@/lib/auth/safeNextPath";
+import {
+  issueVerificationCode,
+  CODE_TTL_MINUTES,
+} from "@/lib/auth/verificationCodes";
+import { sendSignupCodeEmail } from "@/lib/email/templates";
 
 export type LoginState = {
   error: string | null;
 };
-
-function safeNextPath(next: FormDataEntryValue | null): string | null {
-  // Solo rutas relativas propias — evita open redirect a otro dominio
-  // (bloquea también "//evil.com", que el navegador trataría como absoluta).
-  if (typeof next !== "string" || !next.startsWith("/") || next.startsWith("//")) {
-    return null;
-  }
-  return next;
-}
 
 export async function loginAction(
   _prevState: LoginState,
@@ -31,17 +28,27 @@ export async function loginAction(
 
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
+    // Cuenta creada pero sin verificar: en vez de dejarlo en un callejón sin
+    // salida, se le manda un código nuevo y se le lleva a la pantalla de
+    // verificación.
     if (/email not confirmed/i.test(error.message)) {
-      return {
-        error: "Confirma tu correo antes de iniciar sesión. Revisa tu bandeja de entrada.",
-      };
+      const { code, error: codeError } = await issueVerificationCode(
+        email,
+        "signup"
+      );
+
+      if (!codeError) {
+        await sendSignupCodeEmail({ to: email, code, minutes: CODE_TTL_MINUTES });
+      }
+
+      redirect(
+        `${await orgPath("/verificar")}?email=${encodeURIComponent(email)}`
+      );
     }
+
     return { error: "Correo o contraseña incorrectos." };
   }
 

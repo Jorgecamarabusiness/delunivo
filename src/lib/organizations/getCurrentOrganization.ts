@@ -7,44 +7,37 @@ export type CurrentOrganization = {
   name: string;
   slug: string;
   taglineTemplate: string | null;
+  heroSubtitle: string | null;
+  featuredCourseId: string | null;
   logoUrl: string | null;
   primaryColor: string | null;
   ownerName: string | null;
 };
 
 /**
- * Organización del sitio público que se está viendo, resuelta por el
- * subdominio o por la ruta /o/<slug> (header "x-org-slug" que inyecta
- * src/proxy.ts en cualquiera de los dos casos). Sin slug (dominio raíz, o
- * rutas globales como /login fuera de /o/<slug>) devuelve null — desde la
- * Fase 6 el dominio raíz es la landing de Aularia, no la tienda de ningún
- * cliente en concreto (antes de la Fase 6 existía aquí un fallback por
- * `DEFAULT_ORG_SLUG`; se quitó al dejar de hacer falta).
+ * Empresa cuyo portal se está viendo, resuelta por la ruta `/o/<slug>` (header
+ * `x-org-slug` que inyecta src/proxy.ts). Sin slug — dominio raíz, o rutas
+ * globales como /admin — devuelve null: el dominio raíz es la landing de
+ * Aularia, no la tienda de ningún cliente.
  *
- * Memoizado por request con cache() de React: Header, Footer, layout raíz y
- * cada página lo llaman de forma independiente sin repetir las queries.
+ * Memoizado por request con cache() de React: layout raíz, Header, Footer y la
+ * página lo llaman por su cuenta sin repetir las queries.
  */
 export const getCurrentOrganization = cache(
   async (): Promise<CurrentOrganization | null> => {
-    const supabase = await createClient();
     const headerList = await headers();
     const slug = headerList.get("x-org-slug");
 
     if (!slug) return null;
 
-    const { data } = await supabase
-      .from("organizations")
-      .select("id")
-      .eq("slug", slug)
-      .maybeSingle();
-    const orgId = data?.id ?? null;
-
-    if (!orgId) return null;
+    const supabase = await createClient();
 
     const { data: org } = await supabase
       .from("organizations")
-      .select("id, name, slug, tagline_template, logo_url, primary_color, owner_id")
-      .eq("id", orgId)
+      .select(
+        "id, name, slug, tagline_template, hero_subtitle, featured_course_id, logo_url, primary_color, owner_id"
+      )
+      .eq("slug", slug)
       .maybeSingle();
 
     if (!org) return null;
@@ -64,6 +57,8 @@ export const getCurrentOrganization = cache(
       name: org.name,
       slug: org.slug,
       taglineTemplate: org.tagline_template,
+      heroSubtitle: org.hero_subtitle,
+      featuredCourseId: org.featured_course_id,
       logoUrl: org.logo_url,
       primaryColor: org.primary_color,
       ownerName,
