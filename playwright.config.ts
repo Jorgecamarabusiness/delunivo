@@ -17,7 +17,13 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? "github" : "list",
+  // En CI, dos reporters: "github" pinta los fallos en la interfaz de Actions,
+  // y "html" escribe playwright-report/ para poder subirlo como artefacto y
+  // revisarlo después (con solo "github" no se generaba ningún archivo y el
+  // paso de subida avisaba de que no encontraba nada).
+  reporter: process.env.CI
+    ? [["github"], ["html", { open: "never" }]]
+    : "list",
   use: {
     baseURL,
     trace: "on-first-retry",
