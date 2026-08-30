@@ -28,6 +28,7 @@ import { BLOCK_DEFAULT_TITLES, BlockTypeIcon } from "@/components/lesson-blocks/
 import { TextBlockForm } from "@/components/lesson-blocks/forms/TextBlockForm";
 import { EmbedMediaForm } from "@/components/lesson-blocks/forms/EmbedMediaForm";
 import { VideoFileForm } from "@/components/lesson-blocks/forms/VideoFileForm";
+import { MuxVideoStatus } from "@/components/lesson-blocks/MuxVideoStatus";
 import {
   deleteLessonAction,
   updateLessonBlocksAction,
@@ -129,14 +130,31 @@ function BlockRow({
           />
         ) : (
           <VideoFileForm
+            lessonId={lessonId}
+            blockId={block.id}
             initialTitle={block.title ?? ""}
-            initialUrl={block.video_url}
+            initialUrl={block.video_url ?? ""}
+            initialMuxVideoAssetId={block.mux_video_asset_id}
             onCancel={() => setIsEditing(false)}
             isSaving={isSaving}
             error={error}
             submitLabel="Guardar cambios"
-            onSubmit={(title, video_url) =>
-              saveBlock({ ...block, title, video_url })
+            onSubmit={(title, selection) =>
+              saveBlock(
+                selection.muxVideoAssetId
+                  ? {
+                      id: block.id,
+                      type: "video_file",
+                      title,
+                      mux_video_asset_id: selection.muxVideoAssetId,
+                    }
+                  : {
+                      id: block.id,
+                      type: "video_file",
+                      title,
+                      video_url: selection.legacyUrl,
+                    }
+              )
             }
           />
         )}
@@ -164,8 +182,13 @@ function BlockRow({
         {index + 1}
       </span>
       <BlockTypeIcon type={block.type} className="h-4 w-4 shrink-0 text-muted-foreground" />
-      <span className="flex-1 truncate text-sm font-medium">
-        {block.title ?? BLOCK_DEFAULT_TITLES[block.type]}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">
+          {block.title ?? BLOCK_DEFAULT_TITLES[block.type]}
+        </span>
+        {block.type === "video_file" && block.mux_video_asset_id ? (
+          <MuxVideoStatus videoAssetId={block.mux_video_asset_id} />
+        ) : null}
       </span>
 
       <RowMenu

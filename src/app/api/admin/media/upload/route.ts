@@ -2,26 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAnyOrgAdmin } from "@/lib/auth/requireOrgAdmin";
-import { getSignedVideoUrl } from "@/lib/storage/media";
 
 const BUCKET = "lesson-media";
 
-const FOLDER_RULES: Record<
-  "videos" | "images",
-  { maxBytes: number; extensions: string[] }
-> = {
-  videos: {
-    maxBytes: 500 * 1024 * 1024,
-    extensions: ["mp4", "webm", "mov", "m4v"],
-  },
+const FOLDER_RULES: Record<"images", { maxBytes: number; extensions: string[] }> = {
   images: {
     maxBytes: 10 * 1024 * 1024,
     extensions: ["png", "jpg", "jpeg", "webp", "gif"],
   },
 };
 
-function isFolder(value: FormDataEntryValue | null): value is "videos" | "images" {
-  return value === "videos" || value === "images";
+function isFolder(value: FormDataEntryValue | null): value is "images" {
+  return value === "images";
 }
 
 export async function POST(request: NextRequest) {
@@ -72,11 +64,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  if (folder === "images") {
-    const { data } = admin.storage.from(BUCKET).getPublicUrl(path);
-    return NextResponse.json({ path, url: data.publicUrl });
-  }
-
-  const previewUrl = await getSignedVideoUrl(path, 60 * 30);
-  return NextResponse.json({ path, url: previewUrl });
+  const { data } = admin.storage.from(BUCKET).getPublicUrl(path);
+  return NextResponse.json({ path, url: data.publicUrl });
 }

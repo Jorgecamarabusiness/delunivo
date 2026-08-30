@@ -36,6 +36,7 @@ export function AddContentPanel({
   onBlocksSaved: (blocks: ContentBlock[]) => void;
 }) {
   const [step, setStep] = useState<PanelStep>("choose");
+  const [videoBlockId] = useState(() => crypto.randomUUID());
   const [isSaving, setIsSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -157,19 +158,28 @@ export function AddContentPanel({
 
           <div className="mt-6">
             <VideoFileForm
+              lessonId={lessonId}
+              blockId={videoBlockId}
               onCancel={onClose}
               isSaving={isSaving}
               error={actionError}
               submitLabel="Añadir"
-              onSubmit={(title, url) =>
+              onSubmit={(title, selection) =>
                 persist([
                   ...blocks,
-                  {
-                    id: crypto.randomUUID(),
-                    type: "video_file",
-                    title,
-                    video_url: url,
-                  },
+                  selection.muxVideoAssetId
+                    ? {
+                        id: videoBlockId,
+                        type: "video_file",
+                        title,
+                        mux_video_asset_id: selection.muxVideoAssetId,
+                      }
+                    : {
+                        id: videoBlockId,
+                        type: "video_file",
+                        title,
+                        video_url: selection.legacyUrl,
+                      },
                 ])
               }
             />

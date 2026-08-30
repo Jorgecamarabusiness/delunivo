@@ -1,75 +1,117 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import MuxUploader from "@mux/mux-uploader-react";
 import { Button } from "@/components/ui/Button";
-import { uploadLessonMedia } from "@/lib/storage/uploadLessonMedia";
+import { MuxVideoBlock } from "@/components/lesson-blocks/MuxVideoBlock";
+import {
+  MuxVideoStatus,
+  useMuxVideoStatus,
+} from "@/components/lesson-blocks/MuxVideoStatus";
+import {
+  MAX_MUX_VIDEO_KILOBYTES,
+  validateMuxVideoFile,
+} from "@/lib/mux/validation";
 import { getVideoPreviewUrlAction } from "@/lib/storage/actions";
 
+export type VideoFileSelection =
+  | { muxVideoAssetId: string; legacyUrl?: never }
+  | { muxVideoAssetId?: never; legacyUrl: string };
+
 export function VideoFileForm({
+  lessonId,
+  blockId,
   initialTitle = "",
   initialUrl = "",
+  initialMuxVideoAssetId,
   onCancel,
   onSubmit,
   isSaving,
   error,
   submitLabel,
 }: {
+  lessonId: string;
+  blockId: string;
   initialTitle?: string;
   initialUrl?: string;
+  initialMuxVideoAssetId?: string;
   onCancel: () => void;
-  onSubmit: (title: string, url: string) => void;
+  onSubmit: (title: string, selection: VideoFileSelection) => void;
   isSaving: boolean;
   error: string | null;
   submitLabel: string;
 }) {
   const [title, setTitle] = useState(initialTitle);
-  // videoPath es lo que se persiste (ruta estable en el bucket); previewUrl es
-  // solo para el <video> de este formulario y caduca a los 30 min.
-  const [videoPath, setVideoPath] = useState(initialUrl);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [legacyUrl] = useState(initialUrl);
+  const [legacyPreviewUrl, setLegacyPreviewUrl] = useState<string | null>(null);
+  const [muxVideoAssetId, setMuxVideoAssetId] = useState(initialMuxVideoAssetId);
+  const [uploadFinished, setUploadFinished] = useState(Boolean(initialMuxVideoAssetId));
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const { asset: muxAsset } = useMuxVideoStatus(muxVideoAssetId);
 
   useEffect(() => {
-    if (!initialUrl) return;
+    if (!initialUrl || initialMuxVideoAssetId) return;
     let cancelled = false;
 
     getVideoPreviewUrlAction(initialUrl).then((url) => {
-      if (!cancelled) setPreviewUrl(url);
+      if (!cancelled) setLegacyPreviewUrl(url);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [initialUrl]);
+  }, [initialMuxVideoAssetId, initialUrl]);
 
-  async function handleFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
+  const createUploadEndpoint = useCallback(
+    async (file?: File) => {
+      if (!file) throw new Error("No se ha seleccionado ningún archivo.");
+      const validationError = validateMuxVideoFile(file);
+      if (validationError) throw new Error(validationError);
 
-    setIsUploading(true);
-    setUploadError(null);
+      setUploadError(null);
+      setUploadFinished(false);
+      setUploadProgress(0);
 
-    const result = await uploadLessonMedia(file, "videos");
+      const response = await fetch("/api/admin/mux/uploads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lessonId,
+          blockId,
+          fileSize: file.size,
+          mimeType: file.type,
+        }),
+      });
+      const data = (await response.json()) as {
+        videoAssetId?: string;
+        uploadUrl?: string;
+        error?: string;
+      };
 
-    setIsUploading(false);
+      if (!response.ok || !data.videoAssetId || !data.uploadUrl) {
+        throw new Error(data.error ?? "No se pudo preparar la carga.");
+      }
 
-    if (!result.path) {
-      setUploadError(result.error ?? "No se pudo subir el vídeo.");
-      return;
-    }
+      setMuxVideoAssetId(data.videoAssetId);
+      return data.uploadUrl;
+    },
+    [blockId, lessonId]
+  );
 
-    setVideoPath(result.path);
-    setPreviewUrl(result.url);
-  }
+  const canSubmit = Boolean(
+    title.trim() &&
+      ((muxVideoAssetId && uploadFinished) || (!muxVideoAssetId && legacyUrl))
+  );
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        if (!title.trim() || !videoPath) return;
-        onSubmit(title.trim(), videoPath);
+        if (!canSubmit) return;
+
+        if (muxVideoAssetId) onSubmit(title.trim(), { muxVideoAssetId });
+        else onSubmit(title.trim(), { legacyUrl });
       }}
     >
       <label className="block text-xs font-medium text-muted-foreground">
@@ -80,6 +122,7 @@ export function VideoFileForm({
           onChange={(event) => setTitle(event.target.value)}
           className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm text-foreground"
           placeholder="Ej. Clase 1"
+          maxLength={200}
         />
       </label>
 
@@ -88,35 +131,71 @@ export function VideoFileForm({
           Archivo de vídeo
         </span>
 
-        {previewUrl ? (
+        {muxVideoAssetId && muxAsset?.status === "ready" ? (
+          <div className="mt-2 max-w-lg">
+            <MuxVideoBlock videoAssetId={muxVideoAssetId} title={title} />
+          </div>
+        ) : legacyPreviewUrl && !muxVideoAssetId ? (
           <video
             controls
-            src={previewUrl}
+            src={legacyPreviewUrl}
             className="mt-2 aspect-video w-full max-w-sm rounded-md bg-muted"
           />
         ) : null}
 
-        <label className="mt-2 inline-block">
-          <span className="inline-flex cursor-pointer items-center rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground hover:text-background">
-            {isUploading
-              ? "Subiendo..."
-              : videoPath
-                ? "Cambiar vídeo"
-                : "Subir vídeo"}
-          </span>
-          <input
-            type="file"
-            accept="video/*"
-            className="hidden"
-            disabled={isUploading}
-            onChange={handleFileSelected}
+        <div className="mt-3 rounded-md border border-border p-3">
+          <MuxUploader
+            endpoint={createUploadEndpoint}
+            locale="es"
+            pausable
+            dynamicChunkSize
+            useLargeFileWorkaround
+            maxFileSize={MAX_MUX_VIDEO_KILOBYTES}
+            onUploadStart={() => {
+              setUploadError(null);
+              setUploadFinished(false);
+              setUploadProgress(0);
+            }}
+            onProgress={(event) =>
+              setUploadProgress((event as CustomEvent<number>).detail)
+            }
+            onUploadError={(event) => {
+              setUploadFinished(false);
+              setUploadError(event.detail.message);
+            }}
+            onSuccess={() => {
+              setUploadFinished(true);
+              setUploadProgress(100);
+            }}
           />
-        </label>
+        </div>
+
+        {uploadProgress !== null ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Progreso de carga: {Math.floor(uploadProgress)}%
+          </p>
+        ) : null}
+
+        {muxVideoAssetId ? (
+          <p className="mt-1">
+            <MuxVideoStatus videoAssetId={muxVideoAssetId} />
+          </p>
+        ) : null}
+
+        {muxAsset?.status === "errored" && muxAsset.errorMessage ? (
+          <p className="mt-1 text-xs font-medium text-red-700">
+            {muxAsset.errorMessage}
+          </p>
+        ) : null}
+
+        {uploadFinished && muxAsset?.status !== "ready" ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            La carga terminó. Puedes guardar el bloque mientras Mux procesa el vídeo.
+          </p>
+        ) : null}
 
         {uploadError ? (
-          <p className="mt-2 text-xs font-medium text-muted-foreground">
-            {uploadError}
-          </p>
+          <p className="mt-2 text-xs font-medium text-red-700">{uploadError}</p>
         ) : null}
       </div>
 
@@ -127,19 +206,10 @@ export function VideoFileForm({
       ) : null}
 
       <div className="mt-6 flex justify-end gap-3">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={onCancel}
-          disabled={isSaving}
-        >
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={isSaving}>
           Cancelar
         </Button>
-        <Button
-          type="submit"
-          variant="primary"
-          disabled={!title.trim() || !videoPath || isSaving || isUploading}
-        >
+        <Button type="submit" variant="primary" disabled={!canSubmit || isSaving}>
           {isSaving ? "Guardando..." : submitLabel}
         </Button>
       </div>

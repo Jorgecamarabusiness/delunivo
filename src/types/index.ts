@@ -40,7 +40,10 @@ export interface VideoFileBlock {
   id: string;
   type: "video_file";
   title?: string;
-  video_url: string;
+  /** Ruta de Supabase Storage para vídeos heredados. */
+  video_url?: string;
+  /** ID interno de public.video_assets para los vídeos privados de Mux. */
+  mux_video_asset_id?: string;
 }
 
 export interface TextBlock {

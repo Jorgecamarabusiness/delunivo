@@ -2,7 +2,7 @@
 
 export async function uploadLessonMedia(
   file: File,
-  folder: "videos" | "images"
+  folder: "images"
 ): Promise<{ path: string | null; url: string | null; error: string | null }> {
   const formData = new FormData();
   formData.append("file", file);

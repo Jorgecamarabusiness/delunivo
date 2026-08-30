@@ -62,6 +62,8 @@ export async function resolveBlocksForViewing(
   return Promise.all(
     blocks.map(async (block) => {
       if (block.type !== "video_file") return block;
+      if (block.mux_video_asset_id) return block;
+      if (!block.video_url) return block;
 
       const signedUrl = await getSignedVideoUrl(block.video_url);
       return { ...block, video_url: signedUrl ?? "" };
