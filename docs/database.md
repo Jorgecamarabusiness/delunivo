@@ -1,6 +1,6 @@
 # Base de datos (Supabase)
 
-El esquema vive únicamente en el dashboard de Supabase (cloud) — no hay Prisma, carpeta `supabase/migrations/` ni SQL local en el repo. Este archivo es la única documentación versionada del esquema: **actualízalo a mano cada vez que se ejecute SQL contra Supabase** (alta/baja de tabla o columna).
+El estado real del esquema vive en Supabase (cloud) y no hay Prisma. Este archivo es el inventario versionado del esquema confirmado y del SQL historico aplicado manualmente. Desde 2026-08-30, los cambios nuevos tambien deben conservarse como migraciones en `supabase/migrations/` y, cuando sea seguro, como rollback en `supabase/rollbacks/`. La presencia de un archivo no demuestra que se haya aplicado: **actualiza este documento solo despues de verificar el resultado real en Supabase**.
 
 Convención: columnas en `snake_case` en la base de datos; las server actions las consumen tal cual (no hay capa de mapeo a camelCase). Los tipos de `src/types/index.ts` no siempre coinciden con las columnas reales — ver nota en `purchases`.
 
@@ -13,7 +13,7 @@ Convención: columnas en `snake_case` en la base de datos; las server actions la
 | email | |
 | name | |
 | is_admin | **deprecada desde el 2026-08-07** — ya no la usa ningún server action ni policy nueva. Se mantiene viva de momento solo como red de seguridad de la migración a multi-tenant; se borrará en una limpieza final cuando se confirme que nada la referencia. No usar en código nuevo. |
-| is_super_admin | añadida el 2026-08-07 — gate de plataforma (el dueño de Aularia), reemplaza a `is_admin`. Ser "admin" de una organización concreta ya NO se guarda aquí, ver `organization_admins`. |
+| is_super_admin | añadida el 2026-08-07 — gate de plataforma (el dueño de Delunivo), reemplaza a `is_admin`. Ser "admin" de una organización concreta ya NO se guarda aquí, ver `organization_admins`. |
 | created_at | |
 
 ### courses
@@ -37,7 +37,7 @@ Añadida el 2026-08-07. Una fila por cliente ("empresa"). Solo branding público
 |---|---|
 | id | |
 | name | nombre visible del cliente |
-| slug | subdominio (`{slug}.aularia.app`), unique, solo `[a-z0-9-]`. Reservados a nivel de aplicación (no en BD): `www`, `app`, `admin`, `api` |
+| slug | segmento público de ruta (`/o/{slug}`), unique, solo `[a-z0-9-]`. Históricamente se diseñó también para `{slug}.aularia.app`, dominio que nunca se configuró. Reservados a nivel de aplicación (no en BD): `www`, `app`, `admin`, `api` |
 | tagline_template | Titular grande de la portada de la empresa. Plantilla tipo "Aprende {tema} junto a cientos de usuarios con {admin}" ({admin} se sustituye por el nombre del `owner_id`, o por `name` si no tiene). Con `null` se usa un genérico. Editable en `/admin/marca`. |
 | hero_subtitle | **añadida el 2026-08-11** — frase de apoyo debajo del titular en la portada. Nullable, editable en `/admin/marca`. |
 | featured_course_id | **añadida el 2026-08-11** — uuid, FK -> courses.id `on delete set null`. Curso que protagoniza la portada (su `thumbnail_url` es la imagen del hero y su precio el "Desde X €"). Con `null`, `splitForLanding()` usa el curso publicado más antiguo. `updateBrandingAction` valida que el curso sea de esa misma empresa antes de guardarlo. |
@@ -49,7 +49,7 @@ Añadida el 2026-08-07. Una fila por cliente ("empresa"). Solo branding público
 RLS: lectura pública (`anon`+`authenticated`, `using (true)`) porque es branding de una web pública; solo `is_org_admin(id)` puede actualizar. Sin policy de insert/delete — la creación de una organización (más adelante, Fase 6) siempre pasa por service role en una server action, nunca por RLS directa.
 
 ### organization_billing
-Añadida el 2026-08-07. Suscripción de PLATAFORMA (los 20€/mes que el cliente le paga a Aularia) — separada de `organizations` para que el estado de facturación no sea público.
+Añadida el 2026-08-07. Suscripción de PLATAFORMA (los 20€/mes que el cliente le paga a Delunivo) — separada de `organizations` para que el estado de facturación no sea público.
 
 | columna | notas |
 |---|---|
@@ -272,128 +272,44 @@ El control de acceso admin se repite a mano en cada server action, ahora vía `r
 - **Bug corregido el 2026-08-07**: existía una policy `"Lesson media is publicly readable"` que daba lectura pública a TODO el bucket (incluidos los vídeos), contradiciendo la migración del 2026-08-02 que decía haberla sustituido por `lesson_media_public_read_images` — nunca se borró la vieja. Borrada.
 - **Bucket `course-videos` eliminado (policy) el 2026-08-07**: resto de una integración anterior ya no usada (confirmado con el usuario). Si el bucket en sí seguía vacío, también se borró desde el dashboard.
 
-## Resolución de organización en el sitio público (Fase 4)
+## Resolución de organización en el sitio público
 
-`src/lib/organizations/getCurrentOrganization.ts` (memoizado por request con `cache()` de React) resuelve qué organización se está viendo, para el branding dinámico (`Header`, `Footer`, `src/app/layout.tsx`, hero de `src/app/page.tsx`) y el listado de cursos (`/cursos`):
+`src/proxy.ts` resuelve el tenant exclusivamente desde la ruta `/o/<slug>`.
+El proxy elimina el prefijo para el rewrite interno e inyecta los headers
+`x-org-slug` y `x-org-path-prefix`. No inspecciona `Host` ni admite
+subdominios.
 
-1. Lee el header `x-org-slug` que inyecta `src/proxy.ts` a partir del subdominio (`cliente1.aularia.app` / `cliente1.localhost:3000` en local) o de la ruta `/o/<slug>` (ver más abajo). Si hay slug, busca la organización por `slug`.
-2. **Sin slug (dominio raíz) → `null`, siempre** (desde la Fase 6): ya no hay ningún fallback a "la única organización que exista" ni a una variable de entorno — el dominio raíz tiene su propio significado (landing de registro de empresas, `CreateCompanyForm`) y no debe mostrar el sitio de ningún cliente. `Header`/`Footer` caen a branding genérico "Aularia" cuando `organization` es `null`.
-3. **Historia**: hasta la Fase 6 existió aquí un fallback por variable de entorno `DEFAULT_ORG_SLUG` (necesario en cuanto hubo una segunda organización de prueba y el dominio raíz dejó de poder inferirse por "solo hay una"). Se eliminó del todo (`getCurrentOrganization.ts` y `.env.local`) al convertir el dominio raíz en la landing de registro — ver sección "Fase 6" más abajo.
+`getCurrentOrganization()` busca la organización por `x-org-slug`. Sin slug
+devuelve `null`: la raíz muestra Delunivo y nunca infiere una organización.
+Las rutas públicas conservan el prefijo mediante `orgPath()`; `/admin` resuelve
+la organización por membership y `/invitaciones/[token]` por el propio token.
 
-`/cursos` usa la misma resolución para listar `courses` de esa organización (`status='published'`): 0 → mensaje vacío, 1 → redirect directo a `/cursos/{id}`, 2+ → listado. `/admin/cursos` y `/admin/estadisticas` NO usan esta función (son admin, no público) — usan `getCurrentOrgMembership()` en su lugar, ver Seguridad arriba.
-
-**Hallazgo al probar esta fase**: la organización real `ivanorganico` ya tenía **3 cursos publicados** en la base de datos (`Dropshipping Orgánico desde Cero`, `Marketing Digital para Emprendedores`, `Introducción a la Programación Web`, estos dos últimos insertados el 2026-07-22), pero solo el primero era alcanzable desde la web pública porque todo el flujo (home, login, registro) redirigía siempre al `MAIN_COURSE_ID` hardcodeado. Con `/cursos` ahora dinámico, los tres aparecen.
-
-**Crear cursos y editar la marca ya tienen UI** (antes solo por SQL/dashboard, ver Fase 9):
-- `/admin/cursos` tiene un formulario "Crear curso" (título + precio) que inserta con `status: 'draft'` y redirige al currículum (`src/app/admin/cursos/actions.ts`, `createCourseAction`). **Ojo**: `courses.description` y `courses.learning_points` son `not null` sin default (ver tabla `courses` arriba) — el insert tiene que mandarlos explícitamente (`""` y `[]`).
-- `/admin/marca` (nuevo, enlazado desde `AdminSidebar`) edita `organizations.name`, `tagline_template`, `logo_url` (con subida de imagen real, reutilizando el endpoint `api/admin/media/upload` ya existente) y `primary_color` (`src/app/admin/marca/actions.ts`, `updateBrandingAction`). Cualquier admin de la organización puede editarla (no solo el owner — igual que la policy RLS de `organizations`).
-- El sidebar (`AdminSidebar.tsx`) ya no enlaza directo a "el curso más antiguo" — ahora tiene una entrada fija "Cursos" que va al listado en `/admin/cursos` (se quitó la query de un solo curso en `admin/layout.tsx`, ahora dead code).
+`/cursos` filtra siempre por `organization_id` y `status='published'`: con
+cero cursos muestra el estado vacío, con uno redirige a su ficha y con varios
+muestra el catálogo. Las lecturas privadas del panel usan
+`getCurrentOrgMembership()`, no el tenant de la URL.
 
 ## Integraciones externas
 
-- **Stripe** (checkout de pago único) — `src/lib/stripe/client.ts`. El precio se calcula en el momento desde `courses.price` (no hay Price ID fijo en el dashboard de Stripe). La confirmación de compra llega por webhook (`src/app/api/webhooks/stripe/route.ts`, evento `checkout.session.completed`), nunca solo por el redirect del navegador — el webhook usa el cliente admin de Supabase (`src/lib/supabase/admin.ts`, service role key) porque no hay sesión de usuario en una llamada servidor-a-servidor.
-- **Whop** (verificación de compras hechas fuera de la web) — `src/lib/whop/client.ts`. El alumno pega su license key de Whop; se valida contra `GET /memberships/{license_key_o_id}` de la API de Whop (acepta la license key directamente como id). Si el membership está activo y corresponde al `WHOP_PRODUCT_ID` configurado, se crea la fila en `purchases`. No hay webhook de Whop, es validación bajo demanda.
-- Variables de entorno necesarias (en `.env.local`, y replicarlas en el proveedor de hosting al desplegar): `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `WHOP_API_KEY`, `WHOP_PRODUCT_ID`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`. Ninguna de estas (excepto `NEXT_PUBLIC_SITE_URL`) debe usarse fuera de código de servidor.
-- El acceso a `/cursos/[id]/aprender` requiere sesión iniciada y una fila en `purchases` para ese `user_id`+`course_id` (o ser admin de la organización de ese curso) — si no, redirige a `/cursos/[id]`.
-- **Fase 5 (Stripe Connect + Whop por organización) — código completo, bloqueada por 2 pasos externos**: ver la sección siguiente para el detalle. Resumen:
-  - `src/lib/crypto/encryption.ts` (nuevo): AES-256-GCM con `ENCRYPTION_KEY` (env var, 32 bytes en base64) para cifrar `organization_integrations.whop_api_key_encrypted`.
-  - `src/lib/organizations/integrations.ts` (nuevo): `getConnectedStripeAccountId()`/`getWhopCredentials()`, leen con el cliente admin (el comprador no es el owner, RLS le bloquearía la lectura directa).
-  - `createStripeCheckoutAction` (`src/app/cursos/[id]/actions.ts`) pasa `{stripeAccount: id}` si la organización ya conectó Stripe; si no, cobra en la cuenta principal exactamente como antes (fallback permanente, no solo de transición — así una organización nueva sin conectar no rompe nada).
-  - `redeemWhopLicenseAction` ya no lee `WHOP_API_KEY`/`WHOP_PRODUCT_ID` globales — resuelve las credenciales de la organización del curso vía `getWhopCredentials()`; si no las tiene configuradas, error claro ("Este curso no tiene Whop configurado todavía.").
-  - Nuevo webhook `src/app/api/webhooks/stripe-connect/route.ts` (secret propio `STRIPE_CONNECT_WEBHOOK_SECRET`): `checkout.session.completed` de cuentas conectadas (comparte lógica con el webhook principal vía `src/lib/stripe/handleCheckoutCompleted.ts`) + `account.updated` (actualiza `stripe_connect_status`).
-  - `/admin/configuracion` (nuevo, solo visible/editable por el **owner**, no por cualquier admin): botón "Conectar con Stripe" (Account Link de onboarding) + formulario para pegar la API key/product ID de Whop (nunca se vuelve a mostrar en claro).
-  - **Migrado**: la clave de Whop que antes era global (`WHOP_API_KEY`/`WHOP_PRODUCT_ID`) se cifró y se copió a la fila de `organization_integrations` de `ivanorganico` (`scripts/migrate-whop-key-to-org.mjs`, ejecutado) — así la redención de licencias real no se rompe con el cambio. **`WHOP_API_KEY`/`WHOP_PRODUCT_ID` en `.env.local` NO se deben borrar**: `src/app/api/webhooks/whop/route.ts` (el email de aviso de la license key) sigue siendo de un solo tenant y sigue leyéndolas — ver nota en ese archivo.
-  - `src/app/api/webhooks/whop/route.ts` (el webhook que envía el email con la license key) se queda deliberadamente sin multi-tenant: el payload de Whop no indica a qué organización pertenece la membership, y resolverlo bien requeriría rediseñar ese webhook (endpoint por organización o mapear producto→organización antes de llamar a la API de Whop) — no bloquea la compra real, solo ese email de cortesía. Pendiente, ver Fase 9.
+- **Stripe:** el checkout de cursos usa la cuenta conectada de la organización
+  cuando existe y la cuenta principal como fallback. La suscripción de plataforma
+  se procesa en la cuenta principal. Los webhooks validan su firma y escriben con
+  el cliente admin en servidor.
+- **Whop:** las credenciales de cada organización se guardan cifradas con
+  AES-256-GCM y se resuelven en servidor. El webhook heredado de licencias sigue
+  usando las variables globales documentadas en `.env.example`; no se generaliza
+  hasta que exista una necesidad real.
+- **Resend:** `src/lib/email/send.ts` es el único punto de envío. El modo
+  `redirect` es el valor seguro por defecto, `off` se usa en pruebas y `live`
+  requiere un dominio verificado.
+- **Mux:** las subidas y reproducciones pasan por rutas de servidor, webhooks
+  firmados y playback firmado. Los secretos nunca usan el prefijo
+  `NEXT_PUBLIC_`.
 
 ## Despliegue y dominio
 
-**Decisión del usuario (2026-08-07): sin dominio propio, se queda en `*.vercel.app`.** El proyecto de Vercel se renombró de `ivan-organico` a `aularia` (`https://aularia.vercel.app`, ya confirmado funcionando) y el de Supabase también a "aularia" (cosmético, no cambia `NEXT_PUBLIC_SUPABASE_URL`). Ya hechos por el usuario: env vars de producción (`NEXT_PUBLIC_SITE_URL`, `DEFAULT_ORG_SLUG`) + redeploy, URL del webhook de Stripe actualizada, Redirect URLs de Supabase actualizados, webhook de Whop revisado.
-
-**Bug encontrado y corregido al confirmar esta decisión**: `resolveOrgSlug()` en `src/proxy.ts` parseaba `aularia.vercel.app` igual que `cliente1.aularia.app` (3 etiquetas) y trataba `"aularia"` como si fuera el slug de un cliente inexistente — habría roto el sitio entero. Arreglado: cualquier hostname `*.vercel.app` se trata como dominio raíz (sin slug), igual que `localhost`.
-
-### Enrutamiento por RUTA, y solo por ruta: `/o/<slug>`
-
-**Actualización del 2026-08-11: la resolución por subdominio se ELIMINÓ de `src/proxy.ts`.** Solo funcionaba en local con `*.localhost` (Vercel no permite reclamar wildcards sobre `*.vercel.app`), así que producía un comportamiento distinto en local y en producción — justo lo contrario de lo que se quiere. Ahora `src/proxy.ts` no mira el `Host` para nada: la empresa sale exclusivamente de `/o/<slug>`, igual en localhost que en Vercel. Si algún día hay dominio propio, volver a añadirlo es un cambio local a ese archivo: todo lo demás consume el header `x-org-slug`, no la URL.
-
-El resto de esta sección (cómo funciona el rewrite, `orgPath()`, qué rutas van sin prefijo) sigue vigente tal cual:
-
-`*.vercel.app` no admite wildcards de subdominio propios, así que el enrutamiento de tenant de la Fase 1 (`cliente1.aularia.app`) no es alcanzable en producción sin dominio propio. El usuario decidió (2026-08-07) resolverlo con **rutas** en vez de comprar un dominio, e implementación **completa** (no solo el mecanismo base): cualquier URL con el prefijo `/o/<slug>` (ej. `aularia.vercel.app/o/cliente1`) enruta a esa organización, y toda la navegación interna se queda dentro de ese prefijo.
-
-- **`src/proxy.ts`**: `ORG_PATH_PREFIX` (regex `^/o/([a-z0-9-]+)(/.*)?$`) detecta el prefijo, mete `x-org-slug`/`x-org-path-prefix` como headers de request, y hace `NextResponse.rewrite()` a la misma ruta sin el prefijo (`/o/cliente1/cursos` → internamente `/cursos`, pero el navegador sigue viendo `/o/cliente1/cursos`). El enrutamiento por subdominio (Fase 1, para cuando algún día haya dominio propio) se mantiene intacto como alternativa — ambos mecanismos conviven, se prueba primero la ruta y si no hay match se cae al subdominio (o a `null`/dominio raíz si tampoco hay subdominio).
-- **`src/lib/supabase/middleware.ts`**: `updateSession()` ahora acepta una función `buildResponse` opcional (por defecto `NextResponse.next({request})`) para poder combinar el `rewrite` con la renovación de cookies de sesión de Supabase sin perder ninguno de los dos.
-- **`src/lib/organizations/orgPath.ts`** (nuevo): `getOrgPathPrefix()` (lee `x-org-path-prefix`, memoizado con `cache()`) y `orgPath(path)` (le antepone el prefijo). Server Components y Server Actions lo llaman directamente (`headers()` está disponible ahí); los pocos Client Components con enlaces internos (`LoginForm`, `AprenderView`) lo reciben como prop `basePath` desde su página.
-- **Todo enlace/redirect interno de las páginas públicas pasa por `orgPath()`**: Header, Footer (branding, sin cambios ahí), home, `/cursos` (listado y detalle), `/login`, `/register`, `/forgot-password`, `/reset-password`, `signOutAction`, y las URLs `success_url`/`cancel_url`/`emailRedirectTo`/`redirectTo` que se construyen en servidor (Stripe Checkout, confirmación de registro, recuperación de contraseña) — así Stripe/Supabase redirigen de vuelta al mismo `/o/<slug>/...` en el que se inició el flujo. `/admin/*` se deja **sin prefijo a propósito**: qué organización administra un usuario se resuelve por su membership (`getCurrentOrgMembership`), no por la URL — un admin que navega desde `/o/cliente1/` sigue yendo a `/admin` (global) al hacer clic en el logo, no a `/o/cliente1/admin`.
-- **`/invitaciones/[token]` se deja sin prefijo a propósito**: la organización de la invitación se resuelve por el token en la base de datos, no por la URL, así que no le hace falta.
-- Verificado en navegador con Playwright contra `/o/cliente-prueba`: login → queda en `/o/cliente-prueba/cursos` (no en el `/cursos` por defecto) → cerrar sesión → vuelve a `/o/cliente-prueba/login`. El link del logo, logueado como admin, sigue yendo a `/admin` (sin prefijo) correctamente. Sin regresión en el dominio raíz (`ivanorganico` vía `DEFAULT_ORG_SLUG`, sin prefijo, tal cual antes).
-
-## Fase 5 — estado de los bloqueos externos
-
-Probando `/admin/configuracion` aparecieron problemas que no son bugs del código, sino pasos que solo puede resolver el usuario en sus propios dashboards:
-
-1. ✅ **Resuelto**: RLS de `organization_integrations` sin policy de INSERT — SQL de arreglo aplicado por el usuario (ver historial de migraciones arriba).
-2. ✅ **Resuelto**: "Accounts v1 support" activado en Stripe Dashboard.
-3. ⏳ **Nuevo bloqueo, pendiente, no urgente**: al intentar "Conectar con Stripe" (ya con v1 activado), Stripe avisó de que la cuenta del usuario no tiene una cuenta bancaria vinculada. Decisión del usuario (2026-08-07): lo deja para más adelante, no bloquea seguir con el resto de fases. Confirmado por REST que ni `ivanorganico` ni `cliente-prueba` tienen `stripe_account_id` guardado — la conexión no llegó a completarse. **Retomar la verificación de punta a punta de Stripe Connect cuando el usuario vincule una cuenta bancaria en Stripe.**
-
-Mientras tanto, lo que sí está verificado: el cifrado/descifrado de la clave de Whop migrada funciona correctamente, el resto del código compila y pasa lint sin errores, y el fallback de checkout (cobrar en la cuenta principal cuando la organización no está conectada) sigue funcionando exactamente como antes.
-
-## Fase 6 — Suscripción de plataforma (20€/mes) y registro de admin en el index
-
-Completada (2026-08-08). El dominio raíz (`aularia.vercel.app` sin `/o/<slug>`) deja de mostrar el `DEFAULT_ORG_SLUG` (eliminado, ver más abajo) y pasa a ser la landing de registro de nuevas empresas, tal como se decidió al principio del proyecto.
-
-- **`src/app/page.tsx` ahora tiene dos ramas** según si `getCurrentOrganization()` resuelve una organización o no (misma ruta atiende tanto el dominio raíz como `/o/<slug>` tras el rewrite de `src/proxy.ts`, así que no se podía sustituir sin más):
-  - Sin organización (dominio raíz) → `CreateCompanyForm` (nuevo): nombre de empresa, nombre del owner, email, contraseña.
-  - Con organización (`/o/<slug>` o subdominio real) → el hero de siempre (tagline, CTA a `/cursos` o `/login`), sin cambios.
-- **`src/app/actions.ts`** (nuevo, `createCompanyAction`): `signUp()` → crea `organizations` (`owner_id`, slug generado con `src/lib/organizations/slug.ts::slugify()` + desambiguado si ya existe con `resolveUniqueSlug()`) → `organization_billing` (solo `organization_id`, el status parte de `'trialing'` por default de columna) → `organization_admins(role: 'owner')` — las tres inserciones usan el cliente **admin** (service role), igual que documenta el esquema para `organizations`/`organization_billing` (sin policy de insert por RLS a propósito). Si hay sesión inmediata (confirm email desactivado), redirige directo al checkout de suscripción; si no, muestra "revisa tu correo" igual que el registro de alumno normal.
-- **`src/lib/stripe/platformSubscription.ts`** (nuevo): `createPlatformSubscriptionCheckoutUrl(organizationId, userId)` — Checkout `mode: "subscription"`, `price_data` inline (20€/mes, sin Price ID fijo en el dashboard, mismo patrón que el checkout de curso), metadata con `organization_id`. Compartido entre el alta de empresa y `/admin/facturacion`.
-- **`/admin/facturacion`** (nuevo, solo el owner): muestra el estado de `organization_billing.platform_subscription_status` y un botón "Suscribirse ahora"/"Reactivar suscripción" (si no está `active`) o "Gestionar suscripción" (Stripe Billing Portal, si ya está `active`).
-- **Webhook principal (`src/app/api/webhooks/stripe/route.ts`) ampliado** — `src/lib/stripe/handlePlatformBilling.ts` (nuevo):
-  - `checkout.session.completed` con `session.mode === "subscription"` → `handlePlatformSubscriptionCheckout()` (guarda `platform_stripe_customer_id`/`platform_subscription_id`, status `active`). Con `mode: "payment"` sigue yendo a `handleCheckoutSessionCompleted()` (compra de curso) como hasta ahora.
-  - `invoice.paid` → status `active`. `invoice.payment_failed` → status `past_due`. `customer.subscription.deleted` → status `canceled`. Los tres localizan la organización por `platform_stripe_customer_id`, no por metadata (esos eventos no lo llevan).
-  - **Pendiente, acción del usuario**: el webhook de Stripe ya existente solo tenía suscrito `checkout.session.completed` (ver captura de antes) — hay que añadirle `invoice.paid`, `invoice.payment_failed` y `customer.subscription.deleted` en Stripe Dashboard → Webhooks → editar el endpoint, o los otros tres eventos nunca llegarán.
-- **Bloqueo del panel de admin por impago** (`src/components/layout/AdminBillingGate.tsx`, nuevo, usado desde `admin/layout.tsx`): un único punto de control en vez de tocar cada acción de escritura una por una.
-  - `platform_subscription_status === 'canceled'` → toda página bajo `/admin` (excepto `/admin/facturacion`, para poder reactivar) muestra una pantalla de "Cuenta suspendida" en vez de su contenido normal.
-  - `'past_due'` → banner de aviso, pero **no bloquea** (grace period antes de la suspensión total).
-  - `'trialing'`/`'active'`/super_admin sin organización → sin gate, funciona normal.
-  - Los alumnos con curso comprado **nunca pierden acceso** por esto — `AdminBillingGate` solo envuelve `/admin`, no `/cursos/[id]/aprender`.
-  - Verificado con Playwright contra `cliente-prueba`: `active` → "Gestionar suscripción"; `past_due` simulado → banner sin bloquear; `canceled` simulado → "Cuenta suspendida" en `/admin` pero `/admin/facturacion` sigue accesible con "Reactivar suscripción"; restaurado a `active` al terminar.
-- **`DEFAULT_ORG_SLUG` eliminado** (de `getCurrentOrganization.ts` y de `.env.local`): ya no hace falta — el dominio raíz tiene un significado propio ahora (landing de registro), no debe mostrar ningún cliente. **Pendiente, acción del usuario**: quitar `DEFAULT_ORG_SLUG` de las variables de entorno de producción en Vercel (ya no se lee, dejarla no rompe nada pero está obsoleta).
-- Verificado además: la creación de organización (usuario + org + billing + admin) probada de punta a punta con un script (limpiado después); el checkout de suscripción de Stripe probado de forma aislada (devuelve una URL de `checkout.stripe.com` válida en modo `subscription`). El flujo completo a través del formulario real de `/` no se pudo probar end-to-end porque el proyecto de Supabase alcanzó el límite de envío de emails de auth tras tantas pruebas de registro en esta sesión ("email rate limit exceeded") — es un límite externo de Supabase, no un bug; el manejo de errores lo mostró correctamente en pantalla.
-
-## Fase 7 — Cerrar registro de alumno en el dominio raíz, alta en el roster al registrarse en `/o/<slug>`
-
-Completada (2026-08-08). Antes de esta fase, `/register` mostraba el mismo formulario de alumno en cualquier dominio (incluida la raíz, donde ya no tiene sentido desde la Fase 6 — ahí "registrarse" es crear una empresa, no ser alumno de nadie), y además **nunca insertaba nada en `organization_students`** al registrarse por libre: un alumno que se registraba directamente (sin invitación ni compra) quedaba con cuenta válida pero sin ninguna fila de roster, así que no aparecía en `/admin/usuarios` de ninguna organización.
-
-- **`src/app/register/page.tsx`**: si `getCurrentOrganization()` no resuelve organización (dominio raíz), `redirect("/")` — ahí ya está `CreateCompanyForm` (Fase 6), que es el equivalente real de "crear cuenta" en ese dominio.
-- **`src/app/register/actions.ts`** (`registerAction`):
-  - Mismo guard por si acaso (`redirect("/")` si no hay organización) — defensa en profundidad, la action no debe fiarse solo de que la página ya filtró.
-  - Tras `signUp()`, si hay `data.user` (existe aunque falte confirmar el email), upsert-si-no-existe en `organization_students` (`status: 'active'`, `joined_via: 'self_register'`) usando el cliente **admin** — la policy de `organization_students` solo permite insertar a los admins de esa organización, no al propio alumno nuevo. Mismo patrón que el resto de flujos: si ya existe una fila (incluida `'removed'`), no se toca.
-- El `Header` no necesitó ningún cambio: nunca mostró un enlace de "regístrate" aparte del de "iniciar sesión" (que sigue siendo válido en cualquier dominio, tanto para alumnos como para owners que vuelven a `/login` desde la raíz).
-- Verificado: `curl` a `/register` en dominio raíz devuelve 307 a `/`; `/o/cliente-prueba/register` carga con normalidad (200); un slug de organización inexistente en `/o/<slug>/register` también cae a `/` (mismo guard, `getCurrentOrganization` devuelve `null`). La inserción en `organization_students` se verificó aparte con un script contra la base real (usuario creado con `admin.auth.admin.createUser`, mismo bloque de código que usa la action: primera pasada inserta la fila `active`/`self_register`, segunda pasada la encuentra y no duplica). El envío real del formulario en navegador mostró correctamente el error "email rate limit exceeded" (mismo límite externo de Supabase agotado durante la Fase 6, no un bug) en vez del mensaje de éxito — no bloquea dar la fase por completa, ya que la lógica de negocio quedó verificada por otra vía.
-
-## Fase 8 — Rebranding final "Aularia"
-
-Completada (2026-08-08). El copy de marketing del dominio principal (`/`, sin organización) ya estaba en "Aularia" desde la Fase 6 ("Crea tu escuela online con Aularia", "Crear mi empresa — 20€/mes") — no hizo falta tocarlo. Lo que quedaba era todo lo mecánico:
-
-- **`package.json`/`package-lock.json`**: campo `"name"` de `"teachable-clone"` a `"aularia"` (cosmético, no cambia ninguna dependencia). El lockfile se editó a mano porque este entorno no tiene acceso a red para correr `npm install`/`npm pkg fix` — si algo no cuadra al reinstalar en otra máquina, basta con un `npm install` normal para que npm lo regenere solo.
-- **Favicon**: `src/app/favicon.ico` (el genérico de `create-next-app`, nunca se había tocado) borrado y sustituido por `src/app/icon.tsx` — icono generado en código con `ImageResponse` de `next/og` (convención de esta versión de Next, ver `node_modules/next/dist/docs/.../app-icons.md`): un cuadrado verde (`#16a34a`, el mismo verde que `--accent` en `globals.css`) con una "A" blanca, 32×32 `image/png`. Es un único favicon para todo el sitio (dominio raíz y cualquier `/o/<slug>`) — los subdominios/rutas de cliente siguen teniendo su propio branding (nombre, logo, color) en el `<title>`/`Header`/`Footer` vía `generateMetadata()` (Fase 4), pero no un favicon per-organización (no se pidió, sería una feature bastante más grande: habría que generar el `ImageResponse` a partir de `organization.logoUrl` por ruta).
-- **Nombre del remitente en emails transaccionales** (`src/lib/resend/sendInvitationEmail.ts`, `sendLicenseKeyEmail.ts`): el `from` pasó de ser una dirección pelada (`RESEND_FROM_EMAIL`, sin nombre visible en el cliente de correo) a `` `Aularia <${RESEND_FROM_EMAIL}>` `` — el remitente ahora se lee "Aularia" independientemente de qué organización invitó o vendió el curso (el nombre de la organización ya aparece en el asunto/cuerpo del email, que sigue siendo dinámico).
-- **Fuera de alcance a propósito**: las plantillas de email de Supabase Auth (confirmación de registro, recuperación de contraseña) siguen siendo las genéricas de Supabase — cambiar su remitente/diseño requiere configurar SMTP propio (Resend) en el dashboard de Supabase, que ya estaba anotado como pendiente en la Fase 9 (no es parte de esta fase, es una integración externa aparte).
-- Verificado: `npx tsc --noEmit` sin errores; `npm run dev` levantado y comprobado con `curl` que `/icon` devuelve `200 image/png` de 32×32 y que el `<head>` de `/` incluye `<link rel="icon" href="/icon?..." type="image/png" sizes="32x32">`; el PNG generado se inspeccionó visualmente (cuadrado verde con "A" blanca, legible en miniatura).
-
-## Fase 10 — Suite de tests E2E con Playwright
-
-Completada (2026-08-08). Sustituye los scripts `.mjs` desechables usados durante las fases 1-9 por specs reales en `e2e/`, corridos por `.github/workflows/ci.yml`. 26 tests, 24 en verde localmente y 2 que se saltan por motivos externos legítimos (ver abajo).
-
-- **Bug real encontrado y corregido antes de escribir el test que lo habría detectado igualmente**: `src/app/invitaciones/[token]/actions.ts` redirigía a un alumno recién aceptado a `/` (dominio raíz) tras crear su cuenta — como ese enlace se abre siempre desde el dominio raíz (`sendInvitationEmail.ts` no lleva prefijo a propósito) y desde la Fase 6 la raíz sin prefijo es la landing de registro de empresas, el alumno aterrizaba viendo "Crea tu escuela online con Aularia" en vez de sus cursos. Arreglado: se añadió `redirectPathAfterAccept()`, que resuelve el `slug` de la organización y manda al alumno a `/o/<slug>/cursos` (mismo destino que el autorregistro de la Fase 7); los admins invitados siguen yendo a `/admin` (sin prefijo, correcto, no depende de la URL).
-- **`e2e/helpers.ts` reescrito para ser consciente de rutas**: el `login()` de antes asumía que tras iniciar sesión se acababa en una URL con `/cursos/` (con barra final y algo detrás) — esto dejó de cumplirse dos veces sin que nadie lo notara: (1) el dominio raíz ya no resuelve ninguna organización desde la Fase 6, así que `/cursos` sin prefijo muestra "No hay cursos disponibles" en vez de redirigir; (2) `ivanorganico` pasó a tener 3 cursos publicados desde la Fase 4, así que aunque se usara el prefijo correcto (`/o/ivanorganico`), `/cursos` ya no redirige a una ficha concreta, muestra un listado. Los 2 specs preexistentes (`access-control.spec.ts`, `video-protection.spec.ts`) fallaban en los 5 tests que usan `login()` — confirmado corriendo la suite antes de tocar nada. Arreglado: `login(page, email, password, orgPrefix)` ahora acepta el prefijo (por defecto `/o/ivanorganico`) y solo espera quedarse dentro de `${orgPrefix}/cursos`, sin asumir qué hay después.
-- **`e2e/fixtures.ts` (nuevo)**: `createTestOrg()`/`destroyTestOrg()` — cada spec nuevo crea su propia organización efímera (owner con `admin.auth.admin.createUser({email_confirm:true})`, fila en `organizations`/`organization_billing`/`organization_admins`) en `beforeAll` y la borra entera (filas dependientes + usuarios auth) en `afterAll`. Deliberado: **no hizo falta ningún Secret nuevo en CI** — solo usa `NEXT_PUBLIC_SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`, que el job de e2e ya tenía. Evita depender de cuentas fijas compartidas entre specs que corren en paralelo (`fullyParallel: true`).
-- **Specs nuevos** (cobertura mínima que pedía el plan):
-  - `tenant-routing.spec.ts`: dominio raíz sin branding de ningún cliente, `/o/<slug>` con el branding correcto y aislado del de otra organización, un slug inexistente cae a la landing sin romper, y una **regresión automatizada del bug de `*.vercel.app`** de la Fase 5 (request cruda con `Host: aularia.vercel.app` vía el fixture `request` de Playwright, replicando el `curl -H "Host: ..."` que se usó a mano en su momento).
-  - `cross-tenant-isolation.spec.ts`: regresión del bug real de la Fase 4 — un curso `published` de la organización A no aparece en `/admin/cursos` ni `/admin/estadisticas` de la organización B.
-  - `course-creation-and-branding.spec.ts`: crear un curso desde `/admin/cursos` y editar `/admin/marca` reflejan el cambio en el portal público.
-  - `invitations.spec.ts`: invitar desde la UI crea la fila `pending`; aceptar (con una invitación insertada directamente con un token propio — no se puede interceptar el email real de Resend desde el test) crea la cuenta, entra al roster y redirige correctamente (ver el bug de arriba); echar cambia el estado a "Echado". `StudentActions` dispara `confirm()` y luego `prompt()` — hay que encadenar los `page.once("dialog", ...)`, si se registran los dos de golpe ambos reaccionan al primer diálogo y el segundo se queda sin manejar.
-  - `billing-gate.spec.ts`: los 4 estados de `organization_billing.platform_subscription_status` contra `AdminBillingGate` (serial, muta la misma organización efímera en cada paso).
-  - `student-self-register.spec.ts`: regresión del fix de la Fase 7 — `/register` en el dominio raíz o en un slug inexistente redirige a la landing; en `/o/<slug>` sí registra y entra en `organization_students`. Tolera el límite de envío de emails de Supabase (`test.skip()` si el error de la action es "email rate limit exceeded" — límite externo real, ya documentado, no un bug).
-- **Gotcha encontrado escribiendo estos specs**: `page.getByRole("alert")` sin acotar también matchea el `<div id="__next-route-announcer__" role="alert">` que inyecta el propio Next.js (siempre presente en el DOM, técnicamente "visible" para Playwright aunque esté clip-eado por CSS) — cualquier `Promise.race`/`waitFor` contra "alert" a secas se resuelve casi al instante contra ese elemento vacío en vez de esperar al error real. Hay que acotar el locator (p. ej. `page.locator("form").getByRole("alert")`).
-- **Requisito nuevo de CI**: `invitations.spec.ts` ejercita el envío real de email de invitación (`sendInvitationEmail`, Resend) — antes ningún test en `e2e/` llamaba a ese código. El job de e2e en `ci.yml` ya pasaba `RESEND_API_KEY`/`RESEND_FROM_EMAIL` con fallback a `'dummy'`; **para que este test pase en CI hace falta que el Secret `RESEND_API_KEY` del repo sea una clave real de Resend** (con `'dummy'` el envío falla y la invitación no llega a mostrarse como "enviada").
-- No cubierto a propósito (fuera del alcance mínimo pedido): Stripe Connect (bloqueado por el paso externo de la cuenta bancaria, ver Fase 5) y el flujo de checkout/webhook de Stripe end-to-end (requeriría simular webhooks firmados, no solo navegar).
+La URL técnica existente es `https://aularia.vercel.app`. Delunivo usa rutas
+`/o/<slug>` porque `*.vercel.app` no permite wildcards de tenant. El rebranding
+local no renombra el proyecto de Vercel, Supabase, repositorio, directorio,
+variables, buckets, tablas ni IDs. Comprar o migrar un dominio queda pospuesto
+hasta que exista una necesidad de producto confirmada.
