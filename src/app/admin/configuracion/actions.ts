@@ -1,11 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import { requireOwnerContext } from "@/lib/organizations/requireOwnerContext";
 import { stripe } from "@/lib/stripe/client";
 import { describeStripeError } from "@/lib/stripe/errors";
-import { encrypt } from "@/lib/crypto/encryption";
 import type { ActionResult } from "@/types";
 
 /**
@@ -117,46 +115,4 @@ export async function connectStripeAction(
   }
 
   redirect(onboardingUrl);
-}
-
-export async function saveWhopCredentialsAction(
-  formData: FormData
-): Promise<ActionResult> {
-  const apiKey = String(formData.get("apiKey") ?? "").trim();
-  const productId = String(formData.get("productId") ?? "").trim();
-
-  if (!apiKey || !productId) {
-    return { error: "Introduce la API key y el ID de producto de Whop." };
-  }
-
-  const auth = await requireOwnerContext();
-  if (!auth.ok) return { error: auth.error };
-  const { context } = auth;
-
-  let encryptedKey: string;
-  try {
-    encryptedKey = encrypt(apiKey);
-  } catch {
-    return {
-      error:
-        "Falta configurar ENCRYPTION_KEY en el servidor, así que no se puede " +
-        "guardar la clave de forma segura. Avisa al administrador de Delunivo.",
-    };
-  }
-
-  const { error: saveError } = await context.supabase
-    .from("organization_integrations")
-    .upsert(
-      {
-        organization_id: context.organizationId,
-        whop_api_key_encrypted: encryptedKey,
-        whop_product_id: productId,
-      },
-      { onConflict: "organization_id" }
-    );
-
-  if (saveError) return { error: saveError.message };
-
-  revalidatePath("/admin/configuracion");
-  return { error: null };
 }

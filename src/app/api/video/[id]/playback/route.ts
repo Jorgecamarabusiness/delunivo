@@ -75,7 +75,12 @@ export async function GET(
     return NextResponse.json({ error: "El vídeo ya no está asociado a la lección." }, { status: 404 });
   }
 
-  const [{ data: isAdmin }, { data: purchase }, { data: isActiveStudent }] =
+  const [
+    { data: isAdmin },
+    { data: purchase },
+    { data: invitedAccess },
+    { data: isActiveStudent },
+  ] =
     await Promise.all([
       supabase.rpc("is_org_admin", { org_id: asset.organization_id }),
       supabase
@@ -84,11 +89,17 @@ export async function GET(
         .eq("user_id", user.id)
         .eq("course_id", asset.course_id)
         .maybeSingle(),
+      supabase
+        .from("student_course_access")
+        .select("course_id")
+        .eq("user_id", user.id)
+        .eq("course_id", asset.course_id)
+        .maybeSingle(),
       supabase.rpc("is_org_student", { org_id: asset.organization_id }),
     ]);
 
   const studentCanWatch =
-    Boolean(purchase) &&
+    Boolean(purchase || invitedAccess) &&
     Boolean(isActiveStudent) &&
     lesson.status === "published" &&
     course.status === "published";

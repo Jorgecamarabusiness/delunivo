@@ -12,11 +12,28 @@ import { createTestOrg, destroyTestOrg, hashInvitationTokenForTest, type TestOrg
 test.describe.configure({ mode: "serial" });
 
 let org: TestOrg;
+let courseId: string;
+const courseTitle = "Curso incluido en la invitación";
 const invitedEmail = `e2e-invitado-${Date.now()}@example.com`;
 const acceptEmail = `e2e-acepta-${Date.now()}@example.com`;
 
 test.beforeAll(async () => {
   org = await createTestOrg({ namePrefix: "Escuela Invitaciones" });
+  const { data: course, error } = await adminClient()
+    .from("courses")
+    .insert({
+      organization_id: org.orgId,
+      title: courseTitle,
+      description: "",
+      long_description: "",
+      price: 25,
+      learning_points: [],
+      status: "published",
+    })
+    .select("id")
+    .single();
+  if (error || !course) throw error ?? new Error("No se pudo crear el curso E2E.");
+  courseId = course.id;
 });
 
 test.afterAll(async () => {
@@ -28,7 +45,8 @@ test("invitar a un alumno desde /admin/usuarios crea una invitación pendiente",
   await page.goto("/admin/usuarios");
 
   await page.getByPlaceholder("correo@alumno.com").fill(invitedEmail);
-  await page.getByRole("button", { name: "Invitar alumno" }).click();
+  await page.getByText(courseTitle, { exact: true }).click();
+  await page.getByRole("button", { name: "Enviar invitación" }).click();
 
   // La invitación se guarda ANTES de mandar el correo, y si el envío falla por
   // un motivo externo (Resend sin dominio verificado o sin clave válida en CI)
@@ -59,14 +77,24 @@ test("aceptar la invitación crea la cuenta, entra al roster y redirige a los cu
   const admin = adminClient();
   const token = crypto.randomBytes(32).toString("hex");
 
-  const { error } = await admin.from("invitations").insert({
-    organization_id: org.orgId,
-    email: acceptEmail,
-    invite_type: "student",
-    token_hash: hashInvitationTokenForTest(token),
-    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  const { data: invitation, error } = await admin
+    .from("invitations")
+    .insert({
+      organization_id: org.orgId,
+      email: acceptEmail,
+      invite_type: "student",
+      token_hash: hashInvitationTokenForTest(token),
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    })
+    .select("id")
+    .single();
+  if (error || !invitation) throw error ?? new Error("No se pudo crear la invitación E2E.");
+
+  const { error: courseError } = await admin.from("invitation_courses").insert({
+    invitation_id: invitation.id,
+    course_id: courseId,
   });
-  if (error) throw error;
+  if (courseError) throw courseError;
 
   await page.goto(`/invitaciones/${token}`);
   await expect(page.getByText(acceptEmail)).toBeVisible();
@@ -94,6 +122,15 @@ test("aceptar la invitación crea la cuenta, entra al roster y redirige a los cu
   expect(membership?.status).toBe("active");
   expect(membership?.joined_via).toBe("invite");
 
+  const { data: courseAccess } = await admin
+    .from("student_course_access")
+    .select("course_id")
+    .eq("user_id", createdUser!.id)
+    .eq("course_id", courseId)
+    .single();
+  expect(courseAccess?.course_id).toBe(courseId);
+
+  await page.context().clearCookies();
   await login(page, org.owner.email, org.owner.password, org.prefix);
   await page.goto("/admin/usuarios");
   await expect(page.getByRole("cell", { name: acceptEmail })).toBeVisible();
@@ -106,15 +143,12 @@ test("echar a un alumno le cambia el estado a 'Echado' en el roster", async ({ p
   const row = page.getByRole("row", { name: new RegExp(acceptEmail) });
   await expect(row.getByText("Activo")).toBeVisible();
 
-  // handleRemove() dispara confirm() y LUEGO prompt() — si se registran los
-  // dos listeners "once" de golpe, ambos reaccionan al primer diálogo (el
-  // confirm) y el segundo se queda sin nada que lo maneje. Hay que
-  // encadenarlos para que el segundo se registre ya con el primero resuelto.
-  page.once("dialog", (dialog) => {
-    void dialog.accept();
-    page.once("dialog", (reasonDialog) => void reasonDialog.accept("Prueba automática"));
-  });
   await row.getByRole("button", { name: "Echar" }).click();
+  const dialog = page.getByRole("alertdialog", { name: "Echar alumno" });
+  await dialog
+    .getByPlaceholder("Ejemplo: devolución solicitada")
+    .fill("Prueba automática");
+  await dialog.getByRole("button", { name: "Echar alumno" }).click();
 
   await expect(row.getByText("Echado")).toBeVisible();
 });

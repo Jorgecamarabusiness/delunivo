@@ -8,6 +8,9 @@ import { login, adminClient, ACCOUNTS, MAIN_COURSE_ID, IVANORGANICO_PREFIX } fro
 
 const LESSON_URL = `${IVANORGANICO_PREFIX}/cursos/${MAIN_COURSE_ID}/aprender`;
 
+// Los dos casos comparten la misma cuenta y limpian la misma tabla.
+test.describe.configure({ mode: "serial" });
+
 let studentId: string;
 
 test.beforeAll(async () => {

@@ -66,6 +66,20 @@ export default async function InvitationPage({
     admin.from("profiles").select("id").ilike("email", invitation.email).maybeSingle(),
   ]);
 
+  const { data: invitationCourses } =
+    invitation.invite_type === "student"
+      ? await admin
+          .from("invitation_courses")
+          .select("course_id")
+          .eq("invitation_id", invitation.id)
+      : { data: [] as { course_id: string }[] };
+
+  const courseIds = (invitationCourses ?? []).map((entry) => entry.course_id);
+  const { data: invitedCourses } =
+    courseIds.length > 0
+      ? await admin.from("courses").select("id, title").in("id", courseIds)
+      : { data: [] as { id: string; title: string }[] };
+
   const roleLabel = invitation.invite_type === "admin" ? "administrador" : "alumno";
   const organizationName = organization?.name ?? "esta organización";
 
@@ -84,6 +98,11 @@ export default async function InvitationPage({
           Como {roleLabel}, con el correo <strong>{invitation.email}</strong>. Elige una
           contraseña para crear tu cuenta.
         </p>
+        {invitedCourses && invitedCourses.length > 0 ? (
+          <p className="mt-3 text-center text-sm text-muted-foreground">
+            Cursos incluidos: {invitedCourses.map((course) => course.title).join(", ")}.
+          </p>
+        ) : null}
         <AcceptInvitationForm token={token} mode="create-account" />
       </InvitationLayout>
     );
@@ -96,6 +115,11 @@ export default async function InvitationPage({
           Te han invitado a {organizationName}
         </h1>
         <p className="mt-3 text-center text-sm text-muted-foreground">Como {roleLabel}.</p>
+        {invitedCourses && invitedCourses.length > 0 ? (
+          <p className="mt-3 text-center text-sm text-muted-foreground">
+            Cursos incluidos: {invitedCourses.map((course) => course.title).join(", ")}.
+          </p>
+        ) : null}
         <AcceptInvitationForm token={token} mode="confirm" />
       </InvitationLayout>
     );

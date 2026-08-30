@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
+import { buttonClassName } from "@/components/ui/Button";
 import { BrandingForm } from "./BrandingForm";
 
 export default async function MarcaPage() {
@@ -27,7 +29,7 @@ export default async function MarcaPage() {
     supabase
       .from("organizations")
       .select(
-        "name, tagline_template, hero_subtitle, featured_course_id, logo_url, primary_color"
+        "name, slug, owner_id, tagline_template, hero_subtitle, featured_course_id, logo_url, primary_color"
       )
       .eq("id", membership.organizationId)
       .single(),
@@ -52,14 +54,38 @@ export default async function MarcaPage() {
     );
   }
 
+  const { data: ownerProfile } = organization.owner_id
+    ? await supabase
+        .from("profiles")
+        .select("name")
+        .eq("id", organization.owner_id)
+        .maybeSingle()
+    : { data: null };
+
+  const ownerName = ownerProfile?.name?.trim() || organization.name;
+
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-bold tracking-tight">Marca</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">Marca</h1>
+        <Link
+          href={`/o/${organization.slug}`}
+          target="_blank"
+          rel="noreferrer"
+          className={buttonClassName("outline", "sm", "w-full sm:w-auto")}
+        >
+          Vista previa ↗
+        </Link>
+      </div>
       <p className="mt-2 text-sm text-muted-foreground">
         Así se ve tu portal para tus alumnos: nombre, logo, color y los textos
         y el curso que protagonizan tu página de inicio.
       </p>
-      <BrandingForm organization={organization} courses={courses ?? []} />
+      <BrandingForm
+        organization={organization}
+        courses={courses ?? []}
+        ownerName={ownerName}
+      />
     </div>
   );
 }

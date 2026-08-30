@@ -63,21 +63,16 @@ export default async function CursoDetallePage({
   } = await supabase.auth.getUser();
 
   let isAdmin = false;
-  let hasPurchased = false;
+  let hasAccess = false;
 
   if (user) {
-    const [{ data: isOrgAdmin }, { data: purchase }] = await Promise.all([
+    const [{ data: isOrgAdmin }, { data: courseAccess }] = await Promise.all([
       supabase.rpc("is_org_admin", { org_id: course.organization_id }),
-      supabase
-        .from("purchases")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("course_id", course.id)
-        .maybeSingle(),
+      supabase.rpc("has_course_access", { target_course_id: course.id }),
     ]);
 
     isAdmin = Boolean(isOrgAdmin);
-    hasPurchased = Boolean(purchase);
+    hasAccess = Boolean(courseAccess);
   }
 
   if (course.status !== "published" && !isAdmin) {
@@ -92,7 +87,7 @@ export default async function CursoDetallePage({
   const aprenderHref = await orgPath(`/cursos/${course.id}/aprender`);
   const loginHref = await orgPath("/login");
 
-  const purchasePanel = hasPurchased ? (
+  const purchasePanel = hasAccess ? (
     <>
       <p className="text-sm font-medium">Ya tienes acceso a este curso.</p>
       <Link

@@ -5,6 +5,7 @@ import { Footer } from "@/components/layout/Footer";
 import { AprenderView } from "./AprenderView";
 import { resolveBlocksForViewing } from "@/lib/storage/media";
 import { orgPath } from "@/lib/organizations/orgPath";
+import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
 import type { ContentBlock, Lesson, Section } from "@/types";
 
 function NotFound() {
@@ -45,13 +46,16 @@ export default async function AprenderPage({
   const { lesson: initialLessonId } = await searchParams;
   const supabase = await createClient();
 
-  const { data: course } = await supabase
-    .from("courses")
-    .select("id, title, organization_id")
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data: course }, organization] = await Promise.all([
+    supabase
+      .from("courses")
+      .select("id, title, organization_id")
+      .eq("id", id)
+      .maybeSingle(),
+    getCurrentOrganization(),
+  ]);
 
-  if (!course) {
+  if (!course || !organization || course.organization_id !== organization.id) {
     return <NotFound />;
   }
 
@@ -63,7 +67,12 @@ export default async function AprenderPage({
     redirect(await orgPath("/login"));
   }
 
-  const [{ data: isOrgAdmin }, { data: purchase }, { data: isActiveStudent }] =
+  const [
+    { data: isOrgAdmin },
+    { data: purchase },
+    { data: invitedAccess },
+    { data: isActiveStudent },
+  ] =
     await Promise.all([
       supabase.rpc("is_org_admin", { org_id: course.organization_id }),
       supabase
@@ -72,19 +81,24 @@ export default async function AprenderPage({
         .eq("user_id", user.id)
         .eq("course_id", id)
         .maybeSingle(),
+      supabase
+        .from("student_course_access")
+        .select("course_id")
+        .eq("user_id", user.id)
+        .eq("course_id", id)
+        .maybeSingle(),
       supabase.rpc("is_org_student", { org_id: course.organization_id }),
     ]);
 
   const isAdmin = Boolean(isOrgAdmin);
-  const hasPurchased = Boolean(purchase);
+  const hasCourseEntitlement = Boolean(purchase || invitedAccess);
 
-  if (!isAdmin && !hasPurchased) {
+  if (!isAdmin && !hasCourseEntitlement) {
     redirect(await orgPath(`/cursos/${id}`));
   }
 
-  // Compró el curso pero ya no está activo en el roster de la organización
-  // (lo echaron) — RLS ya le bloquea sections/lessons; esto solo da un
-  // mensaje claro en vez de una página vacía.
+  // Conserva la compra o invitación, pero ya no está activo en el roster de la
+  // organización. RLS bloquea las lecciones; esto da un mensaje claro.
   if (!isAdmin && !isActiveStudent) {
     return <AccessRevoked />;
   }

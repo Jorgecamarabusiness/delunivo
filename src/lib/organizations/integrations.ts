@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { decrypt } from "@/lib/crypto/encryption";
 
 /**
  * Lee `organization_integrations` con el cliente admin (service role): quien
@@ -21,24 +20,4 @@ export async function getConnectedStripeAccountId(
   }
 
   return data.stripe_account_id;
-}
-
-export async function getWhopCredentials(
-  admin: SupabaseClient,
-  organizationId: string
-): Promise<{ apiKey: string; productId: string } | null> {
-  const { data } = await admin
-    .from("organization_integrations")
-    .select("whop_api_key_encrypted, whop_product_id")
-    .eq("organization_id", organizationId)
-    .maybeSingle();
-
-  if (!data?.whop_api_key_encrypted || !data.whop_product_id) {
-    return null;
-  }
-
-  return {
-    apiKey: decrypt(data.whop_api_key_encrypted),
-    productId: data.whop_product_id,
-  };
 }

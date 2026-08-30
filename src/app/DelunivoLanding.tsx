@@ -40,7 +40,7 @@ const STEPS = [
  * de alta vive en /crear-empresa para que esta página pueda ser una landing de
  * verdad y no un formulario suelto.
  */
-export function DelunivoLanding() {
+export function DelunivoLanding({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">
       <Header />
@@ -62,18 +62,29 @@ export function DelunivoLanding() {
             </p>
 
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link
-                href="/crear-empresa"
-                className={buttonClassName("primary", "lg", "w-full sm:w-auto")}
-              >
-                Crear mi empresa
-              </Link>
-              <Link
-                href="/login"
-                className={buttonClassName("outline", "lg", "w-full sm:w-auto")}
-              >
-                Iniciar sesión
-              </Link>
+              {isAdmin ? (
+                <Link
+                  href="/admin"
+                  className={buttonClassName("primary", "lg", "w-full sm:w-auto")}
+                >
+                  Entrar
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/crear-empresa"
+                    className={buttonClassName("primary", "lg", "w-full sm:w-auto")}
+                  >
+                    Crear mi empresa
+                  </Link>
+                  <Link
+                    href="/login"
+                    className={buttonClassName("outline", "lg", "w-full sm:w-auto")}
+                  >
+                    Iniciar sesión
+                  </Link>
+                </>
+              )}
             </div>
 
             <p className="mt-6 text-sm text-muted-foreground">
@@ -139,10 +150,10 @@ export function DelunivoLanding() {
             </p>
 
             <Link
-              href="/crear-empresa"
+              href={isAdmin ? "/admin" : "/crear-empresa"}
               className={buttonClassName("primary", "lg", "mt-8")}
             >
-              Crear mi empresa
+              {isAdmin ? "Entrar" : "Crear mi empresa"}
             </Link>
           </Container>
         </section>

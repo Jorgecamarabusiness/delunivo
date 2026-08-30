@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
 import { DelunivoLanding } from "./DelunivoLanding";
 import { OrganizationLanding } from "./OrganizationLanding";
+import { isAnyOrgAdmin } from "@/lib/auth/requireOrgAdmin";
 
 /**
  * Esta misma ruta atiende el dominio raíz (la web de Delunivo) y `/o/<slug>`
@@ -18,7 +19,8 @@ export default async function Home() {
   ] = await Promise.all([supabase.auth.getUser(), getCurrentOrganization()]);
 
   if (!organization) {
-    return <DelunivoLanding />;
+    const isAdmin = user ? await isAnyOrgAdmin(supabase, user.id) : false;
+    return <DelunivoLanding isAdmin={isAdmin} />;
   }
 
   return (

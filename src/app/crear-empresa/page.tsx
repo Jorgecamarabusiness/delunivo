@@ -2,13 +2,18 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/layout/AuthShell";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
+import { createClient } from "@/lib/supabase/server";
 import { CreateCompanyForm } from "../CreateCompanyForm";
 
 export default async function CrearEmpresaPage() {
   // Crear una empresa es algo del dominio raíz. Dentro del portal de un cliente
   // (/o/<slug>/crear-empresa) no tiene sentido: ahí se va a su propia home.
-  const organization = await getCurrentOrganization();
-  if (organization) {
+  const supabase = await createClient();
+  const [organization, { data: { user } }] = await Promise.all([
+    getCurrentOrganization(),
+    supabase.auth.getUser(),
+  ]);
+  if (organization || user) {
     redirect("/");
   }
 

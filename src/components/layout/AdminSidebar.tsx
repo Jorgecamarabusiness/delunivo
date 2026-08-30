@@ -155,28 +155,18 @@ function ChevronIcon({ className }: { className?: string }) {
   );
 }
 
-function ArrowLeftIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      className={className}
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M11 18l-6-6 6-6" />
-    </svg>
-  );
-}
-
 type AdminSidebarProps = {
   adminName: string;
+  organizationHref?: string;
   /** Solo el dueño de la plataforma ve la lista de correos de prueba. */
   isSuperAdmin?: boolean;
 };
 
-export function AdminSidebar({ adminName, isSuperAdmin }: AdminSidebarProps) {
+export function AdminSidebar({
+  adminName,
+  organizationHref,
+  isSuperAdmin,
+}: AdminSidebarProps) {
   const [expanded, setExpanded] = useState(true);
   const pathname = usePathname();
 
@@ -195,7 +185,7 @@ export function AdminSidebar({ adminName, isSuperAdmin }: AdminSidebarProps) {
 
   return (
     <aside
-      className={`flex shrink-0 flex-col border-r border-border bg-background transition-[width] duration-200 ${
+      className={`sticky top-0 flex h-dvh shrink-0 self-start flex-col border-r border-border bg-background transition-[width] duration-200 ${
         expanded ? "w-16 sm:w-64" : "w-16"
       }`}
     >
@@ -224,7 +214,7 @@ export function AdminSidebar({ adminName, isSuperAdmin }: AdminSidebarProps) {
         </button>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 px-2 py-4">
+      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 py-4">
         {navItems.map(({ href, label, Icon }) => {
           const active = pathname === href;
           return (
@@ -247,13 +237,17 @@ export function AdminSidebar({ adminName, isSuperAdmin }: AdminSidebarProps) {
 
       <div className="border-t border-border px-2 py-4">
         <Link
-          href="/"
-          aria-label="Volver al inicio"
-          title={expanded ? undefined : "Volver al inicio"}
+          href={organizationHref ?? "/"}
+          aria-label={organizationHref ? "Ver mi página" : "Volver a Delunivo"}
+          title={expanded ? undefined : organizationHref ? "Ver mi página" : "Volver a Delunivo"}
           className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
-          <ArrowLeftIcon className="h-5 w-5 shrink-0" />
-          {expanded ? <span className="hidden truncate sm:inline">Volver al inicio</span> : null}
+          <HomeIcon className="h-5 w-5 shrink-0" />
+          {expanded ? (
+            <span className="hidden truncate sm:inline">
+              {organizationHref ? "Ver mi página" : "Volver a Delunivo"}
+            </span>
+          ) : null}
         </Link>
       </div>
     </aside>

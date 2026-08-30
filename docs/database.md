@@ -104,9 +104,9 @@ Añadida el 2026-08-07. Roster de alumnos por organización — incluye a quien 
 `unique(organization_id, user_id)`. RLS: cada alumno ve su propia fila; los admins de esa organización ven/insertan/actualizan todo el roster. **Sin policy de DELETE** — a propósito, para que "echar" a alguien sea siempre un `update` a `status='removed'`, nunca un borrado (así queda registro permanente). El acceso a lecciones ya comprueba `status='active'` además de `purchases` — ver Seguridad.
 
 Se puebla desde el registro (`src/app/register/actions.ts`), la aceptación de
-invitaciones (`src/app/invitaciones/[token]/actions.ts`) y los flujos de compra
-de Stripe y Whop. Los flujos de compra crean la membresía junto a `purchases` y
-nunca reactivan automáticamente una fila `removed`.
+invitaciones (`src/app/invitaciones/[token]/actions.ts`) y los flujos de compra.
+Los flujos de compra crean la membresía junto a `purchases` y nunca reactivan
+automáticamente una fila `removed`.
 
 ### invitations
 Añadida el 2026-08-07. Invitaciones de alumnos y co-admins con aceptación por
@@ -121,12 +121,38 @@ token en `/invitaciones/[token]`.
 | token_hash | el token en claro nunca se guarda, solo su hash |
 | status | 'pending' \| 'accepted' \| 'revoked' \| 'expired', default 'pending' |
 | invited_by / revoked_by | uuid, FK -> auth.users.id, nullable |
+| note | nota interna opcional del admin, máximo 1000 caracteres; no aparece en el email ni en la página pública de aceptación |
 | expires_at | |
 | created_at | |
 
-Índice único parcial: como mucho una invitación `pending` por `(organization_id, email, invite_type)`. RLS: solo admins de esa organización (`is_org_admin`). Sin policy de lectura pública ni de DELETE — la aceptación se valida con service role en una server action (Fase 3), no vía RLS.
+Índice único parcial case-insensitive: como mucho una invitación `pending` por
+persona y organización, independientemente de si es de alumno o admin. RLS:
+solo admins de esa organización pueden leer. `authenticated` no tiene INSERT,
+UPDATE ni DELETE directos; crear y revocar pasa por RPC con validación de rol.
+La aceptación se completa de forma atómica con service role.
 
-**Implementado el 2026-08-07 (Fase 3)**: `src/app/admin/usuarios/actions.ts` (invitar/echar/reactivar/quitar admin/revocar invitación), `src/app/invitaciones/[token]/` (aceptación — crea cuenta con `admin.auth.admin.createUser()` si el correo no tenía una, o vincula la sesión actual si ya la tenía). El token en claro solo va en la URL del email (`src/lib/invitations/token.ts` + `src/lib/resend/sendInvitationEmail.ts`); en `invitations.token_hash` solo se guarda su SHA-256. Invitar co-admins está restringido a `role='owner'` a nivel de aplicación (la policy RLS de `invitations` permite insertar a cualquier `is_org_admin`, no distingue `invite_type` — el filtro más estricto vive en `inviteAdminAction`, no en SQL).
+**Implementado el 2026-08-07 y ampliado el 2026-08-30**:
+`src/app/admin/usuarios/actions.ts` gestiona invitaciones, alumnos y admins;
+`src/app/invitaciones/[token]/` acepta el enlace. El token en claro solo va en
+la URL del email y la base guarda su SHA-256. La RPC
+`create_invitation_with_courses` impide desde SQL que un no-owner invite admins
+y valida que todos los cursos pertenezcan a la organización.
+`revoke_invitation` solo permite revocar invitaciones pendientes de la propia
+organización y reserva las de admin al owner.
+
+### invitation_courses
+Cursos incluidos en una invitación de alumno. Clave primaria compuesta
+`(invitation_id, course_id)`. Una invitación de admin no contiene cursos. RLS:
+solo admins de la organización de la invitación pueden leer filas; la creación
+ocurre dentro de la RPC validada.
+
+### student_course_access
+Accesos concedidos fuera del checkout, normalmente al aceptar una invitación.
+La clave primaria `(user_id, course_id)` garantiza un único acceso por alumno y
+curso; conserva `invitation_id`, `granted_by` y `created_at` como auditoría. El
+alumno ve sus filas y los admins solo las de cursos de su organización. No se
+mezcla con `purchases`, por lo que la lista de cursos distingue comprado de
+invitado.
 
 ### admin_emails
 Añadida el 2026-08-11. Lista de correos de prueba de la PLATAFORMA (no de ninguna empresa). Mientras el envío real está desactivado, todo email de la aplicación se redirige a las filas `is_active = true` en vez de ir a su destinatario real — ver "Emails" más abajo.
@@ -227,13 +253,27 @@ RLS: cada alumno ve, inserta y borra **solo sus propias filas** (`user_id = auth
 - **2026-08-07 (Fase 4, sin cambios de esquema)** — Bug de aislamiento cross-tenant corregido en código (no en RLS, que ya estaba bien): `/admin/cursos` y `/admin/estadisticas` consultaban `courses`/`sections`/`lessons`/`video_views` sin filtrar por `organization_id`. Como la policy de `courses` permite leer cualquier fila `status='published'` de **cualquier** organización (no solo la propia — es la misma policy que necesita el sitio público), cualquier admin veía en su propio panel los cursos publicados (títulos y precio) de TODOS los demás clientes de la plataforma, mezclados con los suyos. `purchases`/`video_views` no llegaban a filtrarse mal (esas sí están bien aisladas por RLS), pero el ruido de cursos ajenos en el listado/estadísticas era real. Arreglado añadiendo `.eq("organization_id", ...)` (resuelto vía `getCurrentOrgMembership`) en ambas páginas.
 
 - **2026-08-11** — `admin_emails` y `verification_codes` (ver arriba); `organizations.hero_subtitle` y `organizations.featured_course_id`. SQL en `docs/sql/2026-08-11-emails-y-landings.sql`. Aparte del esquema, esta tanda cambió tres cosas grandes sin tocar la base de datos: los emails dejaron de salir por Supabase Auth y pasan todos por Resend con códigos propios; el enrutamiento por subdominio se eliminó (solo queda `/o/<slug>`); y se cerró una fuga cross-tenant en la ficha pública de curso. Ver las secciones correspondientes abajo.
+- **2026-08-30** — invitaciones únicas y acceso por curso: `invitations.note`,
+  `invitation_courses`, `student_course_access`, las RPC atómicas
+  `create_invitation_with_courses` y `complete_invitation_acceptance`, y
+  `has_course_access` como control común de compra/invitación. La policy de
+  lectura de lecciones usa este último control. Migraciones versionadas
+  `20260830203510_course_scoped_invitations.sql`,
+  `20260830203655_invite_access_fk_indexes.sql` y
+  `20260830205248_secure_invitation_and_lesson_access.sql`, aplicadas y
+  verificadas contra el proyecto Delunivo. La última cierra escrituras directas
+  de invitaciones y evita que alumnos lean cursos o lecciones en borrador.
 
 ## Emails y verificación de cuenta
 
 Desde el 2026-08-11, **Supabase Auth no envía ningún email**. Ni el de confirmación de registro ni el de recuperación de contraseña: su límite de envío en el plan gratuito se agotaba constantemente al probar, y sus plantillas no se pueden editar sin configurar SMTP propio.
 
-- **Punto único de envío**: `src/lib/email/send.ts` (`sendEmail`). Nada llama a Resend directamente. Las plantillas concretas están en `src/lib/email/templates.ts` (código de registro, código de recuperación, invitación, license key de Whop) sobre el HTML común de `src/lib/email/layout.ts`.
-- **Redirección a correos de prueba**: si `EMAIL_DELIVERY_MODE` no vale exactamente `"live"`, TODO email va a las direcciones activas de `admin_emails` en vez de a su destinatario real, con el destinatario original en el asunto (`[→ pepe@gmail.com] Tu código`) y un aviso al principio del cuerpo. **El valor por defecto es el redirigido a propósito**: la cuenta de Resend no tiene dominio verificado, así que solo puede entregar al correo del titular y devolvería un 403 con cualquier otro destinatario. Se gestiona en `/admin/emails` (solo super admin).
+- **Punto único de envío**: `src/lib/email/send.ts` (`sendEmail`). Nada llama a Resend directamente. Las plantillas concretas están en `src/lib/email/templates.ts` sobre el HTML común de `src/lib/email/layout.ts`.
+- **Desarrollo y previews**: el modo por defecto redirige todo email a las direcciones activas de `admin_emails`, con el destinatario original en el asunto (`[→ pepe@gmail.com] Tu código`) y un aviso en el cuerpo. `/admin/emails` y su enlace del menú exigen `is_super_admin()`, por lo que ningún cliente puede ver esa lista.
+- **Producción de Vercel**: la entrega pasa automáticamente a `live` cuando
+  existe `RESEND_FROM_EMAIL` de un dominio verificado. Hasta entonces conserva
+  la redirección segura para no perder correos. `off` permanece como interruptor
+  de emergencia.
 - **Registro**: `createUnverifiedUser` (`src/lib/auth/accounts.ts`) usa `admin.auth.admin.createUser({ email_confirm: false })`, que **no manda ningún email**. Luego se emite un código y se envía por Resend. Hasta verificarlo, Supabase bloquea el login por su cuenta con "Email not confirmed" — no hace falta ninguna columna ni gate propio.
   - **Por qué `createUser` y no `signUp()`**: con la confirmación de correo activada, `signUp()` sobre un email que YA existe devuelve un usuario falso con un uuid inventado (protección anti-enumeración de Supabase). Ese uuid no está en `auth.users`, así que el insert siguiente reventaba con `organizations_owner_id_fkey` al crear una empresa. `createUser` da un error limpio.
 - **Verificación** (`/verificar`): al acertar el código se hace `updateUserById({ email_confirm: true })` y se inicia sesión sin volver a pedir la contraseña — `startSessionForVerifiedEmail()` genera un token con `admin.auth.admin.generateLink({ type: 'magiclink' })` (que **no envía email**, para eso existe) y lo canjea con `verifyOtp()` sobre el cliente con cookies. Si eso falla, se cae a `/login?verificado=1`.
@@ -249,19 +289,25 @@ RLS **sí está activo** en todas las tablas. Desde el 2026-08-07 el modelo es m
 | `courses` | solo `status = 'published'` (policy `courses_public_read_published`) | `status = 'published'` de cualquier organización, o todas las filas (incl. borradores) de las organizaciones donde es admin |
 | `admin_emails` | nada | solo `is_super_admin()` |
 | `verification_codes` | nada | **nada** — RLS activo sin ninguna policy: solo la service role key |
-| `sections` / `lessons` | nada | igual que `courses` para gestión de contenido; para VER una lección además hace falta `purchases` + seguir `active` en `organization_students` de esa organización (ver más abajo) |
+| `sections` / `lessons` | nada | igual que `courses` para gestión; para VER una lección hace falta seguir `active` en `organization_students` y tener compra o acceso invitado al curso, salvo admins de esa organización |
 | `purchases` | nada | solo su propia fila; los admins ven las de su(s) propia(s) organización(es), nunca las de otra |
 | `profiles` | nada | solo su propia fila; los admins además ven los profiles de sus propios alumnos/co-admins (no los de otras organizaciones) |
 | `video_views` | nada | solo sus propias filas; los admins ven las de lecciones de cursos de su(s) propia(s) organización(es) |
 | `organizations` | branding público (`name`, `slug`, `logo_url`, etc., lectura abierta) | igual + puede editar si es admin de esa organización |
 | `organization_billing` / `organization_integrations` | nada | solo admin/owner de esa organización (integrations: solo el owner) |
-| `organization_admins` / `organization_students` / `invitations` | nada | solo admins de esa organización (alumno: además puede leer su propia fila en `organization_students`) |
+| `organization_admins` / `organization_students` / `invitations` / `invitation_courses` | nada | admins de esa organización; invitaciones y cursos asociados son de lectura directa, sus mutaciones pasan por RPC (alumno: además puede leer su propia fila en `organization_students`) |
+| `student_course_access` | nada | el alumno ve sus accesos y los admins los de cursos de su organización |
 
 **Fuga cross-tenant corregida el 2026-08-11 (ficha pública de curso)**: `src/app/cursos/[id]/page.tsx` buscaba el curso solo por `id`. Como la policy `courses_public_read_published` deja leer cualquier fila publicada de **cualquier** empresa (lo necesita el sitio público), `/o/empresaA/cursos/<id-de-empresaB>` renderizaba el curso de B con el Header, el logo y el color de A. Arreglado comparando `course.organization_id` con la organización que resuelve la URL: si no coinciden, el curso "no existe" en ese portal. Los tests de la Fase 10 cubrían `/admin/cursos` y `/admin/estadisticas`, pero no la ficha pública.
 
 El control de acceso admin se repite a mano en cada server action, ahora vía `requireOrgAdmin()`/`requireSuperAdmin()`/`requireAnyOrgAdmin()` (`src/lib/auth/requireOrgAdmin.ts`, reemplaza al antiguo `requireAdmin()`) — RLS y el chequeo de código son dos capas independientes, no confiar solo en una. Estos helpers llaman por RPC a las mismas funciones `security definer` que usan las policies (`is_org_admin`, `is_super_admin`), para no duplicar la lógica de "quién es admin de qué" en dos sitios.
 
-**Alumno expulsado ("echado")**: `organization_students.status = 'removed'` corta el acceso a las lecciones aunque la fila de `purchases` siga existiendo — es intencional, para conservar el historial de pago. La policy `lessons_buyer_read` exige `is_org_student(purchases.organization_id)` (que comprueba `status = 'active'`) además de la propia compra. El flujo de admin para invitar/expulsar alumnos todavía no tiene UI (ver Fase 3 del plan).
+**Alumno expulsado ("echado")**: `organization_students.status = 'removed'`
+corta el acceso aunque conserve compras e invitaciones, para mantener el
+historial. `has_course_access(course_id)` centraliza compra o concesión invitada
+más membresía activa. Para alumnos también exige curso y lección publicados; los
+admins conservan acceso a borradores. La policy `lessons_course_access_read` usa
+esa función.
 
 - **`profiles`** se crea sola: trigger `on_auth_user_created` (`after insert on auth.users`) inserta la fila con `name` sacado de `raw_user_meta_data->>'name'` e `is_admin = false` (sin tocar desde el 2026-08-07 — `is_super_admin` toma su default de columna, `false`, porque el trigger no la menciona). `registerAction` ya no inserta el perfil a mano (ver `src/app/register/actions.ts`) — así el perfil existe también si el usuario se crea por otra vía (invitación, magic link, panel de Supabase).
 
@@ -299,13 +345,13 @@ muestra el catálogo. Las lecturas privadas del panel usan
   cuando existe y la cuenta principal como fallback. La suscripción de plataforma
   se procesa en la cuenta principal. Los webhooks validan su firma y escriben con
   el cliente admin en servidor.
-- **Whop:** las credenciales de cada organización se guardan cifradas con
-  AES-256-GCM y se resuelven en servidor. El webhook heredado de licencias sigue
-  usando las variables globales documentadas en `.env.example`; no se generaliza
-  hasta que exista una necesidad real.
+- **Whop (desactivado):** no hay configuración, compra ni canje en la UI. El
+  endpoint histórico responde `200` sin enviar correos, crear compras ni dar
+  acceso, para evitar reintentos del proveedor. Se conserva solo el esquema
+  histórico; los accesos nuevos entran por Stripe o invitación del admin.
 - **Resend:** `src/lib/email/send.ts` es el único punto de envío. El modo
-  `redirect` es el valor seguro por defecto, `off` se usa en pruebas y `live`
-  requiere un dominio verificado.
+  `redirect` es el valor seguro fuera de producción, `off` se usa en pruebas y
+  la producción de Vercel activa `live` al configurar el dominio verificado.
 - **Mux:** las subidas y reproducciones pasan por rutas de servidor, webhooks
   firmados y playback firmado. Los secretos nunca usan el prefijo
   `NEXT_PUBLIC_`. La migración de producción `20260830185317` crea

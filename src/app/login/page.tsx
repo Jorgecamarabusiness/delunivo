@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/layout/AuthShell";
 import { Alert } from "@/components/ui/Alert";
 import { orgPath } from "@/lib/organizations/orgPath";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
 import { LoginForm } from "./LoginForm";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function LoginPage({
   searchParams,
@@ -15,11 +17,24 @@ export default async function LoginPage({
   }>;
 }) {
   const { password, verificado, next } = await searchParams;
-  const [registerHref, basePath, organization] = await Promise.all([
+  const supabase = await createClient();
+  const [
+    {
+      data: { user },
+    },
+    registerHref,
+    basePath,
+    organization,
+  ] = await Promise.all([
+    supabase.auth.getUser(),
     orgPath("/register"),
     orgPath(""),
     getCurrentOrganization(),
   ]);
+
+  if (user) {
+    redirect(basePath || "/");
+  }
 
   return (
     <AuthShell

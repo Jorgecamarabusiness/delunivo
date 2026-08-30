@@ -64,27 +64,13 @@ async function completeMembership(
   admin: ReturnType<typeof createAdminClient>,
   invitation: PendingInvitation,
   userId: string
-) {
-  if (invitation.invite_type === "admin") {
-    await admin.from("organization_admins").upsert(
-      { organization_id: invitation.organization_id, user_id: userId, role: "admin" },
-      { onConflict: "organization_id,user_id" }
-    );
-  } else {
-    // A diferencia del webhook de compra, aquí SÍ reactivamos si estaba
-    // 'removed' — reinvitar a alguien es una decisión explícita del admin.
-    await admin.from("organization_students").upsert(
-      {
-        organization_id: invitation.organization_id,
-        user_id: userId,
-        status: "active",
-        joined_via: "invite",
-      },
-      { onConflict: "organization_id,user_id" }
-    );
-  }
+): Promise<string | null> {
+  const { error } = await admin.rpc("complete_invitation_acceptance", {
+    p_invitation_id: invitation.id,
+    p_user_id: userId,
+  });
 
-  await admin.from("invitations").update({ status: "accepted" }).eq("id", invitation.id);
+  return error?.message ?? null;
 }
 
 export async function acceptInvitationWithNewAccountAction(
@@ -122,7 +108,11 @@ export async function acceptInvitationWithNewAccountAction(
     return { error: createError?.message ?? "No se pudo crear la cuenta." };
   }
 
-  await completeMembership(admin, invitation, created.user.id);
+  const membershipError = await completeMembership(admin, invitation, created.user.id);
+  if (membershipError) {
+    await admin.auth.admin.deleteUser(created.user.id).catch(() => {});
+    return { error: `No se pudo aplicar la invitación: ${membershipError}` };
+  }
   const target = await redirectPathAfterAccept(admin, invitation);
 
   const supabase = await createClient();
@@ -154,7 +144,10 @@ export async function acceptInvitationWithExistingSessionAction(
   }
 
   const admin = createAdminClient();
-  await completeMembership(admin, invitation, user.id);
+  const membershipError = await completeMembership(admin, invitation, user.id);
+  if (membershipError) {
+    return { error: `No se pudo aplicar la invitación: ${membershipError}` };
+  }
   const target = await redirectPathAfterAccept(admin, invitation);
 
   redirect(target);

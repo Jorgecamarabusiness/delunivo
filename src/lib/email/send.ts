@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { getActiveAdminEmails } from "./adminEmails";
 import { renderEmail, renderRedirectNotice, type EmailContent } from "./layout";
 import { PLATFORM_NAME } from "@/lib/brand";
+import { getEmailDeliveryMode } from "./deliveryMode";
 
 export type SendEmailResult = { error: string | null };
 
@@ -15,25 +16,18 @@ export type SendEmailResult = { error: string | null };
  * - `off`   → no se envía nada. Para los tests E2E y CI, que si no llenarían
  *             de correos de prueba la bandeja de los admin_emails en cada
  *             corrida. Se registra en consola y se devuelve éxito.
- * - resto / sin poner → se redirigen a los correos activos de `admin_emails`.
+ * - en desarrollo, resto / sin poner → se redirigen a `admin_emails`.
+ * - en la producción de Delunivo → se entregan al destinatario real cuando
+ *   existe RESEND_FROM_EMAIL; hasta entonces mantienen la redirección segura.
+ *   `off` sigue disponible como interruptor de emergencia.
  *
  * El valor por defecto (redirigido) es DELIBERADAMENTE el seguro: es el único
  * que funciona hoy sin dominio verificado.
  */
-type DeliveryMode = "live" | "off" | "redirect";
-
-function deliveryMode(): DeliveryMode {
-  const raw = process.env.EMAIL_DELIVERY_MODE;
-  if (raw === "live") return "live";
-  if (raw === "off") return "off";
-  return "redirect";
-}
-
-function fromAddress(): string {
+function fromAddress(address: string | undefined): string {
   // onboarding@resend.dev es el remitente que Resend permite sin dominio
   // propio verificado (solo entrega al correo del titular de la cuenta).
-  const address = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
-  return `${PLATFORM_NAME} <${address}>`;
+  return `${PLATFORM_NAME} <${address ?? "onboarding@resend.dev"}>`;
 }
 
 export type SendEmailParams = {
@@ -55,7 +49,7 @@ export async function sendEmail({
   subject,
   content,
 }: SendEmailParams): Promise<SendEmailResult> {
-  const mode = deliveryMode();
+  const mode = getEmailDeliveryMode();
 
   if (mode === "off") {
     console.info(`[email:off] "${subject}" -> ${to} (no enviado)`);
@@ -65,6 +59,14 @@ export async function sendEmail({
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     return { error: "Falta configurar RESEND_API_KEY en el servidor." };
+  }
+
+  const configuredFromAddress = process.env.RESEND_FROM_EMAIL?.trim();
+  if (mode === "live" && !configuredFromAddress) {
+    return {
+      error:
+        "Falta configurar RESEND_FROM_EMAIL con un dominio verificado en Resend.",
+    };
   }
 
   let recipients: string[] = [to];
@@ -92,7 +94,7 @@ export async function sendEmail({
 
   try {
     const { error } = await new Resend(apiKey).emails.send({
-      from: fromAddress(),
+      from: fromAddress(configuredFromAddress),
       to: recipients,
       subject: finalSubject,
       html,
@@ -112,10 +114,8 @@ export async function sendEmail({
 function describeResendError(raw: string): string {
   if (/verify a domain|only send testing emails/i.test(raw)) {
     return (
-      "Resend solo puede escribir al correo del titular de la cuenta mientras " +
-      "no haya un dominio verificado en resend.com/domains. Deja " +
-      "EMAIL_DELIVERY_MODE sin poner a 'live' para que los emails se redirijan " +
-      "a los correos de prueba."
+      "Resend necesita un dominio verificado y RESEND_FROM_EMAIL para enviar " +
+      "correos a destinatarios reales."
     );
   }
 

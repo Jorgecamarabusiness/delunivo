@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Alert } from "@/components/ui/Alert";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Textarea } from "@/components/ui/Input";
 import { removeStudentAction, reactivateStudentAction } from "./actions";
 
 export function StudentActions({
@@ -14,31 +17,25 @@ export function StudentActions({
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<"remove" | "reactivate" | null>(null);
+  const [reason, setReason] = useState("");
 
   async function handleRemove() {
-    const confirmed = window.confirm(
-      "¿Seguro que quieres echar a este alumno? Perderá el acceso a los cursos de tu organización."
-    );
-    if (!confirmed) return;
-
-    const reason = window.prompt("Motivo (opcional):") ?? null;
-
     setPending(true);
     setError(null);
-    const result = await removeStudentAction(studentUserId, reason);
+    const result = await removeStudentAction(studentUserId, reason.trim() || null);
     setPending(false);
 
     if (result.error) {
       setError(result.error);
       return;
     }
+    setDialog(null);
+    setReason("");
     router.refresh();
   }
 
   async function handleReactivate() {
-    const confirmed = window.confirm("¿Devolver el acceso a este alumno?");
-    if (!confirmed) return;
-
     setPending(true);
     setError(null);
     const result = await reactivateStudentAction(studentUserId);
@@ -48,6 +45,7 @@ export function StudentActions({
       setError(result.error);
       return;
     }
+    setDialog(null);
     router.refresh();
   }
 
@@ -55,13 +53,48 @@ export function StudentActions({
     <div className="flex flex-col items-end gap-1">
       <button
         type="button"
-        onClick={status === "active" ? handleRemove : handleReactivate}
+        onClick={() => {
+          setError(null);
+          setDialog(status === "active" ? "remove" : "reactivate");
+        }}
         disabled={pending}
-        className="text-xs font-medium text-muted-foreground underline hover:text-foreground disabled:opacity-50"
+        className="inline-flex min-h-11 items-center px-3 text-xs font-medium text-muted-foreground underline hover:text-foreground disabled:opacity-50"
       >
         {status === "active" ? "Echar" : "Reactivar"}
       </button>
       {error && <p className="text-xs font-medium text-red-600">{error}</p>}
+
+      <ConfirmDialog
+        open={dialog !== null}
+        title={dialog === "remove" ? "Echar alumno" : "Reactivar alumno"}
+        description={
+          dialog === "remove"
+            ? "Perderá el acceso a todos los cursos de esta organización, pero se conservarán sus compras y su historial."
+            : "Recuperará el acceso a los cursos que haya comprado o recibido por invitación."
+        }
+        confirmLabel={dialog === "remove" ? "Echar alumno" : "Reactivar"}
+        destructive={dialog === "remove"}
+        pending={pending}
+        onClose={() => {
+          if (!pending) setDialog(null);
+        }}
+        onConfirm={dialog === "remove" ? handleRemove : handleReactivate}
+      >
+        {dialog === "remove" ? (
+          <label className="block text-sm font-medium">
+            Motivo <span className="font-normal text-muted-foreground">(opcional)</span>
+            <Textarea
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              rows={3}
+              maxLength={500}
+              className="mt-2 resize-y"
+              placeholder="Ejemplo: devolución solicitada"
+            />
+          </label>
+        ) : null}
+        {error ? <Alert variant="error" className="mt-4">{error}</Alert> : null}
+      </ConfirmDialog>
     </div>
   );
 }

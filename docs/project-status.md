@@ -10,7 +10,9 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 
 - Next.js 16 App Router, React 19, TypeScript y Tailwind CSS 4.
 - Supabase para autenticacion, Postgres y Storage.
-- Stripe y Stripe Connect para cobros; Whop como integracion adicional.
+- Stripe y Stripe Connect para cobros. Whop está desactivado: su endpoint
+  responde sin efectos y el acceso vigente se obtiene mediante Stripe o una
+  invitacion explicita del admin.
 - Mux para video y Resend para email.
 - Tenancy publica por rutas `/o/<slug>`; no depende de subdominios.
 - Administracion en `/admin`; catalogo, compra y aprendizaje en las rutas publicas.
@@ -35,7 +37,7 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 ## Estado operativo
 
 - El rebranding de producto a Delunivo esta en `main`. GitHub, el equipo y proyecto de Vercel, el dominio tecnico y el nombre visible del proyecto Supabase usan Delunivo.
-- La carpeta local debe renombrarse a `delunivo` al cerrar Codex; Windows impide mover el workspace mientras esta abierto.
+- La carpeta local ya se llama `delunivo`.
 - La URL y la configuracion publica de Vercel usan `https://delunivo.vercel.app`; el dominio y el redirect de autenticacion anteriores se retiraron.
 - Los identificadores internos estables, referencias de proyecto, buckets, tablas, claves y URLs de API no se renombran cuando el cambio no es cosmetico: preservarlos evita roturas y no expone una marca distinta al usuario.
 - El esquema real vive en Supabase. `docs/database.md` mantiene el inventario confirmado y el SQL historico; desde 2026-08-30, los cambios nuevos tambien se guardan como migraciones versionadas. Un archivo de migracion no demuestra que se haya aplicado.
@@ -51,7 +53,10 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 
 ## Riesgos y pendientes conocidos
 
-- La migracion, el token, la clave de firma y el webhook del vertical Mux estan configurados en produccion. Falta validar el primer ciclo real con un video antes de considerarlo probado de extremo a extremo.
+- El vertical Mux esta configurado y validado de extremo a extremo con una
+  subida y reproduccion reales.
+- Resend todavia necesita un dominio propio verificado y `RESEND_FROM_EMAIL`
+  en Vercel para entregar a destinatarios reales en produccion.
 - Hay vulnerabilidades de dependencias previamente detectadas que requieren una tarea separada y enfocada.
 - Las acciones de Stripe, Resend, Vercel y Supabase pueden requerir pasos manuales y no deben darse por completadas sin confirmacion.
 

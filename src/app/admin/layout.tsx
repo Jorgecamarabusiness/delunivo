@@ -30,18 +30,26 @@ export default async function AdminLayout({
     redirect("/");
   }
 
-  const { data: billing } = membership
-    ? await supabase
-        .from("organization_billing")
-        .select("platform_subscription_status")
-        .eq("organization_id", membership.organizationId)
-        .maybeSingle()
-    : { data: null };
+  const [{ data: billing }, { data: organization }] = membership
+    ? await Promise.all([
+        supabase
+          .from("organization_billing")
+          .select("platform_subscription_status")
+          .eq("organization_id", membership.organizationId)
+          .maybeSingle(),
+        supabase
+          .from("organizations")
+          .select("slug")
+          .eq("id", membership.organizationId)
+          .maybeSingle(),
+      ])
+    : [{ data: null }, { data: null }];
 
   return (
     <div className="flex min-h-screen flex-1 bg-background text-foreground">
       <AdminSidebar
         adminName={profile?.name ?? ""}
+        organizationHref={organization ? `/o/${organization.slug}` : undefined}
         isSuperAdmin={Boolean(isSuperAdmin)}
       />
       <main className="min-w-0 flex-1">

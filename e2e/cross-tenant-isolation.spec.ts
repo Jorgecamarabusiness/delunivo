@@ -11,20 +11,26 @@ import { createTestOrg, destroyTestOrg, type TestOrg } from "./fixtures";
 let orgA: TestOrg;
 let orgB: TestOrg;
 const courseTitle = `Curso exclusivo de Org A ${Date.now()}`;
+let courseId: string;
 
 test.beforeAll(async () => {
   [orgA, orgB] = await Promise.all([createTestOrg(), createTestOrg()]);
 
   const admin = adminClient();
-  const { error } = await admin.from("courses").insert({
-    organization_id: orgA.orgId,
-    title: courseTitle,
-    price: 9.99,
-    status: "published",
-    description: "",
-    learning_points: [],
-  });
-  if (error) throw error;
+  const { data: course, error } = await admin
+    .from("courses")
+    .insert({
+      organization_id: orgA.orgId,
+      title: courseTitle,
+      price: 9.99,
+      status: "published",
+      description: "",
+      learning_points: [],
+    })
+    .select("id")
+    .single();
+  if (error || !course) throw error ?? new Error("No se pudo crear el curso E2E.");
+  courseId = course.id;
 });
 
 test.afterAll(async () => {
@@ -53,4 +59,14 @@ test("el propio admin de la organización A sí ve su curso en /admin/cursos", a
   await login(page, orgA.owner.email, orgA.owner.password, orgA.prefix);
   await page.goto("/admin/cursos");
   await expect(page.getByText(courseTitle)).toBeVisible();
+});
+
+test("el aula de un curso no se puede renderizar bajo la marca de otra organización", async ({
+  page,
+}) => {
+  await login(page, orgA.owner.email, orgA.owner.password, orgA.prefix);
+  await page.goto(`/o/${orgB.slug}/cursos/${courseId}/aprender`);
+
+  await expect(page.getByText("Curso no encontrado.")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(courseTitle);
 });

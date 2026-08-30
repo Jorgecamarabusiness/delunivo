@@ -18,6 +18,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { RowMenu } from "@/components/ui/RowMenu";
 import type { CourseStatus } from "@/types";
 import { updateLessonTitleAction } from "./lecciones/[lessonId]/actions";
@@ -109,6 +111,7 @@ function LessonRow({
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   async function toggleStatus() {
     const nextStatus: CourseStatus =
@@ -122,11 +125,6 @@ function LessonRow({
   }
 
   async function handleDelete() {
-    const confirmed = window.confirm(
-      "¿Seguro que quieres eliminar esta lección? Esta acción no se puede deshacer."
-    );
-    if (!confirmed) return;
-
     setIsDeleting(true);
     setDeleteError(null);
     const result = await deleteLessonAction(lesson.id, courseId);
@@ -137,6 +135,7 @@ function LessonRow({
       return;
     }
 
+    setDeleteDialogOpen(false);
     onDeleted(sectionId, lesson.id);
   }
 
@@ -172,11 +171,12 @@ function LessonRow({
   }
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
-    >
+    <>
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
+      >
       <button
         type="button"
         {...attributes}
@@ -226,10 +226,28 @@ function LessonRow({
       <RowMenu
         editHref={`/admin/cursos/${courseId}/lecciones/${lesson.id}`}
         editLabel="Editar contenido"
-        onDelete={handleDelete}
+        onDelete={() => {
+          setDeleteError(null);
+          setDeleteDialogOpen(true);
+        }}
         isDeleting={isDeleting}
       />
-    </div>
+      </div>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Eliminar lección"
+        description={`Se eliminará “${lesson.title}” y todo su contenido. Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar lección"
+        destructive
+        pending={isDeleting}
+        onClose={() => {
+          if (!isDeleting) setDeleteDialogOpen(false);
+        }}
+        onConfirm={handleDelete}
+      >
+        {deleteError ? <Alert variant="error">{deleteError}</Alert> : null}
+      </ConfirmDialog>
+    </>
   );
 }
 
@@ -274,6 +292,7 @@ function SectionRow({
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const lessonSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -291,11 +310,6 @@ function SectionRow({
   }
 
   async function handleDelete() {
-    const confirmed = window.confirm(
-      "¿Seguro que quieres eliminar este capítulo? Se eliminarán también todas sus lecciones. Esta acción no se puede deshacer."
-    );
-    if (!confirmed) return;
-
     setIsDeleting(true);
     setDeleteError(null);
     const result = await deleteSectionAction(section.id, courseId);
@@ -306,6 +320,7 @@ function SectionRow({
       return;
     }
 
+    setDeleteDialogOpen(false);
     onDeleted(section.id);
   }
 
@@ -341,11 +356,12 @@ function SectionRow({
   }
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="overflow-hidden rounded-lg border border-border bg-background"
-    >
+    <>
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="overflow-hidden rounded-lg border border-border bg-background"
+      >
       <div className="flex items-center gap-3 px-4 py-4">
         <button
           type="button"
@@ -403,7 +419,13 @@ function SectionRow({
           disabled={isTogglingStatus}
         />
 
-        <RowMenu onDelete={handleDelete} isDeleting={isDeleting} />
+        <RowMenu
+          onDelete={() => {
+            setDeleteError(null);
+            setDeleteDialogOpen(true);
+          }}
+          isDeleting={isDeleting}
+        />
       </div>
 
       {section.status === "draft" ? (
@@ -455,7 +477,22 @@ function SectionRow({
           </form>
         </div>
       )}
-    </div>
+      </div>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Eliminar capítulo"
+        description={`Se eliminará “${section.title}” y todas sus lecciones. Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar capítulo"
+        destructive
+        pending={isDeleting}
+        onClose={() => {
+          if (!isDeleting) setDeleteDialogOpen(false);
+        }}
+        onConfirm={handleDelete}
+      >
+        {deleteError ? <Alert variant="error">{deleteError}</Alert> : null}
+      </ConfirmDialog>
+    </>
   );
 }
 

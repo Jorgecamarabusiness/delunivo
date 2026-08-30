@@ -1,19 +1,29 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toggleAdminEmailAction, deleteAdminEmailAction } from "./actions";
 import type { AdminEmail } from "@/lib/email/adminEmails";
 
 export function AdminEmailRow({ entry }: { entry: AdminEmail }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  const run = (action: () => Promise<{ error: string | null }>) => {
+  const run = (
+    action: () => Promise<{ error: string | null }>,
+    onSuccess?: () => void
+  ) => {
     setError(null);
     startTransition(async () => {
       const result = await action();
-      if (result.error) setError(result.error);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        onSuccess?.();
+      }
     });
   };
 
@@ -38,7 +48,7 @@ export function AdminEmailRow({ entry }: { entry: AdminEmail }) {
           type="button"
           disabled={pending}
           onClick={() => run(() => toggleAdminEmailAction(entry.id, !entry.isActive))}
-          className="text-sm underline disabled:opacity-50"
+          className="inline-flex min-h-11 items-center px-2 text-sm underline disabled:opacity-50"
         >
           {entry.isActive ? "Desactivar" : "Activar"}
         </button>
@@ -46,14 +56,30 @@ export function AdminEmailRow({ entry }: { entry: AdminEmail }) {
           type="button"
           disabled={pending}
           onClick={() => {
-            if (!window.confirm(`¿Quitar ${entry.email} de la lista?`)) return;
-            run(() => deleteAdminEmailAction(entry.id));
+            setError(null);
+            setDialogOpen(true);
           }}
-          className="ml-4 text-sm text-red-600 underline disabled:opacity-50"
+          className="ml-2 inline-flex min-h-11 items-center px-2 text-sm text-red-600 underline disabled:opacity-50"
         >
           Quitar
         </button>
       </td>
+      <ConfirmDialog
+        open={dialogOpen}
+        title="Quitar correo de prueba"
+        description={`Se eliminará ${entry.email} de la lista de destinatarios de desarrollo.`}
+        confirmLabel="Quitar correo"
+        destructive
+        pending={pending}
+        onClose={() => {
+          if (!pending) setDialogOpen(false);
+        }}
+        onConfirm={() =>
+          run(() => deleteAdminEmailAction(entry.id), () => setDialogOpen(false))
+        }
+      >
+        {error ? <Alert variant="error">{error}</Alert> : null}
+      </ConfirmDialog>
     </tr>
   );
 }

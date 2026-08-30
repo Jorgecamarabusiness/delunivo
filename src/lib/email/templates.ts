@@ -75,24 +75,3 @@ export function sendInvitationEmail(params: {
     },
   });
 }
-
-/** Aviso de cortesía con la license key comprada en Whop. */
-export function sendLicenseKeyEmail(params: {
-  to: string;
-  courseTitle: string;
-  licenseKey: string;
-}): Promise<SendEmailResult> {
-  return sendEmail({
-    to: params.to,
-    subject: `Tu código de acceso a ${params.courseTitle}`,
-    content: {
-      heading: `Tu código de acceso a ${params.courseTitle}`,
-      paragraphs: [
-        "Gracias por tu compra. Este es tu código de acceso:",
-        params.licenseKey,
-        "Introdúcelo en la página del curso para desbloquear el contenido.",
-      ],
-      action: { label: "Ir al curso", url: siteUrl() },
-    },
-  });
-}

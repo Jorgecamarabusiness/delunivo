@@ -30,7 +30,7 @@ export function Alert({
   return (
     <div
       role="alert"
-      className={`rounded-md border px-4 py-3 text-sm ${variantStyles[variant]} ${className}`.trim()}
+      className={`min-w-0 break-words rounded-md border px-4 py-3 text-sm ${variantStyles[variant]} ${className}`.trim()}
       {...props}
     />
   );

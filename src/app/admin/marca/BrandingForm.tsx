@@ -23,14 +23,18 @@ export type CourseOption = { id: string; title: string };
 export function BrandingForm({
   organization,
   courses,
+  ownerName,
 }: {
   organization: Organization;
   courses: CourseOption[];
+  ownerName: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState(organization.name);
   const [taglineTemplate, setTaglineTemplate] = useState(
-    organization.tagline_template ?? ""
+    organization.tagline_template
+      ? organization.tagline_template.replaceAll("{admin}", ownerName)
+      : `Aprende junto a cientos de alumnos con ${ownerName}`
   );
   const [heroSubtitle, setHeroSubtitle] = useState(
     organization.hero_subtitle ?? ""
@@ -104,18 +108,13 @@ export function BrandingForm({
       <Field
         label="Titular de tu página de inicio"
         htmlFor="tagline"
-        hint={
-          <>
-            El texto grande de tu portada. Escribe {"{admin}"} donde quieras que
-            aparezca tu nombre.
-          </>
-        }
+        hint="El texto grande de tu portada. Tu nombre aparece automáticamente la primera vez; después puedes cambiarlo como quieras."
       >
         <Input
           id="tagline"
           value={taglineTemplate}
           onChange={(event) => setTaglineTemplate(event.target.value)}
-          placeholder="Aprende dropshipping orgánico junto a cientos de alumnos con {admin}"
+          placeholder={`Aprende junto a cientos de alumnos con ${ownerName}`}
         />
       </Field>
 

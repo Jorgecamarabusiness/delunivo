@@ -68,6 +68,12 @@ async function main() {
   const organizationId = course.organization_id;
 
   results.admin = await upsertTestUser("e2e-admin@playwright.test", "E2E Admin");
+  const { error: profileError } = await admin
+    .from("profiles")
+    .update({ is_super_admin: false })
+    .eq("id", results.admin.id);
+  if (profileError) throw profileError;
+
   const { error: adminMembershipError } = await admin
     .from("organization_admins")
     .upsert(

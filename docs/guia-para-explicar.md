@@ -68,15 +68,16 @@ Supabase es **PostgreSQL con extras**: base de datos + sistema de usuarios
   es de lectura pública (hace falta para pintar el portal), y si el estado de
   pago viviera ahí, cualquiera podría ver qué clientes tuyos están en números
   rojos.
-- `organization_integrations` — **la tabla más sensible**: las claves de pago de
-  cada cliente. La clave de Whop se guarda **cifrada**, nunca en claro.
+- `organization_integrations` — **la tabla más sensible**: la cuenta conectada
+  de Stripe de cada cliente. Conserva columnas históricas de Whop, integración
+  que ahora está desactivada.
 
 **Seguridad y avisos**
 - `invitations` — invitaciones. **Del token solo se guarda su hash**, nunca el
   token en sí (mismo criterio que una contraseña).
 - `verification_codes` — códigos de 6 dígitos de 30 minutos. También solo el hash.
-- `admin_emails` — los correos de prueba a los que se redirigen todos los emails
-  mientras el envío real está apagado.
+- `admin_emails` — los correos de prueba usados fuera de producción y mientras
+  producción todavía no tenga un remitente de Resend verificado.
 - `video_views` — el progreso: una fila = esa lección está completada.
 
 📄 El esquema completo, columna a columna, está en [docs/database.md](database.md).
@@ -229,8 +230,9 @@ el formulario invoca. Next se encarga del envío por debajo: **no hay que escrib
 ninguna API**. Todos los archivos `actions.ts` del proyecto son esto.
 
 **3. Route handlers** (`route.ts`). URLs de verdad, para cuando quien llama no es
-tu propia pantalla: los **webhooks** de Stripe y Whop, que son servidores
-externos avisando de que ha pasado algo. → `src/app/api/webhooks/`
+tu propia pantalla: los **webhooks** de Stripe y Mux, que son servidores
+externos avisando de que ha pasado algo. El endpoint histórico de Whop está
+desactivado y responde sin efectos. → `src/app/api/webhooks/`
 
 ### Ejemplo completo que puedes contar de memoria: iniciar sesión
 
@@ -283,12 +285,12 @@ Hay **dos tipos**, y saber la diferencia es media respuesta:
 ### Correrlos
 
 ```bash
-npm run test:unit    # 40 unit tests, instantáneo
-npm run test:e2e     # 29 tests de navegador
+npm run test:unit    # tests unitarios rápidos
+npm run test:e2e     # tests de navegador
 npm test             # los dos
 ```
 
-### Los 40 unit tests: 5 archivos, y por qué esos
+### Los unit tests y por qué existen
 
 Se prueban **funciones puras** (mismas entradas → mismas salidas, sin base de
 datos). Son las que más barato sale probar y las que más caro sale equivocarse:
@@ -296,7 +298,7 @@ datos). Son las que más barato sale probar y las que más caro sale equivocarse
 | Archivo | Qué protege |
 |---|---|
 | `src/lib/auth/safeNextPath.test.ts` | **Seguridad.** Que `?next=` no pueda mandar a otro dominio (*open redirect*) |
-| `src/lib/crypto/encryption.test.ts` | **Seguridad.** Que las claves de pago se cifren y que un texto manipulado falle en vez de colar |
+| `src/lib/email/send.test.ts` | Que desarrollo redirija correos y producción solo envíe al destinatario real con remitente configurado |
 | `src/lib/organizations/slug.test.ts` | Que el nombre de una empresa dé una dirección válida, con acentos, eñes o signos |
 | `src/lib/organizations/brandColor.test.ts` | Que el texto sobre el color de marca siempre se lea |
 | `src/lib/courses/landingRules.test.ts` | La regla de los 4 cursos de la portada y cuándo sale el botón "Cursos" |

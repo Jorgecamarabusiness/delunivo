@@ -4,7 +4,6 @@ import { stripe } from "@/lib/stripe/client";
 import { describeStripeError } from "@/lib/stripe/errors";
 import { Alert } from "@/components/ui/Alert";
 import { StripeConnectButton } from "./StripeConnectButton";
-import { WhopForm } from "./WhopForm";
 import { PLATFORM_NAME } from "@/lib/brand";
 
 const STRIPE_STATUS_LABEL: Record<string, string> = {
@@ -51,9 +50,7 @@ export default async function ConfiguracionPage({
 
   const { data: integrations } = await supabase
     .from("organization_integrations")
-    .select(
-      "stripe_account_id, stripe_connect_status, whop_product_id, whop_api_key_encrypted"
-    )
+    .select("stripe_account_id, stripe_connect_status")
     .eq("organization_id", membership.organizationId)
     .maybeSingle();
 
@@ -89,8 +86,8 @@ export default async function ConfiguracionPage({
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-bold tracking-tight">Configuración de cobros</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Conecta tu propia cuenta de Stripe y/o Whop para que el dinero de tus
-        ventas te llegue directamente a ti, no a la plataforma.
+        Conecta tu propia cuenta de Stripe para que el dinero de tus ventas te
+        llegue directamente a ti, no a la plataforma.
       </p>
 
       <div className="mt-8 rounded-lg border border-border p-6">
@@ -114,14 +111,6 @@ export default async function ConfiguracionPage({
           Ya te llevamos el país, el tipo de cuenta y tus datos rellenos, y solo
           te pedirá lo imprescindible para empezar a cobrar.
         </p>
-      </div>
-
-      <div className="mt-6 rounded-lg border border-border p-6">
-        <h2 className="text-lg font-semibold">Whop</h2>
-        <WhopForm
-          hasWhopKey={Boolean(integrations?.whop_api_key_encrypted)}
-          whopProductId={integrations?.whop_product_id ?? ""}
-        />
       </div>
     </div>
   );

@@ -20,8 +20,10 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { ContentBlock } from "@/types";
 import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { RowMenu } from "@/components/ui/RowMenu";
 import { AddContentPanel } from "@/components/lesson-blocks/AddContentPanel";
 import { BLOCK_DEFAULT_TITLES, BlockTypeIcon } from "@/components/lesson-blocks/blockMeta";
@@ -228,6 +230,7 @@ export function LessonEditorView({
   const [isMenuOpen, setMenuOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   function handleBlocksSaved(newBlocks: ContentBlock[]) {
     setBlocks(newBlocks);
@@ -305,11 +308,6 @@ export function LessonEditorView({
 
   async function handleDeleteLesson() {
     setMenuOpen(false);
-
-    const confirmed = window.confirm(
-      "¿Seguro que quieres eliminar esta lección? Esta acción no se puede deshacer."
-    );
-    if (!confirmed) return;
 
     setIsDeleting(true);
     setDeleteError(null);
@@ -392,7 +390,11 @@ export function LessonEditorView({
                 <div className="absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-md border border-border bg-background">
                   <button
                     type="button"
-                    onClick={handleDeleteLesson}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setDeleteError(null);
+                      setDeleteDialogOpen(true);
+                    }}
                     disabled={isDeleting}
                     className="block w-full px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-foreground hover:text-background disabled:opacity-50"
                   >
@@ -410,6 +412,21 @@ export function LessonEditorView({
           Error: {deleteError}
         </p>
       ) : null}
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Eliminar lección"
+        description={`Se eliminará “${lessonTitle}” y todo su contenido. Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar lección"
+        destructive
+        pending={isDeleting}
+        onClose={() => {
+          if (!isDeleting) setDeleteDialogOpen(false);
+        }}
+        onConfirm={handleDeleteLesson}
+      >
+        {deleteError ? <Alert variant="error">{deleteError}</Alert> : null}
+      </ConfirmDialog>
 
       <Card className="mt-8 p-6">
         <div className="flex items-center justify-between border-b border-border pb-4">
