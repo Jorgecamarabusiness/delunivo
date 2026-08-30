@@ -43,6 +43,22 @@ export function createSupabaseMuxWebhookRepository(): MuxWebhookRepository {
         p_error_type: transition.errorType,
         p_error_message: transition.errorMessage,
       });
+      if (
+        error &&
+        transition.videoAssetId &&
+        error.message.includes("No video asset matches the Mux event")
+      ) {
+        const { data: deletionJob } = await admin
+          .from("mux_deletion_jobs")
+          .select("id")
+          .eq("video_asset_id", transition.videoAssetId)
+          .maybeSingle();
+        if (deletionJob) {
+          // La fila local ya se borró y su limpieza está registrada. Tanto la
+          // cancelación de una subida como el borrado de un asset son idempotentes.
+          return;
+        }
+      }
       if (error) throwDatabaseError(error.message);
     },
 

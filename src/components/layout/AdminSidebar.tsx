@@ -185,8 +185,8 @@ export function AdminSidebar({
 
   return (
     <aside
-      className={`admin-sidebar sticky top-0 flex h-dvh shrink-0 self-start flex-col border-r border-border bg-background transition-[width] duration-200 ${
-        expanded ? "admin-sidebar-expanded" : ""
+      className={`sticky top-0 flex h-dvh w-16 min-w-[4rem] max-w-[4rem] shrink-0 self-start flex-col border-r border-border bg-background transition-[width] duration-200 md:min-w-0 md:max-w-none ${
+        expanded ? "md:w-64" : "md:w-16"
       }`}
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-5">

@@ -17,17 +17,12 @@ export default async function CourseCurriculumPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: course } = await supabase
-    .from("courses")
-    .select("id, title, status")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (!course) {
-    return <NotFound message="Curso no encontrado." />;
-  }
-
-  const [{ data: sectionsData }, { data: lessonsData }] = await Promise.all([
+  const [courseResult, sectionsResult, lessonsResult] = await Promise.all([
+    supabase
+      .from("courses")
+      .select("id, title, status")
+      .eq("id", id)
+      .maybeSingle(),
     supabase
       .from("sections")
       .select("id, title, order_index, status")
@@ -40,8 +35,14 @@ export default async function CourseCurriculumPage({
       .order("order_index", { ascending: true }),
   ]);
 
-  const lessons = lessonsData ?? [];
-  const sections = (sectionsData ?? []).map((section) => ({
+  const course = courseResult.data;
+
+  if (!course) {
+    return <NotFound message="Curso no encontrado." />;
+  }
+
+  const lessons = lessonsResult.data ?? [];
+  const sections = (sectionsResult.data ?? []).map((section) => ({
     id: section.id,
     title: section.title,
     status: section.status === "draft" ? "draft" as const : "published" as const,
@@ -55,7 +56,7 @@ export default async function CourseCurriculumPage({
   }));
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-12">
+    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-12">
       <CurriculumEditor
         course={{
           id: course.id,

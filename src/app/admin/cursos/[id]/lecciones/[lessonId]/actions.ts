@@ -2,10 +2,12 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOrgAdmin } from "@/lib/auth/requireOrgAdmin";
 import { validateContentBlocks } from "@/lib/lessons/contentBlocks";
+import { processMuxDeletionJobs } from "@/lib/mux/deletionJobs";
 import type { ContentBlock } from "@/types";
 
 type ActionResult = {
@@ -74,12 +76,23 @@ export async function deleteLessonAction(
   const adminCheck = await requireOrgAdmin(supabase, { courseId });
   if (adminCheck.error) return adminCheck;
 
-  const { error } = await supabase.from("lessons").delete().eq("id", lessonId);
+  const { error } = await supabase
+    .from("lessons")
+    .delete()
+    .eq("id", lessonId)
+    .eq("course_id", courseId);
 
   if (error) {
     return { error: error.message };
   }
 
   revalidatePath(`/admin/cursos/${courseId}`);
+  after(async () => {
+    try {
+      await processMuxDeletionJobs();
+    } catch (cleanupError) {
+      console.error("La limpieza inmediata de Mux quedó pendiente para reintento.", cleanupError);
+    }
+  });
   redirect(`/admin/cursos/${courseId}`);
 }

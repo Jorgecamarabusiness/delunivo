@@ -47,6 +47,9 @@ export default defineConfig({
       // correos de `admin_emails`. Los tests comprueban el estado en base de
       // datos, no que Resend entregue.
       EMAIL_DELIVERY_MODE: "off",
+      // Los tests verifican la cola en Postgres, pero nunca deben borrar
+      // recursos reales de la cuenta de Mux enlazada al entorno local.
+      MUX_DELETION_MODE: "off",
     },
   },
 });

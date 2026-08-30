@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "./Button";
+import { LoadingSpinner } from "./LoadingSpinner";
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -127,6 +128,7 @@ export function ConfirmDialog({
             disabled={pending}
             className="w-full sm:w-auto"
           >
+            {pending ? <LoadingSpinner /> : null}
             {pending ? "Procesando…" : confirmLabel}
           </Button>
         </div>

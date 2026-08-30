@@ -70,3 +70,42 @@ test("el aula de un curso no se puede renderizar bajo la marca de otra organizac
   await expect(page.getByText("Curso no encontrado.")).toBeVisible();
   await expect(page.locator("body")).not.toContainText(courseTitle);
 });
+
+test("la base de datos rechaza asociar una lección a un capítulo de otro curso", async () => {
+  const admin = adminClient();
+  const { data: courseB, error: courseError } = await admin
+    .from("courses")
+    .insert({
+      organization_id: orgB.orgId,
+      title: "Curso temporal de Org B",
+      price: 0,
+      status: "draft",
+      description: "",
+      learning_points: [],
+    })
+    .select("id")
+    .single();
+  if (courseError || !courseB) {
+    throw courseError ?? new Error("No se pudo crear el curso B.");
+  }
+
+  const { data: sectionB, error: sectionError } = await admin
+    .from("sections")
+    .insert({ course_id: courseB.id, title: "Capítulo de Org B", order_index: 0 })
+    .select("id")
+    .single();
+  if (sectionError || !sectionB) {
+    throw sectionError ?? new Error("No se pudo crear el capítulo B.");
+  }
+
+  const mismatch = await admin.from("lessons").insert({
+    section_id: sectionB.id,
+    course_id: courseId,
+    title: "Lección cruzada",
+    order_index: 0,
+    blocks: [],
+  });
+
+  expect(mismatch.error?.code).toBe("23503");
+  await admin.from("courses").delete().eq("id", courseB.id);
+});

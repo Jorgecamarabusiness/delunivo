@@ -309,6 +309,13 @@ RLS: cada alumno ve, inserta y borra **solo sus propias filas** (`user_id = auth
   caducidad que ninguna consulta utiliza. La migración
   `20260830214141_limit_platform_settings_public_columns.sql` oculta además las
   columnas de auditoría a clientes públicos.
+- **2026-08-31** — borrado seguro de cursos: `purchases.course_id` cambia de
+  `ON DELETE CASCADE` a `ON DELETE RESTRICT`, por lo que ni una carrera ni una
+  llamada directa pueden borrar el historial de compras. La FK compuesta
+  `lessons(section_id, course_id)` impide asociar una lección a un capítulo de
+  otro curso u organización. `mux_deletion_jobs`, su trigger sobre
+  `video_assets` y la RPC privada `claim_mux_deletion_jobs` forman una cola
+  persistente para limpiar Mux al borrar cursos, capítulos o lecciones.
 - **2026-08-30** — integridad de acceso y facturación: la migración
   `20260830214830_enforce_platform_access_and_billing_integrity.sql` lleva el
   bloqueo comercial a RLS y RPC, restringe las columnas internas de
@@ -411,6 +418,9 @@ muestra el catálogo. Las lecturas privadas del panel usan
   `NEXT_PUBLIC_`. La migración de producción `20260830185317` crea
   `video_assets`, `mux_webhook_events` y RPC exclusivas de `service_role`; las
   tablas tienen RLS activa y no conceden acceso a `anon` ni `authenticated`.
+  Los borrados se registran antes de eliminar `video_assets` en
+  `mux_deletion_jobs`; la aplicación los procesa de inmediato y un cron diario
+  protegido por `CRON_SECRET` reintenta los fallos con espera exponencial.
 
 ## Despliegue y dominio
 

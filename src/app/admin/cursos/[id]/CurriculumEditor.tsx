@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, type KeyboardEvent } from "react";
 import {
   DndContext,
@@ -20,6 +19,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 import { RowMenu } from "@/components/ui/RowMenu";
 import type { CourseStatus } from "@/types";
 import { updateLessonTitleAction } from "./lecciones/[lessonId]/actions";
@@ -70,13 +71,16 @@ function StatusToggle({
       type="button"
       onClick={onToggle}
       disabled={disabled}
-      className={`inline-flex shrink-0 items-center rounded-full px-3 py-1 text-xs font-semibold transition-colors disabled:opacity-50 ${
+      aria-pressed={status === "published"}
+      aria-busy={disabled}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors disabled:opacity-50 ${
         status === "published"
           ? "bg-accent text-accent-foreground hover:bg-accent/90"
           : "border border-border text-muted-foreground hover:bg-muted"
       }`}
     >
-      {status === "published" ? "Publicado" : "Borrador"}
+      {disabled ? <LoadingSpinner className="h-3 w-3" /> : null}
+      {disabled ? "Guardando…" : status === "published" ? "Publicado" : "Borrador"}
     </button>
   );
 }
@@ -109,6 +113,7 @@ function LessonRow({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -117,10 +122,14 @@ function LessonRow({
     const nextStatus: CourseStatus =
       lesson.status === "published" ? "draft" : "published";
     setIsTogglingStatus(true);
+    setStatusError(null);
     const result = await updateLessonStatusAction(lesson.id, nextStatus);
     setIsTogglingStatus(false);
 
-    if (result.error) return;
+    if (result.error) {
+      setStatusError(result.error);
+      return;
+    }
     onStatusSaved(sectionId, lesson.id, nextStatus);
   }
 
@@ -175,7 +184,7 @@ function LessonRow({
       <div
         ref={setNodeRef}
         style={style}
-        className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
+        className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
       >
       <button
         type="button"
@@ -187,7 +196,7 @@ function LessonRow({
         ⠿
       </button>
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-[calc(100%-3rem)] sm:basis-auto">
         {isEditingTitle ? (
           <input
             autoFocus
@@ -198,12 +207,14 @@ function LessonRow({
             className="w-full border-b border-foreground bg-transparent text-sm font-medium outline-none"
           />
         ) : (
-          <span
+          <button
+            type="button"
             onClick={() => setIsEditingTitle(true)}
-            className="-mx-1 cursor-text truncate rounded px-1 text-sm font-medium transition-colors hover:bg-muted"
+            aria-label={`Editar título de ${lesson.title}`}
+            className="-mx-1 block max-w-full cursor-text truncate rounded px-1 text-left text-sm font-medium transition-colors hover:bg-muted"
           >
             {lesson.title}
-          </span>
+          </button>
         )}
         {titleError ? (
           <p className="mt-1 text-xs font-medium text-muted-foreground">
@@ -215,23 +226,30 @@ function LessonRow({
             Error: {deleteError}
           </p>
         ) : null}
+        {statusError ? (
+          <p role="alert" className="mt-1 text-xs font-medium text-red-700">
+            Error: {statusError}
+          </p>
+        ) : null}
       </div>
 
-      <StatusToggle
-        status={lesson.status}
-        onToggle={toggleStatus}
-        disabled={isTogglingStatus}
-      />
+      <div className="ml-auto flex items-center gap-2">
+        <StatusToggle
+          status={lesson.status}
+          onToggle={toggleStatus}
+          disabled={isTogglingStatus}
+        />
 
-      <RowMenu
-        editHref={`/admin/cursos/${courseId}/lecciones/${lesson.id}`}
-        editLabel="Editar contenido"
-        onDelete={() => {
-          setDeleteError(null);
-          setDeleteDialogOpen(true);
-        }}
-        isDeleting={isDeleting}
-      />
+        <RowMenu
+          editHref={`/admin/cursos/${courseId}/lecciones/${lesson.id}`}
+          editLabel="Editar contenido"
+          onDelete={() => {
+            setDeleteError(null);
+            setDeleteDialogOpen(true);
+          }}
+          isDeleting={isDeleting}
+        />
+      </div>
       </div>
       <ConfirmDialog
         open={deleteDialogOpen}
@@ -290,6 +308,7 @@ function SectionRow({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleError, setTitleError] = useState<string | null>(null);
   const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -302,10 +321,14 @@ function SectionRow({
     const nextStatus: CourseStatus =
       section.status === "published" ? "draft" : "published";
     setIsTogglingStatus(true);
+    setStatusError(null);
     const result = await updateSectionStatusAction(section.id, nextStatus);
     setIsTogglingStatus(false);
 
-    if (result.error) return;
+    if (result.error) {
+      setStatusError(result.error);
+      return;
+    }
     onStatusSaved(section.id, nextStatus);
   }
 
@@ -362,7 +385,7 @@ function SectionRow({
         style={style}
         className="overflow-hidden rounded-lg border border-border bg-background"
       >
-      <div className="flex items-center gap-3 px-4 py-4">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-4">
         <button
           type="button"
           {...attributes}
@@ -383,7 +406,7 @@ function SectionRow({
           ▾
         </button>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-[calc(100%-5rem)] sm:basis-auto">
           {isEditingTitle ? (
             <input
               autoFocus
@@ -394,12 +417,14 @@ function SectionRow({
               className="w-full border-b border-foreground bg-transparent font-semibold outline-none"
             />
           ) : (
-            <span
+            <button
+              type="button"
               onClick={() => setIsEditingTitle(true)}
-              className="-mx-1 cursor-text truncate rounded px-1 font-semibold transition-colors hover:bg-muted"
+              aria-label={`Editar título de ${section.title}`}
+              className="-mx-1 block max-w-full cursor-text truncate rounded px-1 text-left font-semibold transition-colors hover:bg-muted"
             >
               {section.title}
-            </span>
+            </button>
           )}
           {titleError ? (
             <p className="mt-1 text-xs font-medium text-muted-foreground">
@@ -411,21 +436,28 @@ function SectionRow({
               Error: {deleteError}
             </p>
           ) : null}
+          {statusError ? (
+            <p role="alert" className="mt-1 text-xs font-medium text-red-700">
+              Error: {statusError}
+            </p>
+          ) : null}
         </div>
 
-        <StatusToggle
-          status={section.status}
-          onToggle={toggleStatus}
-          disabled={isTogglingStatus}
-        />
+        <div className="ml-auto flex items-center gap-2">
+          <StatusToggle
+            status={section.status}
+            onToggle={toggleStatus}
+            disabled={isTogglingStatus}
+          />
 
-        <RowMenu
-          onDelete={() => {
-            setDeleteError(null);
-            setDeleteDialogOpen(true);
-          }}
-          isDeleting={isDeleting}
-        />
+          <RowMenu
+            onDelete={() => {
+              setDeleteError(null);
+              setDeleteDialogOpen(true);
+            }}
+            isDeleting={isDeleting}
+          />
+        </div>
       </div>
 
       {section.status === "draft" ? (
@@ -471,9 +503,13 @@ function SectionRow({
             action={createLessonAction.bind(null, section.id, courseId)}
             className="border-t border-border px-6 py-3"
           >
-            <Button type="submit" variant="outline" size="sm">
+            <SubmitButton
+              pendingLabel="Creando lección…"
+              variant="outline"
+              size="sm"
+            >
               + Nueva lección
-            </Button>
+            </SubmitButton>
           </form>
         </div>
       )}
@@ -503,8 +539,6 @@ export function CurriculumEditor({
   course: CourseSummary;
   sections: SectionSummary[];
 }) {
-  const router = useRouter();
-
   const [courseTitle, setCourseTitle] = useState(course.title);
   const [courseTitleDraft, setCourseTitleDraft] = useState(course.title);
   const [isEditingCourseTitle, setIsEditingCourseTitle] = useState(false);
@@ -567,7 +601,6 @@ export function CurriculumEditor({
     }
 
     setStatus(nextStatus);
-    router.refresh();
   }
 
   async function handleAddSection() {
@@ -700,7 +733,7 @@ export function CurriculumEditor({
 
   return (
     <>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           {isEditingCourseTitle ? (
             <input
@@ -712,11 +745,15 @@ export function CurriculumEditor({
               className="w-full border-b-2 border-foreground bg-transparent text-2xl font-bold tracking-tight outline-none"
             />
           ) : (
-            <h1
-              onClick={() => setIsEditingCourseTitle(true)}
-              className="-mx-1 cursor-text truncate rounded px-1 text-2xl font-bold tracking-tight transition-colors hover:bg-muted"
-            >
-              {courseTitle}
+            <h1 className="min-w-0 text-2xl font-bold tracking-tight">
+              <button
+                type="button"
+                onClick={() => setIsEditingCourseTitle(true)}
+                aria-label={`Editar título de ${courseTitle}`}
+                className="-mx-1 block max-w-full cursor-text truncate rounded px-1 text-left transition-colors hover:bg-muted"
+              >
+                {courseTitle}
+              </button>
             </h1>
           )}
           {courseTitleError ? (
@@ -726,23 +763,33 @@ export function CurriculumEditor({
           ) : null}
         </div>
 
-        <button
+        <Button
           type="button"
           onClick={toggleStatus}
           disabled={isTogglingStatus}
-          className={`inline-flex shrink-0 items-center rounded-full px-3 py-1 text-xs font-semibold transition-colors disabled:opacity-50 ${
-            status === "published"
-              ? "bg-accent text-accent-foreground hover:bg-accent/90"
-              : "border border-border text-muted-foreground hover:bg-muted"
-          }`}
+          variant={status === "published" ? "primary" : "outline"}
+          size="sm"
+          className="w-full sm:w-auto"
+          aria-pressed={status === "published"}
+          aria-busy={isTogglingStatus}
         >
-          {status === "published" ? "Publicado" : "Borrador"}
-        </button>
+          {isTogglingStatus ? <LoadingSpinner /> : null}
+          {isTogglingStatus
+            ? "Guardando…"
+            : status === "published"
+              ? "Público · hacer privado"
+              : "Privado · hacer público"}
+        </Button>
       </div>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {status === "published"
+          ? "El curso está visible en la tienda de tu empresa."
+          : "El curso solo es visible para administradores."}
+      </p>
       {statusError ? (
-        <p className="mt-1 text-xs font-medium text-muted-foreground">
-          Error: {statusError}
-        </p>
+        <Alert variant="error" className="mt-2">
+          {statusError}
+        </Alert>
       ) : null}
 
       <div className="mt-8 flex flex-col gap-4">

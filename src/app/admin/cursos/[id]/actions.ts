@@ -2,8 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrgAdmin } from "@/lib/auth/requireOrgAdmin";
+import { processMuxDeletionJobs } from "@/lib/mux/deletionJobs";
 
 type ActionResult = {
   error: string | null;
@@ -20,6 +22,16 @@ export async function createLessonAction(
   const adminCheck = await requireOrgAdmin(supabase, { courseId });
   if (adminCheck.error) {
     throw new Error(adminCheck.error);
+  }
+
+  const { data: section } = await supabase
+    .from("sections")
+    .select("id")
+    .eq("id", sectionId)
+    .eq("course_id", courseId)
+    .maybeSingle();
+  if (!section) {
+    throw new Error("El capítulo no pertenece a este curso.");
   }
 
   const { count } = await supabase
@@ -135,7 +147,9 @@ export async function updateCourseStatusAction(
   }
 
   revalidatePath(`/admin/cursos/${courseId}`);
+  revalidatePath("/admin/cursos");
   revalidatePath("/cursos");
+  revalidatePath("/o", "layout");
   return { error: null };
 }
 
@@ -220,16 +234,11 @@ export async function deleteSectionAction(
   const adminCheck = await requireOrgAdmin(supabase, { courseId });
   if (adminCheck.error) return adminCheck;
 
-  const { error: lessonsError } = await supabase
-    .from("lessons")
+  const { error } = await supabase
+    .from("sections")
     .delete()
-    .eq("section_id", sectionId);
-
-  if (lessonsError) {
-    return { error: lessonsError.message };
-  }
-
-  const { error } = await supabase.from("sections").delete().eq("id", sectionId);
+    .eq("id", sectionId)
+    .eq("course_id", courseId);
 
   if (error) {
     return { error: error.message };
@@ -237,6 +246,13 @@ export async function deleteSectionAction(
 
   revalidatePath(`/admin/cursos/${courseId}`);
   revalidatePath(`/cursos/${courseId}/aprender`);
+  after(async () => {
+    try {
+      await processMuxDeletionJobs();
+    } catch (cleanupError) {
+      console.error("La limpieza inmediata de Mux quedó pendiente para reintento.", cleanupError);
+    }
+  });
   return { error: null };
 }
 
@@ -248,7 +264,11 @@ export async function deleteLessonAction(
   const adminCheck = await requireOrgAdmin(supabase, { courseId });
   if (adminCheck.error) return adminCheck;
 
-  const { error } = await supabase.from("lessons").delete().eq("id", lessonId);
+  const { error } = await supabase
+    .from("lessons")
+    .delete()
+    .eq("id", lessonId)
+    .eq("course_id", courseId);
 
   if (error) {
     return { error: error.message };
@@ -256,6 +276,13 @@ export async function deleteLessonAction(
 
   revalidatePath(`/admin/cursos/${courseId}`);
   revalidatePath(`/cursos/${courseId}/aprender`);
+  after(async () => {
+    try {
+      await processMuxDeletionJobs();
+    } catch (cleanupError) {
+      console.error("La limpieza inmediata de Mux quedó pendiente para reintento.", cleanupError);
+    }
+  });
   return { error: null };
 }
 

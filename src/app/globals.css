@@ -42,16 +42,6 @@ body {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
-.admin-sidebar {
-  width: 4rem;
-}
-
-@media (min-width: 768px) {
-  .admin-sidebar-expanded {
-    width: 16rem;
-  }
-}
-
 a[href],
 button:not(:disabled),
 select:not(:disabled),

@@ -22,17 +22,15 @@ export async function getCurrentOrgMembership(
 
   if (!data?.length) return null;
 
-  let selected = data[0];
-  for (const membership of data) {
-    const { data: hasPlatformAccess } = await supabase.rpc(
-      "has_org_platform_access",
-      { org_id: membership.organization_id }
-    );
-    if (hasPlatformAccess) {
-      selected = membership;
-      break;
-    }
-  }
+  const accessResults = await Promise.all(
+    data.map((membership) =>
+      supabase.rpc("has_org_platform_access", {
+        org_id: membership.organization_id,
+      })
+    )
+  );
+  const accessibleIndex = accessResults.findIndex((result) => result.data === true);
+  const selected = data[accessibleIndex >= 0 ? accessibleIndex : 0];
 
   return {
     organizationId: selected.organization_id,
