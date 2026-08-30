@@ -3,6 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Container } from "@/components/ui/Container";
 import { buttonClassName } from "@/components/ui/Button";
+import { PLATFORM_DESCRIPTION, PLATFORM_NAME } from "@/lib/brand";
 
 const FEATURES = [
   {
@@ -11,7 +12,7 @@ const FEATURES = [
   },
   {
     title: "Cobra tú directamente",
-    body: "Conecta tu propia cuenta de Stripe y el dinero de cada venta te llega a ti. Aularia no toca tus cobros ni se queda comisión por venta.",
+    body: `Conecta tu propia cuenta de Stripe y el dinero de cada venta te llega a ti. ${PLATFORM_NAME} no toca tus cobros ni se queda comisión por venta.`,
   },
   {
     title: "Vídeo protegido",
@@ -35,11 +36,11 @@ const STEPS = [
 ];
 
 /**
- * Dominio raíz (sin /o/<slug>): la web de Aularia como producto. El formulario
+ * Dominio raíz (sin /o/<slug>): la web de Delunivo como producto. El formulario
  * de alta vive en /crear-empresa para que esta página pueda ser una landing de
  * verdad y no un formulario suelto.
  */
-export function AulariaLanding() {
+export function DelunivoLanding() {
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">
       <Header />
@@ -52,12 +53,12 @@ export function AulariaLanding() {
             </p>
 
             <h1 className="mx-auto mt-4 max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-6xl">
-              Empieza a vender tus cursos con Aularia
+              {PLATFORM_DESCRIPTION}
             </h1>
 
             <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground sm:text-lg">
-              Monta tu propia academia con tu marca, sube tus cursos y cobra a
-              tus alumnos. Sin comisiones por venta y sin saber programar.
+              Con {PLATFORM_NAME} puedes montar tu academia con tu marca, subir
+              tus cursos y cobrar a tus alumnos sin comisiones por venta.
             </p>
 
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">

@@ -20,12 +20,12 @@ test.afterAll(async () => {
   await Promise.all([destroyTestOrg(orgA), destroyTestOrg(orgB)]);
 });
 
-test("el dominio raíz sin prefijo es la landing de Aularia, sin branding de ningún cliente", async ({
+test("el dominio raíz sin prefijo es la landing de Delunivo, sin branding de ningún cliente", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /Empieza a vender tus cursos con Aularia/i })
+    page.getByRole("heading", { name: /Crea, vende y comparte conocimiento/i })
   ).toBeVisible();
   // El alta de empresa vive en /crear-empresa; la portada solo la enlaza.
   await expect(page.getByRole("link", { name: "Crear mi empresa" }).first()).toBeVisible();
@@ -54,7 +54,7 @@ test("un slug de organización inexistente cae a la landing genérica, no rompe 
   const response = await page.goto("/o/no-existe-" + Date.now() + "/");
   expect(response?.status()).toBeLessThan(500);
   await expect(
-    page.getByRole("heading", { name: /Empieza a vender tus cursos con Aularia/i })
+    page.getByRole("heading", { name: /Crea, vende y comparte conocimiento/i })
   ).toBeVisible();
 });
 
@@ -64,11 +64,11 @@ test("ningún Host se interpreta como subdominio de cliente: la empresa solo sal
 }) => {
   // src/proxy.ts ya no mira el Host para nada — la empresa se resuelve solo por
   // /o/<slug>. Esto lo fija: da igual qué Host llegue, el dominio raíz siempre
-  // enseña la landing de Aularia y nunca el portal de un cliente.
+  // enseña la landing de Delunivo y nunca el portal de un cliente.
   for (const host of ["aularia.vercel.app", "escuela-alfa.aularia.app", host_of(orgA)]) {
     const response = await request.get(baseURL + "/", { headers: { host } });
     expect(response.status()).toBeLessThan(500);
-    expect(await response.text()).toContain("Empieza a vender tus cursos con Aularia");
+    expect(await response.text()).toContain("Crea, vende y comparte conocimiento");
   }
 });
 

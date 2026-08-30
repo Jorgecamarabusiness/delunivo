@@ -1,4 +1,4 @@
-# Guía para explicar Aularia
+# Guía para explicar Delunivo
 
 Documento de estudio. Cada sección responde a una pregunta que te pueden hacer,
 con el archivo concreto donde está la respuesta por si te piden enseñarlo.
@@ -7,7 +7,7 @@ con el archivo concreto donde está la respuesta por si te piden enseñarlo.
 
 ## 0. La frase de arranque
 
-> Aularia es una plataforma SaaS multi-tenant de cursos online. Un solo programa
+> Delunivo es una plataforma SaaS multi-tenant de cursos online. Un solo programa
 > y una sola base de datos sirven a varias empresas de clientes, cada una con su
 > portal, su marca, sus cursos y sus alumnos, sin que ninguna pueda ver los datos
 > de otra.

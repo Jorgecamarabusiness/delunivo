@@ -140,7 +140,7 @@ export async function saveWhopCredentialsAction(
     return {
       error:
         "Falta configurar ENCRYPTION_KEY en el servidor, así que no se puede " +
-        "guardar la clave de forma segura. Avisa al administrador de Aularia.",
+        "guardar la clave de forma segura. Avisa al administrador de Delunivo.",
     };
   }
 

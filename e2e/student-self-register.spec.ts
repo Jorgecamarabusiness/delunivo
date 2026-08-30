@@ -18,11 +18,11 @@ test.afterAll(async () => {
   await destroyTestOrg(org);
 });
 
-test("/register en el dominio raíz redirige a la landing de Aularia", async ({ page }) => {
+test("/register en el dominio raíz redirige a la landing de Delunivo", async ({ page }) => {
   await page.goto("/register");
   await expect(page).toHaveURL("/");
   await expect(
-    page.getByRole("heading", { name: /Empieza a vender tus cursos con Aularia/i })
+    page.getByRole("heading", { name: /Crea, vende y comparte conocimiento/i })
   ).toBeVisible();
 });
 

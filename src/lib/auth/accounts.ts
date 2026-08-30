@@ -27,7 +27,7 @@ export async function findUserByEmail(
 
 /**
  * Crea la cuenta con el correo SIN confirmar y sin que Supabase mande ningún
- * email: la verificación la hace Aularia con su propio código (ver
+ * email: la verificación la hace Delunivo con su propio código (ver
  * verificationCodes.ts) y Resend.
  *
  * Se usa `admin.createUser` en vez de `signUp()` a propósito. Con la

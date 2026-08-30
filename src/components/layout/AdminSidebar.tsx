@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { PLATFORM_NAME } from "@/lib/brand";
 
 function UsersIcon({ className }: { className?: string }) {
   return (
@@ -195,17 +196,26 @@ export function AdminSidebar({ adminName, isSuperAdmin }: AdminSidebarProps) {
   return (
     <aside
       className={`flex shrink-0 flex-col border-r border-border bg-background transition-[width] duration-200 ${
-        expanded ? "w-64" : "w-16"
+        expanded ? "w-16 sm:w-64" : "w-16"
       }`}
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-5">
-        {expanded && (
-          <p className="truncate text-sm font-semibold">Bienvenido {adminName}</p>
-        )}
+        <div
+          aria-label={PLATFORM_NAME}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-foreground sm:hidden"
+        >
+          D
+        </div>
+        {expanded ? (
+          <div className="hidden min-w-0 sm:block">
+            <p className="truncate text-base font-bold tracking-tight">{PLATFORM_NAME}</p>
+            <p className="truncate text-xs text-muted-foreground">Bienvenido {adminName}</p>
+          </div>
+        ) : null}
         <button
           type="button"
           onClick={() => setExpanded((value) => !value)}
-          className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted"
+          className="ml-auto hidden h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted sm:flex"
           aria-label={expanded ? "Contraer menú" : "Expandir menú"}
         >
           <ChevronIcon
@@ -221,13 +231,15 @@ export function AdminSidebar({ adminName, isSuperAdmin }: AdminSidebarProps) {
             <Link
               key={href}
               href={href}
+              aria-label={label}
+              aria-current={active ? "page" : undefined}
               title={expanded ? undefined : label}
-              className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
                 active ? "bg-foreground text-background" : "hover:bg-muted"
               }`}
             >
               <Icon className="h-5 w-5 shrink-0" />
-              {expanded && <span className="truncate">{label}</span>}
+              {expanded ? <span className="hidden truncate sm:inline">{label}</span> : null}
             </Link>
           );
         })}
@@ -236,11 +248,12 @@ export function AdminSidebar({ adminName, isSuperAdmin }: AdminSidebarProps) {
       <div className="border-t border-border px-2 py-4">
         <Link
           href="/"
+          aria-label="Volver al inicio"
           title={expanded ? undefined : "Volver al inicio"}
           className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <ArrowLeftIcon className="h-5 w-5 shrink-0" />
-          {expanded && <span className="truncate">Volver al inicio</span>}
+          {expanded ? <span className="hidden truncate sm:inline">Volver al inicio</span> : null}
         </Link>
       </div>
     </aside>

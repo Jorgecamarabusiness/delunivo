@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
 import { Alert } from "@/components/ui/Alert";
 import { BillingActions } from "./BillingActions";
+import { PLATFORM_NAME } from "@/lib/brand";
 
 const STATUS_LABEL: Record<string, string> = {
   trialing: "En periodo de prueba",
@@ -66,7 +67,7 @@ export default async function FacturacionPage({
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-bold tracking-tight">Facturación</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Tu suscripción a Aularia — 20€/mes.
+        Tu suscripción a {PLATFORM_NAME} — 20€/mes.
       </p>
 
       {checkout === "success" && (

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
 import { readableTextColor } from "@/lib/organizations/brandColor";
+import { PLATFORM_DESCRIPTION, PLATFORM_NAME } from "@/lib/brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,14 +20,27 @@ export async function generateMetadata(): Promise<Metadata> {
 
   if (!organization) {
     return {
-      title: "Aularia — crea y vende tus cursos online",
-      description:
-        "Monta tu escuela online con tu propia marca, sube tus cursos y cobra a tus alumnos. 20€/mes.",
+      applicationName: PLATFORM_NAME,
+      title: PLATFORM_NAME,
+      description: PLATFORM_DESCRIPTION,
+      openGraph: {
+        type: "website",
+        locale: "es_ES",
+        siteName: PLATFORM_NAME,
+        title: PLATFORM_NAME,
+        description: PLATFORM_DESCRIPTION,
+      },
+      twitter: {
+        card: "summary",
+        title: PLATFORM_NAME,
+        description: PLATFORM_DESCRIPTION,
+      },
     };
   }
 
   return {
-    title: organization.name,
+    applicationName: PLATFORM_NAME,
+    title: `${organization.name} — ${PLATFORM_NAME}`,
     description: `Cursos online de ${organization.name}.`,
   };
 }

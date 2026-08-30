@@ -18,7 +18,7 @@ export type CurrentOrganization = {
  * Empresa cuyo portal se está viendo, resuelta por la ruta `/o/<slug>` (header
  * `x-org-slug` que inyecta src/proxy.ts). Sin slug — dominio raíz, o rutas
  * globales como /admin — devuelve null: el dominio raíz es la landing de
- * Aularia, no la tienda de ningún cliente.
+ * Delunivo, no la tienda de ningún cliente.
  *
  * Memoizado por request con cache() de React: layout raíz, Header, Footer y la
  * página lo llaman por su cuenta sin repetir las queries.

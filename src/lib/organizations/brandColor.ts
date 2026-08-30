@@ -3,7 +3,7 @@
  *
  * Sin esto, una empresa que eligiera un color claro (amarillo, lima…) se
  * quedaría con botones de texto blanco sobre fondo claro, ilegibles — y
- * parecería un bug de Aularia, no una mala elección de color.
+ * parecería un bug de Delunivo, no una mala elección de color.
  *
  * Usa la luminancia relativa de la WCAG; el umbral 0.5 es el habitual para
  * decidir entre texto claro y oscuro.

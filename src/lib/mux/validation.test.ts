@@ -18,21 +18,21 @@ describe("Mux upload validation", () => {
       resolveAllowedUploadOrigin(
         "https://preview.example.com/api/admin/mux/uploads",
         "https://preview.example.com",
-        "https://aularia.example"
+        "https://delunivo.example"
       ),
       "https://preview.example.com"
     );
     assert.equal(
       resolveAllowedUploadOrigin(
         "https://internal.vercel.app/api/admin/mux/uploads",
-        "https://aularia.example",
-        "https://aularia.example"
+        "https://delunivo.example",
+        "https://delunivo.example"
       ),
-      "https://aularia.example"
+      "https://delunivo.example"
     );
     assert.equal(
       resolveAllowedUploadOrigin(
-        "https://aularia.example/api/admin/mux/uploads",
+        "https://delunivo.example/api/admin/mux/uploads",
         "https://evil.example"
       ),
       null

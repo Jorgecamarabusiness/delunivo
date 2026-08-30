@@ -11,7 +11,7 @@ export default async function CursosPage() {
   const organization = await getCurrentOrganization();
 
   // Sin empresa resuelta (dominio raíz) no hay catálogo que enseñar: ahí lo que
-  // hay es la web de Aularia.
+  // hay es la web de Delunivo.
   if (!organization) {
     redirect("/");
   }

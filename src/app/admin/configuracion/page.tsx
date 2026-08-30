@@ -5,6 +5,7 @@ import { describeStripeError } from "@/lib/stripe/errors";
 import { Alert } from "@/components/ui/Alert";
 import { StripeConnectButton } from "./StripeConnectButton";
 import { WhopForm } from "./WhopForm";
+import { PLATFORM_NAME } from "@/lib/brand";
 
 const STRIPE_STATUS_LABEL: Record<string, string> = {
   connected: "Conectado ✓",
@@ -109,7 +110,7 @@ export default async function ConfiguracionPage({
 
         <p className="mt-4 text-xs text-muted-foreground">
           Stripe te pedirá tu documento de identidad y una cuenta bancaria: es
-          un requisito legal para poder recibir dinero, no lo decide Aularia.
+          un requisito legal para poder recibir dinero, no lo decide {PLATFORM_NAME}.
           Ya te llevamos el país, el tipo de cuenta y tus datos rellenos, y solo
           te pedirá lo imprescindible para empezar a cobrar.
         </p>

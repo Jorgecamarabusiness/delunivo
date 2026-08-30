@@ -4,6 +4,7 @@ import { listAdminEmails } from "@/lib/email/adminEmails";
 import { Alert } from "@/components/ui/Alert";
 import { AddAdminEmailForm } from "./AddAdminEmailForm";
 import { AdminEmailRow } from "./AdminEmailRow";
+import { PLATFORM_NAME } from "@/lib/brand";
 
 export default async function AdminEmailsPage() {
   const supabase = await createClient();
@@ -28,7 +29,7 @@ export default async function AdminEmailsPage() {
       <h1 className="text-2xl font-bold tracking-tight">Correos de prueba</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Mientras el envío real esté desactivado, <strong>todos</strong> los
-        correos de Aularia (verificación, recuperación de contraseña,
+        correos de {PLATFORM_NAME} (verificación, recuperación de contraseña,
         invitaciones, licencias) se envían a las direcciones activas de esta
         lista en vez de a su destinatario real. El destinatario original aparece
         en el asunto.

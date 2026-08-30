@@ -8,7 +8,7 @@
   --muted-foreground: #71717a;
 
   /* Color de marca de cada empresa. El layout raíz lo sobreescribe en <html>
-     con organizations.primary_color; este es el verde de Aularia por defecto. */
+     con organizations.primary_color; este es el verde de Delunivo por defecto. */
   --accent: #16a34a;
   --accent-foreground: #ffffff;
 }

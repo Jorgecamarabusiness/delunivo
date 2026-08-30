@@ -12,7 +12,7 @@ const INITIAL: ResetPasswordState = { error: null };
 /**
  * Ya no depende de ninguna sesión de recuperación en el fragmento (#) de la
  * URL: el usuario llega aquí con su correo y escribe el código de 6 dígitos que
- * le ha enviado Aularia por Resend.
+ * le ha enviado Delunivo por Resend.
  */
 export function ResetPasswordForm({ email }: { email: string }) {
   const [state, formAction, pending] = useActionState(

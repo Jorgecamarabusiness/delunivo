@@ -8,6 +8,7 @@ import {
   getPublishedCourses,
   shouldShowCoursesNav,
 } from "@/lib/courses/publicCourses";
+import { PLATFORM_NAME } from "@/lib/brand";
 
 export async function Header() {
   const supabase = await createClient();
@@ -49,7 +50,7 @@ export async function Header() {
     showCoursesNav = shouldShowCoursesNav(courses.length);
   }
 
-  const brandName = organization?.name ?? "Aularia";
+  const brandName = organization?.name ?? PLATFORM_NAME;
 
   return (
     <header className="border-b border-border">

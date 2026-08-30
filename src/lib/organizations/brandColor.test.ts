@@ -8,7 +8,7 @@ const BLANCO = "#ffffff";
 /**
  * Cada empresa elige su color de marca y ese color va de fondo en los botones.
  * Si el texto de encima fuera siempre blanco, una empresa que eligiera amarillo
- * tendría botones ilegibles — y parecería un fallo de Aularia, no una mala
+ * tendría botones ilegibles — y parecería un fallo de Delunivo, no una mala
  * elección de color suya.
  */
 describe("readableTextColor — texto legible sobre el color de marca", () => {
@@ -22,7 +22,7 @@ describe("readableTextColor — texto legible sobre el color de marca", () => {
     assert.equal(readableTextColor("#ffffff"), NEGRO);
   });
 
-  test("el verde de Aularia lleva texto blanco", () => {
+  test("el verde de Delunivo lleva texto blanco", () => {
     assert.equal(readableTextColor("#16a34a"), BLANCO);
   });
 

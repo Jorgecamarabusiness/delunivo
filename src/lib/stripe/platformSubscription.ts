@@ -1,10 +1,11 @@
 import { stripe } from "./client";
+import { PLATFORM_NAME } from "@/lib/brand";
 
 const PLATFORM_SUBSCRIPTION_PRICE_CENTS = 2000; // 20€/mes
 
 /**
  * Checkout de la suscripción de PLATAFORMA (20€/mes que cada organización le
- * paga a Aularia) — siempre en la cuenta principal de Stripe, nunca en una
+ * paga a Delunivo) — siempre en la cuenta principal de Stripe, nunca en una
  * cuenta conectada. Compartido entre el alta de empresa (index) y
  * /admin/facturacion (reactivar tras un pago fallido/cancelado).
  */
@@ -21,7 +22,7 @@ export async function createPlatformSubscriptionCheckoutUrl(
       {
         price_data: {
           currency: "eur",
-          product_data: { name: "Suscripción Aularia" },
+          product_data: { name: `Suscripción ${PLATFORM_NAME}` },
           unit_amount: PLATFORM_SUBSCRIPTION_PRICE_CENTS,
           recurring: { interval: "month" },
         },

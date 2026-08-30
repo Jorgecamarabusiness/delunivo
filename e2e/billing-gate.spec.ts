@@ -45,7 +45,7 @@ test("'past_due' muestra un aviso pero no bloquea el panel", async ({ page }) =>
 
   await page.goto("/admin");
   await expect(page.getByText("Cuenta suspendida")).toHaveCount(0);
-  await expect(page.getByText("Hay un problema con tu último pago a Aularia.")).toBeVisible();
+  await expect(page.getByText("Hay un problema con tu último pago a Delunivo.")).toBeVisible();
 
   await page.goto("/admin/facturacion");
   await expect(page.getByText("Pago pendiente")).toBeVisible();

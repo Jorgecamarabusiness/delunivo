@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { getActiveAdminEmails } from "./adminEmails";
 import { renderEmail, renderRedirectNotice, type EmailContent } from "./layout";
+import { PLATFORM_NAME } from "@/lib/brand";
 
 export type SendEmailResult = { error: string | null };
 
@@ -32,7 +33,7 @@ function fromAddress(): string {
   // onboarding@resend.dev es el remitente que Resend permite sin dominio
   // propio verificado (solo entrega al correo del titular de la cuenta).
   const address = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
-  return `Aularia <${address}>`;
+  return `${PLATFORM_NAME} <${address}>`;
 }
 
 export type SendEmailParams = {

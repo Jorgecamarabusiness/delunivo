@@ -6,7 +6,7 @@ import { updateSession } from "@/lib/supabase/middleware";
  *
  * `/o/cliente1/cursos` se reescribe internamente a `/cursos` con el header
  * `x-org-slug = "cliente1"`, mientras el navegador sigue viendo la URL con
- * prefijo. El dominio raíz (sin `/o/<slug>`) es la landing de Aularia, no la
+ * prefijo. El dominio raíz (sin `/o/<slug>`) es la landing de Delunivo, no la
  * tienda de ningún cliente.
  *
  * Antes convivía además una resolución por subdominio (`cliente1.aularia.app`).
