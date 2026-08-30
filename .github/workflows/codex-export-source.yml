@@ -1,0 +1,26 @@
+name: Codex export source
+
+on:
+  push:
+    branches:
+      - codex/production-readiness-audit
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v5
+        with:
+          name: codex-source-snapshot
+          path: |
+            .
+            !.git/**
+          include-hidden-files: true
+          retention-days: 1
