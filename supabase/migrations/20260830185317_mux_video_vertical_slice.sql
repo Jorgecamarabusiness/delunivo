@@ -1,4 +1,4 @@
--- Mux video vertical slice.
+-- Mux video vertical slice. Applied to production as migration 20260830185317.
 -- This migration is intentionally additive and is not applied automatically.
 
 create table public.video_assets (

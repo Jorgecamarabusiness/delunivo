@@ -42,17 +42,18 @@ También son obligatorias las variables Supabase existentes y
 
 ## Migración y rollback
 
-- Migración: `supabase/migrations/20260830164243_mux_video_vertical_slice.sql`.
-- Rollback manual: `supabase/rollbacks/20260830164243_mux_video_vertical_slice.down.sql`.
+- Migración: `supabase/migrations/20260830185317_mux_video_vertical_slice.sql`.
+- Rollback manual: `supabase/rollbacks/20260830185317_mux_video_vertical_slice.down.sql`.
 
 La migración crea `video_assets`, `mux_webhook_events`, índices, RLS cerrada y RPC
 server-only. El rollback elimina esos datos; sólo debe ejecutarse después de
 retirar las referencias `mux_video_asset_id` de las lecciones.
 
-Este repositorio todavía no contiene una baseline completa del esquema anterior.
-Por eso la migración no puede aplicarse a un Supabase vacío: primero debe probarse
-en un proyecto no productivo que ya tenga el esquema actual. No está aplicada por
-este cambio.
+Este repositorio todavía no contiene una baseline completa del esquema anterior,
+por lo que la migración no puede aplicarse a un Supabase vacío. Se aplicó al
+proyecto de producción existente el 2026-08-30 y quedó registrada con la versión
+`20260830185317`. Se verificó que `anon` y `authenticated` no tienen privilegios
+sobre las dos tablas y que sólo `service_role` puede ejecutar sus RPC.
 
 ## Prueba local exacta
 

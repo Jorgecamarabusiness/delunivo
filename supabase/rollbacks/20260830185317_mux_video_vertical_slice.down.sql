@@ -1,4 +1,4 @@
--- Manual rollback for 20260830164243_mux_video_vertical_slice.sql.
+-- Manual rollback for 20260830185317_mux_video_vertical_slice.sql.
 -- WARNING: this removes all Mux asset metadata and webhook history.
 -- Run only after the application no longer references mux_video_asset_id.
 

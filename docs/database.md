@@ -103,10 +103,14 @@ Añadida el 2026-08-07. Roster de alumnos por organización — incluye a quien 
 
 `unique(organization_id, user_id)`. RLS: cada alumno ve su propia fila; los admins de esa organización ven/insertan/actualizan todo el roster. **Sin policy de DELETE** — a propósito, para que "echar" a alguien sea siempre un `update` a `status='removed'`, nunca un borrado (así queda registro permanente). El acceso a lecciones ya comprueba `status='active'` además de `purchases` — ver Seguridad.
 
-Se puebla desde tres sitios: el registro en el subdominio del cliente (Fase 7, todavía no implementado), y los dos flujos de compra — `src/app/api/webhooks/stripe/route.ts` y `redeemWhopLicenseAction` (`src/app/cursos/[id]/actions.ts`) — que hacen upsert-si-no-existe (nunca reactivan una fila `removed`) justo después de insertar en `purchases`. **Importante**: si algún día se añade un tercer flujo que inserte en `purchases`, tiene que replicar este mismo paso — si no, el comprador se queda bloqueado por la policy `lessons_buyer_read` pese a haber pagado (ver Seguridad).
+Se puebla desde el registro (`src/app/register/actions.ts`), la aceptación de
+invitaciones (`src/app/invitaciones/[token]/actions.ts`) y los flujos de compra
+de Stripe y Whop. Los flujos de compra crean la membresía junto a `purchases` y
+nunca reactivan automáticamente una fila `removed`.
 
 ### invitations
-Añadida el 2026-08-07. Invitaciones de alumnos y de co-admins (todavía sin flujo de aceptación implementado, ver Fase 3 del plan).
+Añadida el 2026-08-07. Invitaciones de alumnos y co-admins con aceptación por
+token en `/invitaciones/[token]`.
 
 | columna | notas |
 |---|---|
@@ -304,7 +308,9 @@ muestra el catálogo. Las lecturas privadas del panel usan
   requiere un dominio verificado.
 - **Mux:** las subidas y reproducciones pasan por rutas de servidor, webhooks
   firmados y playback firmado. Los secretos nunca usan el prefijo
-  `NEXT_PUBLIC_`.
+  `NEXT_PUBLIC_`. La migración de producción `20260830185317` crea
+  `video_assets`, `mux_webhook_events` y RPC exclusivas de `service_role`; las
+  tablas tienen RLS activa y no conceden acceso a `anon` ni `authenticated`.
 
 ## Despliegue y dominio
 
