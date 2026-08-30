@@ -1,0 +1,39 @@
+name: Codex generate Mux lockfile
+
+on:
+  push:
+    branches:
+      - codex/production-readiness-audit
+    paths:
+      - .github/workflows/codex-generate-mux-lockfile.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install exact Mux dependencies
+        run: >-
+          npm install --save-exact
+          @mux/ts@15.1.0
+          @mux/mux-uploader-react@1.5.0
+          @mux/mux-player-react@3.13.2
+
+      - name: Upload package files
+        uses: actions/upload-artifact@v5
+        with:
+          name: mux-package-files
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 1
