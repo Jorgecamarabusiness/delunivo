@@ -34,7 +34,9 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 
 ## Estado operativo
 
-- El rebranding de producto a Delunivo esta implementado. El repositorio, el directorio local y los recursos externos visibles deben usar el mismo nombre.
+- El rebranding de producto a Delunivo esta en `main`. GitHub, el equipo y proyecto de Vercel, el dominio tecnico y el nombre visible del proyecto Supabase usan Delunivo.
+- La carpeta local debe renombrarse a `delunivo` al cerrar Codex; Windows impide mover el workspace mientras esta abierto.
+- La URL anterior de Vercel se mantiene temporalmente como alias compatible. `NEXT_PUBLIC_SITE_URL` sigue pendiente de recrearse como configuracion publica con `https://delunivo.vercel.app` antes de retirar ese alias.
 - Los identificadores internos estables, referencias de proyecto, buckets, tablas, claves y URLs de API no se renombran cuando el cambio no es cosmético: preservarlos evita roturas y no expone una marca distinta al usuario.
 - El esquema real vive en Supabase. `docs/database.md` mantiene el inventario confirmado y el SQL historico; desde 2026-08-30, los cambios nuevos tambien se guardan como migraciones versionadas. Un archivo de migracion no demuestra que se haya aplicado.
 - Codex usa `AGENTS.md`, las skills de `.agents/skills/` y dos revisores read-only en `.codex/agents/`. No se mantienen instrucciones duplicadas para otros agentes.
@@ -49,7 +51,8 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 
 ## Riesgos y pendientes conocidos
 
-- Los cambios actuales deben verificarse en el siguiente despliegue.
+- `https://delunivo.vercel.app` responde correctamente, pero los flujos de email, reset y cobro deben volver a desplegarse despues de corregir `NEXT_PUBLIC_SITE_URL`.
+- La migracion y las credenciales externas del vertical Mux todavia no estan aplicadas en produccion; no debe considerarse operativo hasta completar y verificar ese despliegue por separado.
 - Hay vulnerabilidades de dependencias previamente detectadas que requieren una tarea separada y enfocada.
 - Las acciones de Stripe, Resend, Vercel y Supabase pueden requerir pasos manuales y no deben darse por completadas sin confirmacion.
 

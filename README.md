@@ -30,5 +30,6 @@ Los tests E2E requieren las cuentas y servicios de prueba documentados en
 
 ## Despliegue
 
-El despliegue y el dominio de Vercel existentes se mantienen sin cambios. Este
-repositorio no presupone ni configura un dominio propio para Delunivo.
+El proyecto técnico de Vercel y su equipo usan el nombre Delunivo. La URL
+pública actual es `https://delunivo.vercel.app`; todavía no hay un dominio
+propio configurado.
