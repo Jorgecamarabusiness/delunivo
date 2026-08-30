@@ -4,6 +4,9 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 type AuthCheck = { error: string | null };
 
+const SUSPENDED_ORG_ERROR =
+  "La empresa no tiene acceso activo a Delunivo. Revisa la facturación para continuar.";
+
 type OrgScope =
   | { organizationId: string }
   | { courseId: string }
@@ -70,13 +73,23 @@ export async function requireOrgAdmin(
     return { error: "No tienes permisos de administrador para esta organización." };
   }
 
+  const { data: hasPlatformAccess, error: accessError } = await supabase.rpc(
+    "has_org_platform_access",
+    { org_id: organizationId }
+  );
+
+  if (accessError || !hasPlatformAccess) {
+    return { error: SUSPENDED_ORG_ERROR };
+  }
+
   return { error: null };
 }
 
 /** Solo el OWNER de la organización dueña del recurso indicado (o super_admin) — para acciones sensibles como conectar pagos. */
 export async function requireOrgOwner(
   supabase: SupabaseServerClient,
-  scope: OrgScope
+  scope: OrgScope,
+  options: { allowInactive?: boolean } = {}
 ): Promise<AuthCheck> {
   const {
     data: { user },
@@ -97,6 +110,19 @@ export async function requireOrgOwner(
 
   if (!isOwner) {
     return { error: "Solo el propietario de la empresa puede hacer esto." };
+  }
+
+  // Facturación debe seguir disponible para que una empresa cancelada pueda
+  // reactivar Stripe. Las demás acciones de owner exigen acceso comercial.
+  if (options.allowInactive) return { error: null };
+
+  const { data: hasPlatformAccess, error: accessError } = await supabase.rpc(
+    "has_org_platform_access",
+    { org_id: organizationId }
+  );
+
+  if (accessError || !hasPlatformAccess) {
+    return { error: SUSPENDED_ORG_ERROR };
   }
 
   return { error: null };
@@ -156,9 +182,25 @@ export async function requireAnyOrgAdmin(
     return { error: "Debes iniciar sesión para hacer esto." };
   }
 
-  if (!(await isAnyOrgAdmin(supabase, user.id))) {
+  const { data: isSuperAdmin } = await supabase.rpc("is_super_admin");
+  if (isSuperAdmin) return { error: null };
+
+  const { data: memberships, error: membershipsError } = await supabase
+    .from("organization_admins")
+    .select("organization_id")
+    .eq("user_id", user.id);
+
+  if (membershipsError || !memberships?.length) {
     return { error: "No tienes permisos de administrador." };
   }
 
-  return { error: null };
+  for (const membership of memberships) {
+    const { data: hasPlatformAccess } = await supabase.rpc(
+      "has_org_platform_access",
+      { org_id: membership.organization_id }
+    );
+    if (hasPlatformAccess) return { error: null };
+  }
+
+  return { error: SUSPENDED_ORG_ERROR };
 }

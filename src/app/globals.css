@@ -41,3 +41,47 @@ body {
      fuente cargada no se aplicaba en ninguna parte del sitio. */
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
+
+.admin-sidebar {
+  width: 4rem;
+}
+
+@media (min-width: 768px) {
+  .admin-sidebar-expanded {
+    width: 16rem;
+  }
+}
+
+a[href],
+button:not(:disabled),
+select:not(:disabled),
+summary,
+label[for],
+input[type="file"]:not(:disabled),
+input[type="color"]:not(:disabled),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled,
+input:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+
+[draggable="true"] {
+  cursor: grab;
+}
+
+[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+mux-uploader::part(drop) {
+  min-height: 9rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--background);
+}

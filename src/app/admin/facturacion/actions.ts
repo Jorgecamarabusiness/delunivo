@@ -11,9 +11,10 @@ import type { ActionResult } from "@/types";
 // que el formulario pueda pintar el error en pantalla en vez de reventar.
 export async function subscribeAction(
   _prevState: ActionResult,
-  _formData: FormData
+  formData: FormData
 ): Promise<ActionResult> {
-  const auth = await requireOwnerContext();
+  const organizationId = String(formData.get("organizationId") ?? "");
+  const auth = await requireOwnerContext({ allowInactive: true, organizationId });
   if (!auth.ok) return { error: auth.error };
   const { context } = auth;
 
@@ -38,9 +39,10 @@ export async function subscribeAction(
 
 export async function openBillingPortalAction(
   _prevState: ActionResult,
-  _formData: FormData
+  formData: FormData
 ): Promise<ActionResult> {
-  const auth = await requireOwnerContext();
+  const organizationId = String(formData.get("organizationId") ?? "");
+  const auth = await requireOwnerContext({ allowInactive: true, organizationId });
   if (!auth.ok) return { error: auth.error };
   const { context } = auth;
 
@@ -68,7 +70,7 @@ export async function openBillingPortalAction(
   try {
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: billing.platform_stripe_customer_id,
-      return_url: `${siteUrl}/admin/facturacion`,
+      return_url: `${siteUrl}/admin/facturacion?empresa=${context.organizationId}`,
     });
     portalUrl = portalSession.url;
   } catch (stripeError) {

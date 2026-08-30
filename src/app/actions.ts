@@ -100,7 +100,11 @@ export async function createCompanyAction(
   }
 
   const [{ error: billingError }, { error: adminError }] = await Promise.all([
-    admin.from("organization_billing").insert({ organization_id: organization.id }),
+    admin.from("organization_billing").insert({
+      organization_id: organization.id,
+      platform_subscription_status: "canceled",
+      access_mode: "standard",
+    }),
     admin.from("organization_admins").insert({
       organization_id: organization.id,
       user_id: userId,
@@ -131,7 +135,7 @@ export async function createCompanyAction(
   }
 
   // Tras verificar el correo entra directo al panel; el cobro de la suscripción
-  // se ofrece ahí (/admin/facturacion), con la empresa ya en 'trialing'.
+  // se ofrece ahí (/admin/facturacion), con la empresa aún sin acceso.
   redirect(
     `/verificar?email=${encodeURIComponent(email)}&next=${encodeURIComponent("/admin/facturacion")}`
   );

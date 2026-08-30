@@ -130,7 +130,7 @@ export function AddContentPanel({
               onCancel={onClose}
               isSaving={isSaving}
               error={actionError}
-              submitLabel="Añadir"
+              submitLabel="Añadir vídeo a la lección"
               onSubmit={(title, url) =>
                 persist([
                   ...blocks,

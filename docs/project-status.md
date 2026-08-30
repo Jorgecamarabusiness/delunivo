@@ -16,6 +16,7 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 - Mux para video y Resend para email.
 - Tenancy publica por rutas `/o/<slug>`; no depende de subdominios.
 - Administracion en `/admin`; catalogo, compra y aprendizaje en las rutas publicas.
+- Control comercial exclusivo de superadministradores en `/admin/plataforma`: precio para nuevas altas, estado real de Stripe, acceso gratuito, pruebas, descuentos y correos de prueba.
 - Identidad de plataforma centralizada en `src/lib/brand.ts` y marca de cada organizacion en su configuracion.
 
 ## Decisiones que no deben reabrirse sin nueva evidencia
@@ -41,6 +42,10 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 - La URL y la configuracion publica de Vercel usan `https://delunivo.vercel.app`; el dominio y el redirect de autenticacion anteriores se retiraron.
 - Los identificadores internos estables, referencias de proyecto, buckets, tablas, claves y URLs de API no se renombran cuando el cambio no es cosmetico: preservarlos evita roturas y no expone una marca distinta al usuario.
 - El esquema real vive en Supabase. `docs/database.md` mantiene el inventario confirmado y el SQL historico; desde 2026-08-30, los cambios nuevos tambien se guardan como migraciones versionadas. Un archivo de migracion no demuestra que se haya aplicado.
+- El precio inicial de plataforma es 30 EUR/mes y se lee de `platform_settings`; cambiarlo no altera las suscripciones de Stripe ya creadas.
+- La suspensión comercial se aplica tanto en la interfaz como en server actions y RLS; no se puede editar una empresa suspendida mediante la Data API. Los alumnos mantienen el acceso ya concedido.
+- Los IDs de cliente y suscripción de Stripe son únicos por empresa y los webhooks fallan explícitamente si no encuentran exactamente una fila, para que Stripe pueda reintentarlos.
+- Un propietario de varias empresas puede elegir cuál gestionar en `/admin/facturacion`; el ID seleccionado se vuelve a validar como owner antes de abrir Checkout o el portal de Stripe.
 - Codex usa `AGENTS.md`, las skills de `.agents/skills/` y dos revisores read-only en `.codex/agents/`. No se mantienen instrucciones duplicadas para otros agentes.
 
 ## Prioridades

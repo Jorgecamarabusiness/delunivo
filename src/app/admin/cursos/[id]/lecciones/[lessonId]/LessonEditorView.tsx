@@ -40,6 +40,7 @@ import {
 type CourseSummary = {
   id: string;
   title: string;
+  publicPath: string | null;
 };
 
 type SectionSummary = {
@@ -67,7 +68,7 @@ function BlockRow({
   block: ContentBlock;
   index: number;
   onSaved: (blocks: ContentBlock[]) => void;
-  onDelete: () => void;
+  onDelete: () => Promise<string | null>;
   isDeleting: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -82,6 +83,7 @@ function BlockRow({
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   async function saveBlock(updatedBlock: ContentBlock) {
     setIsSaving(true);
@@ -113,7 +115,7 @@ function BlockRow({
             onCancel={() => setIsEditing(false)}
             isSaving={isSaving}
             error={error}
-            submitLabel="Guardar cambios"
+            submitLabel="Guardar sustitución"
             onSubmit={(title, content) =>
               saveBlock({ ...block, title, content })
             }
@@ -195,9 +197,32 @@ function BlockRow({
 
       <RowMenu
         onEdit={() => setIsEditing(true)}
-        onDelete={onDelete}
+        onDelete={() => {
+          setError(null);
+          setDeleteDialogOpen(true);
+        }}
+        editLabel="Editar"
+        deleteLabel="Eliminar"
         isDeleting={isDeleting}
       />
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Eliminar bloque"
+        description={`Se eliminará “${block.title ?? BLOCK_DEFAULT_TITLES[block.type]}” de esta lección. Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar bloque"
+        destructive
+        pending={isDeleting}
+        onClose={() => {
+          if (!isDeleting) setDeleteDialogOpen(false);
+        }}
+        onConfirm={async () => {
+          const deleteError = await onDelete();
+          if (deleteError) setError(deleteError);
+          else setDeleteDialogOpen(false);
+        }}
+      >
+        {error ? <Alert variant="error">{error}</Alert> : null}
+      </ConfirmDialog>
     </div>
   );
 }
@@ -227,7 +252,6 @@ export function LessonEditorView({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleError, setTitleError] = useState<string | null>(null);
 
-  const [isMenuOpen, setMenuOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -248,11 +272,12 @@ export function LessonEditorView({
 
     if (result.error) {
       setActionError(result.error);
-      return;
+      return result.error;
     }
 
     setBlocks(newBlocks);
     router.refresh();
+    return null;
   }
 
   async function handleBlocksDragEnd(event: DragEndEvent) {
@@ -307,8 +332,6 @@ export function LessonEditorView({
   }
 
   async function handleDeleteLesson() {
-    setMenuOpen(false);
-
     setIsDeleting(true);
     setDeleteError(null);
 
@@ -332,7 +355,7 @@ export function LessonEditorView({
         / {section.title}
       </p>
 
-      <div className="mt-2 flex items-start justify-between gap-4">
+      <div className="mt-2 flex flex-col items-start justify-between gap-4 md:flex-row">
         <div className="flex-1">
           {isEditingTitle ? (
             <input
@@ -358,52 +381,31 @@ export function LessonEditorView({
           ) : null}
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
-          <a
-            href={`/cursos/${course.id}/aprender?lesson=${lesson.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-full border border-border px-5 py-2 text-sm font-medium transition-colors hover:bg-foreground hover:text-background"
-          >
-            Preview
-          </a>
-
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((value) => !value)}
-              aria-label="Más opciones"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-lg leading-none transition-colors hover:bg-foreground hover:text-background"
+        <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:shrink-0 md:items-center md:gap-3">
+          {course.publicPath ? (
+            <a
+              href={`${course.publicPath}?lesson=${lesson.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center justify-center rounded-full border border-border px-4 py-2 text-center text-sm font-medium transition-colors hover:bg-foreground hover:text-background md:px-5"
             >
-              ⋮
-            </button>
+              Vista previa ↗
+            </a>
+          ) : null}
 
-            {isMenuOpen && (
-              <>
-                <button
-                  type="button"
-                  aria-hidden="true"
-                  tabIndex={-1}
-                  className="fixed inset-0 z-10 cursor-default"
-                  onClick={() => setMenuOpen(false)}
-                />
-                <div className="absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-md border border-border bg-background">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setDeleteError(null);
-                      setDeleteDialogOpen(true);
-                    }}
-                    disabled={isDeleting}
-                    className="block w-full px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-foreground hover:text-background disabled:opacity-50"
-                  >
-                    {isDeleting ? "Eliminando..." : "Eliminar lección"}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            onClick={() => {
+              setDeleteError(null);
+              setDeleteDialogOpen(true);
+            }}
+            disabled={isDeleting}
+            className="w-full md:w-auto"
+          >
+            {isDeleting ? "Eliminando…" : "Eliminar lección"}
+          </Button>
         </div>
       </div>
 

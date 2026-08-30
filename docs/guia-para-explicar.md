@@ -64,7 +64,7 @@ Supabase es **PostgreSQL con extras**: base de datos + sistema de usuarios
 **El dinero**
 - `purchases` — quién compró qué curso, por cuánto y por qué medio.
 - `organization_billing` — la suscripción que cada empresa te paga a ti
-  (20 €/mes). **Está separada de `organizations` a propósito**: `organizations`
+  (30 €/mes inicialmente, configurable por el superadministrador). **Está separada de `organizations` a propósito**: `organizations`
   es de lectura pública (hace falta para pintar el portal), y si el estado de
   pago viviera ahí, cualquiera podría ver qué clientes tuyos están en números
   rojos.
@@ -103,6 +103,7 @@ Postgres mueve esa protección a la base de datos: aunque el código pregunte
 Hay cuatro funciones dentro de Postgres:
 
 - `is_super_admin()` — ¿es el dueño de la plataforma?
+- `has_org_platform_access(org_id)` — ¿esa empresa puede administrar ahora mismo? Combina pago, prueba, acceso gratuito y el bypass del superadministrador.
 - `is_org_admin(org_id)` — ¿administra esta empresa?
 - `is_org_owner(org_id)` — ¿es el propietario de esta empresa?
 - `is_org_student(org_id)` — ¿es alumno **activo** de esta empresa?

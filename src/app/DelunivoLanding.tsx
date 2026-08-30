@@ -4,6 +4,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Container } from "@/components/ui/Container";
 import { buttonClassName } from "@/components/ui/Button";
 import { PLATFORM_DESCRIPTION, PLATFORM_NAME } from "@/lib/brand";
+import { formatPlatformPrice } from "@/lib/billing/access";
 
 const FEATURES = [
   {
@@ -40,7 +41,14 @@ const STEPS = [
  * de alta vive en /crear-empresa para que esta página pueda ser una landing de
  * verdad y no un formulario suelto.
  */
-export function DelunivoLanding({ isAdmin }: { isAdmin: boolean }) {
+export function DelunivoLanding({
+  isAdmin,
+  priceCents,
+}: {
+  isAdmin: boolean;
+  priceCents: number;
+}) {
+  const monthlyPrice = formatPlatformPrice(priceCents);
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">
       <Header />
@@ -88,7 +96,7 @@ export function DelunivoLanding({ isAdmin }: { isAdmin: boolean }) {
             </div>
 
             <p className="mt-6 text-sm text-muted-foreground">
-              20€ al mes. Cancela cuando quieras.
+              {monthlyPrice} al mes. Cancela cuando quieras.
             </p>
           </Container>
         </section>
@@ -139,7 +147,7 @@ export function DelunivoLanding({ isAdmin }: { isAdmin: boolean }) {
               Un precio, todo incluido
             </h2>
             <p className="mt-4 text-5xl font-bold tracking-tight">
-              20€
+              {monthlyPrice}
               <span className="text-lg font-medium text-muted-foreground">
                 /mes
               </span>

@@ -1,0 +1,3 @@
+-- Manual rollback for 20260830210858_backfill_manual_billing_grants.sql.
+-- The original implicit state cannot be distinguished from later grants, so
+-- this data-only migration is intentionally not reversed automatically.

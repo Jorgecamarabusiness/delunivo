@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 
 function TrashIcon() {
   return (
@@ -54,69 +53,43 @@ export function RowMenu({
   deleteLabel?: string;
   isDeleting: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-
   return (
-    <div className="relative shrink-0">
+    <div className="flex shrink-0 justify-end gap-1">
+      {editHref ? (
+        <Link
+          href={editHref}
+          aria-label={editLabel}
+          title={editLabel}
+          className="inline-flex h-10 w-10 items-center justify-center gap-1.5 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:w-auto md:px-3"
+        >
+          <PencilIcon />
+          <span className="hidden md:inline">{editLabel}</span>
+        </Link>
+      ) : onEdit ? (
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={editLabel}
+          title={editLabel}
+          className="inline-flex h-10 w-10 items-center justify-center gap-1.5 rounded-md text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:w-auto md:px-3"
+        >
+          <PencilIcon />
+          <span className="hidden md:inline">{editLabel}</span>
+        </button>
+      ) : null}
       <button
         type="button"
-        onClick={() => setIsOpen((value) => !value)}
-        aria-label="Más opciones"
-        className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+        onClick={onDelete}
+        disabled={isDeleting}
+        aria-label={deleteLabel}
+        title={deleteLabel}
+        className="inline-flex h-10 w-10 items-center justify-center gap-1.5 rounded-md text-xs font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 md:w-auto md:px-3"
       >
-        ⋮
+        <TrashIcon />
+        <span className="hidden md:inline">
+          {isDeleting ? "Eliminando…" : deleteLabel}
+        </span>
       </button>
-
-      {isOpen && (
-        <>
-          <button
-            type="button"
-            aria-hidden="true"
-            tabIndex={-1}
-            className="fixed inset-0 z-10 cursor-default"
-            onClick={() => setIsOpen(false)}
-          />
-          <div className="absolute right-0 z-20 mt-1 flex items-center gap-1 rounded-md border border-border bg-background p-1 shadow-sm">
-            {editHref ? (
-              <Link
-                href={editHref}
-                onClick={() => setIsOpen(false)}
-                aria-label={editLabel}
-                title={editLabel}
-                className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <PencilIcon />
-              </Link>
-            ) : onEdit ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsOpen(false);
-                  onEdit();
-                }}
-                aria-label={editLabel}
-                title={editLabel}
-                className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <PencilIcon />
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false);
-                onDelete();
-              }}
-              disabled={isDeleting}
-              aria-label={deleteLabel}
-              title={deleteLabel}
-              className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-foreground hover:text-background disabled:opacity-50"
-            >
-              <TrashIcon />
-            </button>
-          </div>
-        </>
-      )}
     </div>
   );
 }

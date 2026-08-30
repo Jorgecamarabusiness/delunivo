@@ -86,6 +86,7 @@ export default async function CursoDetallePage({
   const learningPoints: string[] = course.learning_points ?? [];
   const aprenderHref = await orgPath(`/cursos/${course.id}/aprender`);
   const loginHref = await orgPath("/login");
+  const organizationHomeHref = await orgPath("/");
 
   const purchasePanel = hasAccess ? (
     <>
@@ -121,6 +122,13 @@ export default async function CursoDetallePage({
 
       <main className="flex-1">
         <Container width="md" className="py-10 sm:py-16">
+          <Link
+            href={organizationHomeHref}
+            className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            <span aria-hidden="true">←</span>
+            Volver a {organization.name}
+          </Link>
           <div className="overflow-hidden rounded-lg border border-border">
             <CourseThumbnail
               title={course.title}

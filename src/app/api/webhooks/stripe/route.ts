@@ -9,7 +9,7 @@ import {
 
 // Eventos de la cuenta PRINCIPAL de la plataforma: ventas de curso de
 // organizaciones que todavía no han conectado su propia cuenta de Stripe
-// (Fase 5), y desde la Fase 6, la suscripción de 20€/mes de la plataforma.
+// (Fase 5), y desde la Fase 6, la suscripción mensual de la plataforma.
 // Las ventas de organizaciones ya conectadas llegan al webhook de Connect
 // (src/app/api/webhooks/stripe-connect/route.ts), no aquí.
 export async function POST(request: NextRequest) {

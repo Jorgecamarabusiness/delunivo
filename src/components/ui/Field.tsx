@@ -20,7 +20,7 @@ export function Field({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-col gap-2 ${className}`.trim()}>
+    <div className={`flex min-w-0 flex-col gap-2 ${className}`.trim()}>
       <label htmlFor={htmlFor} className="text-sm font-medium">
         {label}
       </label>

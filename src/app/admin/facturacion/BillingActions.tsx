@@ -9,17 +9,19 @@ import type { ActionResult } from "@/types";
 const INITIAL: ActionResult = { error: null };
 
 /**
- * `canManage` es false cuando la empresa no tiene ningún cliente de Stripe
- * guardado — aunque su estado sea 'active' (pasa con datos sembrados a mano o
- * si el webhook nunca llegó). En ese caso se ofrece suscribirse, porque no hay
- * ningún portal de Stripe que abrir.
+ * `canManage` solo es true si existe una suscripción vigente y un cliente de
+ * Stripe. Una empresa cancelada o con datos incompletos vuelve al checkout.
  */
 export function BillingActions({
+  organizationId,
   canManage,
   status,
+  complimentaryWithoutStripe,
 }: {
+  organizationId: string;
   canManage: boolean;
   status: string;
+  complimentaryWithoutStripe: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     canManage ? openBillingPortalAction : subscribeAction,
@@ -32,9 +34,18 @@ export function BillingActions({
       ? "Suscribirse ahora"
       : "Reactivar suscripción";
 
+  if (complimentaryWithoutStripe) {
+    return (
+      <p className="mt-6 text-sm text-muted-foreground">
+        No tienes que añadir una tarjeta mientras dure este acceso gratuito.
+      </p>
+    );
+  }
+
   return (
     <div className="mt-6 flex flex-col gap-3">
       <form action={formAction}>
+        <input type="hidden" name="organizationId" value={organizationId} />
         <button
           type="submit"
           disabled={pending}

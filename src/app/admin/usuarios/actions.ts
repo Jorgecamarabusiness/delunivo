@@ -42,6 +42,18 @@ async function requireCurrentMembership(): Promise<MembershipContext> {
     return { error: "No perteneces a ninguna organización." };
   }
 
+  const { data: hasPlatformAccess, error: accessError } = await supabase.rpc(
+    "has_org_platform_access",
+    { org_id: membership.organizationId }
+  );
+
+  if (accessError || !hasPlatformAccess) {
+    return {
+      error:
+        "La empresa no tiene acceso activo a Delunivo. Revisa la facturación para continuar.",
+    };
+  }
+
   return { error: null, supabase, userId: user.id, membership };
 }
 

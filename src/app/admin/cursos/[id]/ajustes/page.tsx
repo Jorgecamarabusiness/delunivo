@@ -52,14 +52,7 @@ export default async function CourseSettingsPage({
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
-      <Link
-        href="/admin/cursos"
-        className="text-sm text-muted-foreground hover:underline"
-      >
-        ← Cursos
-      </Link>
-
-      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Ajustes del curso</h1>
         {organization ? (
           <Link

@@ -62,3 +62,52 @@ export function adminClient(): SupabaseClient {
     requiredEnv("SUPABASE_SERVICE_ROLE_KEY")
   );
 }
+
+/**
+ * Cliente normal que reutiliza la sesión ya abierta por Playwright. Así se
+ * comprueba RLS sin service role y sin duplicar inicios de sesión en Supabase.
+ */
+export async function authenticatedClientFromPage(
+  page: Page
+): Promise<SupabaseClient> {
+  const supabaseUrl = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+  const storageKey = `sb-${projectRef}-auth-token`;
+  const cookies = await page.context().cookies();
+  const direct = cookies.find((cookie) => cookie.name === storageKey)?.value;
+  const chunked = cookies
+    .filter((cookie) => cookie.name.startsWith(`${storageKey}.`))
+    .sort((left, right) => left.name.localeCompare(right.name, undefined, { numeric: true }))
+    .map((cookie) => cookie.value)
+    .join("");
+  let serialized = direct ?? chunked;
+  if (serialized.startsWith("base64-")) {
+    serialized = Buffer.from(serialized.slice(7), "base64url").toString("utf8");
+  }
+
+  let session: { access_token?: string };
+  try {
+    session = JSON.parse(serialized) as { access_token?: string };
+  } catch {
+    session = JSON.parse(decodeURIComponent(serialized)) as {
+      access_token?: string;
+    };
+  }
+  if (!session.access_token) {
+    throw new Error("La sesión de Playwright no contiene un access token.");
+  }
+
+  const client = createClient(
+    supabaseUrl,
+    requiredEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    {
+      global: { headers: { Authorization: `Bearer ${session.access_token}` } },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    }
+  );
+  return client;
+}

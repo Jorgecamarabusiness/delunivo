@@ -4,6 +4,7 @@ import { AuthShell } from "@/components/layout/AuthShell";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
 import { createClient } from "@/lib/supabase/server";
 import { CreateCompanyForm } from "../CreateCompanyForm";
+import { getPlatformPriceCents } from "@/lib/billing/platform";
 
 export default async function CrearEmpresaPage() {
   // Crear una empresa es algo del dominio raíz. Dentro del portal de un cliente
@@ -16,6 +17,8 @@ export default async function CrearEmpresaPage() {
   if (organization || user) {
     redirect("/");
   }
+
+  const priceCents = await getPlatformPriceCents();
 
   return (
     <AuthShell
@@ -30,7 +33,7 @@ export default async function CrearEmpresaPage() {
         </>
       }
     >
-      <CreateCompanyForm />
+      <CreateCompanyForm priceCents={priceCents} />
     </AuthShell>
   );
 }

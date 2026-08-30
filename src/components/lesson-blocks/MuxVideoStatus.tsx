@@ -18,6 +18,10 @@ const LABELS: Record<Status, string> = {
   deleted: "Vídeo eliminado",
 };
 
+export function muxVideoStatusLabel(status: Status) {
+  return LABELS[status];
+}
+
 const TERMINAL = new Set<Status>([
   "ready",
   "errored",
@@ -79,7 +83,7 @@ export function MuxVideoStatus({ videoAssetId }: { videoAssetId: string }) {
 
   return (
     <span className="text-xs text-muted-foreground" title={asset.errorMessage ?? undefined}>
-      {LABELS[asset.status]}
+      {muxVideoStatusLabel(asset.status)}
     </span>
   );
 }

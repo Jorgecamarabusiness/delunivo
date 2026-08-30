@@ -1,5 +1,5 @@
 /**
- * La plataforma cobra en euros (la suscripción son 20€/mes y los checkouts de
+ * La plataforma cobra en euros (la suscripción tiene precio configurable y los checkouts de
  * Stripe usan `eur`), pero los precios se pintaban con "$" a mano en tres
  * páginas distintas. Un único sitio, y con el formato español.
  */

@@ -45,6 +45,7 @@ export async function addAdminEmailAction(
   }
 
   revalidatePath("/admin/emails");
+  revalidatePath("/admin/plataforma");
   return { error: null };
 }
 
@@ -63,6 +64,7 @@ export async function toggleAdminEmailAction(
   if (error) return { error: error.message };
 
   revalidatePath("/admin/emails");
+  revalidatePath("/admin/plataforma");
   return { error: null };
 }
 
@@ -78,5 +80,6 @@ export async function deleteAdminEmailAction(id: string): Promise<ActionResult> 
   if (error) return { error: error.message };
 
   revalidatePath("/admin/emails");
+  revalidatePath("/admin/plataforma");
   return { error: null };
 }

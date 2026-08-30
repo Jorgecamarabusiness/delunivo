@@ -71,6 +71,7 @@ export async function createTestOrg(opts?: {
     // ningún portal de Stripe que abrir (ver BillingActions.tsx). El id es
     // ficticio: ningún test llega a llamar a la API de Stripe con él.
     platform_stripe_customer_id: status === "active" ? `cus_e2e_${suffix}` : null,
+    platform_subscription_id: status === "active" ? `sub_e2e_${suffix}` : null,
   });
   if (billingError) throw billingError;
 

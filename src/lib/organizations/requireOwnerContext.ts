@@ -26,7 +26,9 @@ export type OwnerContextResult =
  * Esta comprobación es la de la capa de aplicación; la RLS de Supabase la repite
  * por su cuenta (`is_org_owner`), no se sustituyen entre sí.
  */
-export async function requireOwnerContext(): Promise<OwnerContextResult> {
+export async function requireOwnerContext(
+  options: { allowInactive?: boolean; organizationId?: string } = {}
+): Promise<OwnerContextResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -36,14 +38,17 @@ export async function requireOwnerContext(): Promise<OwnerContextResult> {
     return { ok: false, error: "Debes iniciar sesión para hacer esto." };
   }
 
-  const membership = await getCurrentOrgMembership(supabase, user.id);
-  if (!membership) {
+  const membership = options.organizationId
+    ? null
+    : await getCurrentOrgMembership(supabase, user.id);
+  const organizationId = options.organizationId ?? membership?.organizationId;
+  if (!organizationId) {
     return { ok: false, error: "No perteneces a ninguna empresa." };
   }
 
   const ownerCheck = await requireOrgOwner(supabase, {
-    organizationId: membership.organizationId,
-  });
+    organizationId,
+  }, options);
   if (ownerCheck.error) {
     return { ok: false, error: ownerCheck.error };
   }
@@ -52,7 +57,7 @@ export async function requireOwnerContext(): Promise<OwnerContextResult> {
     ok: true,
     context: {
       userId: user.id,
-      organizationId: membership.organizationId,
+      organizationId,
       supabase,
     },
   };

@@ -41,21 +41,22 @@ test("la UI envía el archivo al endpoint directo de Mux y no al backend", async
 
   await login(page, ACCOUNTS.admin.email, ACCOUNTS.admin.password);
   await page.goto(`/admin/cursos/${MAIN_COURSE_ID}`);
-  // El primer menú pertenece a la sección; el segundo, a su primera lección.
-  await page.getByRole("button", { name: "Más opciones" }).nth(1).click();
-  await page.getByRole("link", { name: "Editar contenido" }).click();
+  await page.getByRole("link", { name: "Editar contenido" }).first().click();
   await page.getByRole("button", { name: "+ Añadir contenido" }).click();
   await page.getByRole("button", { name: "Vídeo", exact: true }).click();
 
   await page.getByLabel("Título").fill("Vídeo Mux simulado");
+  await expect(page.getByRole("button", { name: "Añadir", exact: true })).toBeDisabled();
   await page.locator("mux-uploader input[type=file]").setInputFiles({
     name: "sample-1080p.mp4",
     mimeType: "video/mp4",
     buffer: Buffer.alloc(128 * 1024, 1),
   });
 
-  await expect(page.getByText("Progreso de carga: 100%")).toBeVisible();
-  await expect(page.getByText(/Mux está procesando el vídeo/)).toBeVisible();
+  await expect(page.getByText("Subida completada al 100%. Falta guardar el vídeo en la lección.")).toBeVisible();
+  await expect(page.locator("video")).toBeVisible();
+  await expect(page.getByText(/Previsualización local del archivo elegido/)).toBeVisible();
+  await expect(page.getByText(/Después sí puedes salir/)).toBeVisible();
   expect(controlRequest).toMatchObject({
     lessonId: expect.any(String),
     blockId: expect.any(String),

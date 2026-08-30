@@ -49,16 +49,51 @@ Añadida el 2026-08-07. Una fila por cliente ("empresa"). Solo branding público
 RLS: lectura pública (`anon`+`authenticated`, `using (true)`) porque es branding de una web pública; solo `is_org_admin(id)` puede actualizar. Sin policy de insert/delete — la creación de una organización (más adelante, Fase 6) siempre pasa por service role en una server action, nunca por RLS directa.
 
 ### organization_billing
-Añadida el 2026-08-07. Suscripción de PLATAFORMA (los 20€/mes que el cliente le paga a Delunivo) — separada de `organizations` para que el estado de facturación no sea público.
+Añadida el 2026-08-07 y ampliada el 2026-08-30. Suscripción de PLATAFORMA que el cliente paga a Delunivo — separada de `organizations` para que el estado de facturación y las condiciones comerciales no sean públicos.
 
 | columna | notas |
 |---|---|
 | organization_id | uuid, PK y FK -> organizations.id (1 fila por organización) |
 | platform_stripe_customer_id | nullable |
 | platform_subscription_id | nullable |
-| platform_subscription_status | 'trialing' \| 'active' \| 'past_due' \| 'canceled', default 'trialing' |
+| platform_subscription_status | 'trialing' \| 'active' \| 'past_due' \| 'canceled', default 'canceled' |
+| access_mode | `standard` \| `complimentary` \| `trial`. El acceso gratuito no caduca; las pruebas exigen fecha de fin. |
+| access_expires_at | nullable; fecha de fin de una prueba gratuita. |
+| discount_percent | entero 0–100. |
+| discount_duration | `once` (primera factura mensual) \| `forever`. |
+| stripe_coupon_id | nullable; cupón de Stripe creado para aplicar la condición comercial. |
+| commercial_note | nullable, máximo 1.000 caracteres; contexto interno del superadministrador. |
+| updated_at | última actualización de las condiciones. |
 
-RLS: solo lectura, solo `is_org_admin(organization_id)`. Sin policy de escritura — solo el webhook de Stripe (service role, Fase 6) la actualiza.
+RLS: solo lectura, solo `is_org_admin(organization_id)`. Sin policy de escritura directa — los webhooks y las acciones del centro de control validan permisos y escriben con service role.
+
+### platform_settings
+
+Añadida el 2026-08-30. Singleton con la configuración comercial pública de Delunivo.
+
+| columna | notas |
+|---|---|
+| id | boolean PK, siempre `true`; garantiza una sola fila. |
+| monthly_price_cents | precio mensual para nuevas suscripciones, default `3000` (30 €). |
+| updated_at | última modificación. |
+| updated_by | nullable, FK a `auth.users`; superadministrador que hizo el cambio. |
+
+RLS: lectura pública limitada a `id` y `monthly_price_cents` para mostrar el mismo precio en landing, alta y facturación; la auditoría no se expone. Solo `is_super_admin()` puede actualizar las columnas concedidas; no hay insert ni delete desde clientes.
+
+Desde `20260830214830_enforce_platform_access_and_billing_integrity.sql`,
+`has_org_platform_access(org_id)` centraliza el permiso comercial: permite
+suscripciones `active`, `trialing` y `past_due`, invitaciones gratuitas vigentes
+y pruebas no vencidas; el superadministrador siempre puede intervenir. Las
+policies de escritura de empresa, cursos, temario, alumnos, administradores e
+integraciones usan ese permiso. Una empresa suspendida no puede saltarse el
+bloqueo de la interfaz mediante la Data API, mientras los alumnos conservan la
+lectura de cursos ya comprados o asignados.
+
+Facturación no depende de la membresía “actual”: `/admin/facturacion` permite
+elegir explícitamente una de las empresas que posee el usuario y las server
+actions vuelven a validar ese `organization_id` con `is_org_owner()`. Esto
+permite reactivar una empresa cancelada aunque el mismo usuario administre
+otras empresas activas.
 
 ### organization_integrations
 Añadida el 2026-08-07. Claves de pago propias de cada cliente — la tabla más sensible de todas, separada del resto a propósito.
@@ -263,13 +298,32 @@ RLS: cada alumno ve, inserta y borra **solo sus propias filas** (`user_id = auth
   `20260830205248_secure_invitation_and_lesson_access.sql`, aplicadas y
   verificadas contra el proyecto Delunivo. La última cierra escrituras directas
   de invitaciones y evita que alumnos lean cursos o lecciones en borrador.
+- **2026-08-30** — control comercial de plataforma: `platform_settings`, precio
+  inicial de 30 €/mes y condiciones por empresa en `organization_billing`
+  (`access_mode`, prueba, descuento, cupón y nota). Las empresas que figuraban
+  activas sin una suscripción real de Stripe quedaron identificadas como acceso
+  gratuito. Migraciones `20260830210751_platform_commercial_controls.sql` y
+  `20260830210858_backfill_manual_billing_grants.sql`, aplicadas en Delunivo.
+  `20260830212709_restrict_platform_settings_privileges.sql` limita los grants
+  a lectura y actualización controlada del precio, y elimina un índice de
+  caducidad que ninguna consulta utiliza. La migración
+  `20260830214141_limit_platform_settings_public_columns.sql` oculta además las
+  columnas de auditoría a clientes públicos.
+- **2026-08-30** — integridad de acceso y facturación: la migración
+  `20260830214830_enforce_platform_access_and_billing_integrity.sql` lleva el
+  bloqueo comercial a RLS y RPC, restringe las columnas internas de
+  `organization_billing` y añade unicidad parcial para los IDs de cliente y
+  suscripción de Stripe. La migración
+  `20260830215237_harden_organization_billing_privileges.sql` retira además
+  todos los privilegios de escritura históricos de `authenticated` y hace que
+  el helper comercial se ejecute sin privilegios elevados.
 
 ## Emails y verificación de cuenta
 
 Desde el 2026-08-11, **Supabase Auth no envía ningún email**. Ni el de confirmación de registro ni el de recuperación de contraseña: su límite de envío en el plan gratuito se agotaba constantemente al probar, y sus plantillas no se pueden editar sin configurar SMTP propio.
 
 - **Punto único de envío**: `src/lib/email/send.ts` (`sendEmail`). Nada llama a Resend directamente. Las plantillas concretas están en `src/lib/email/templates.ts` sobre el HTML común de `src/lib/email/layout.ts`.
-- **Desarrollo y previews**: el modo por defecto redirige todo email a las direcciones activas de `admin_emails`, con el destinatario original en el asunto (`[→ pepe@gmail.com] Tu código`) y un aviso en el cuerpo. `/admin/emails` y su enlace del menú exigen `is_super_admin()`, por lo que ningún cliente puede ver esa lista.
+- **Desarrollo y previews**: el modo por defecto redirige todo email a las direcciones activas de `admin_emails`, con el destinatario original en el asunto (`[→ pepe@gmail.com] Tu código`) y un aviso en el cuerpo. La lista vive en `/admin/plataforma#correos` y exige `is_super_admin()`, por lo que ningún cliente puede verla; `/admin/emails` solo redirige allí por compatibilidad.
 - **Producción de Vercel**: la entrega pasa automáticamente a `live` cuando
   existe `RESEND_FROM_EMAIL` de un dominio verificado. Hasta entonces conserva
   la redirección segura para no perder correos. `off` permanece como interruptor
@@ -294,13 +348,13 @@ RLS **sí está activo** en todas las tablas. Desde el 2026-08-07 el modelo es m
 | `profiles` | nada | solo su propia fila; los admins además ven los profiles de sus propios alumnos/co-admins (no los de otras organizaciones) |
 | `video_views` | nada | solo sus propias filas; los admins ven las de lecciones de cursos de su(s) propia(s) organización(es) |
 | `organizations` | branding público (`name`, `slug`, `logo_url`, etc., lectura abierta) | igual + puede editar si es admin de esa organización |
-| `organization_billing` / `organization_integrations` | nada | solo admin/owner de esa organización (integrations: solo el owner) |
+| `organization_billing` / `organization_integrations` | nada | estado comercial visible al admin mediante columnas limitadas; notas y cupón son internos. Integraciones: solo owner con acceso activo |
 | `organization_admins` / `organization_students` / `invitations` / `invitation_courses` | nada | admins de esa organización; invitaciones y cursos asociados son de lectura directa, sus mutaciones pasan por RPC (alumno: además puede leer su propia fila en `organization_students`) |
 | `student_course_access` | nada | el alumno ve sus accesos y los admins los de cursos de su organización |
 
 **Fuga cross-tenant corregida el 2026-08-11 (ficha pública de curso)**: `src/app/cursos/[id]/page.tsx` buscaba el curso solo por `id`. Como la policy `courses_public_read_published` deja leer cualquier fila publicada de **cualquier** empresa (lo necesita el sitio público), `/o/empresaA/cursos/<id-de-empresaB>` renderizaba el curso de B con el Header, el logo y el color de A. Arreglado comparando `course.organization_id` con la organización que resuelve la URL: si no coinciden, el curso "no existe" en ese portal. Los tests de la Fase 10 cubrían `/admin/cursos` y `/admin/estadisticas`, pero no la ficha pública.
 
-El control de acceso admin se repite a mano en cada server action, ahora vía `requireOrgAdmin()`/`requireSuperAdmin()`/`requireAnyOrgAdmin()` (`src/lib/auth/requireOrgAdmin.ts`, reemplaza al antiguo `requireAdmin()`) — RLS y el chequeo de código son dos capas independientes, no confiar solo en una. Estos helpers llaman por RPC a las mismas funciones `security definer` que usan las policies (`is_org_admin`, `is_super_admin`), para no duplicar la lógica de "quién es admin de qué" en dos sitios.
+El control de acceso admin se repite a mano en cada server action, ahora vía `requireOrgAdmin()`/`requireSuperAdmin()`/`requireAnyOrgAdmin()` (`src/lib/auth/requireOrgAdmin.ts`, reemplaza al antiguo `requireAdmin()`) — RLS y el chequeo de código son dos capas independientes, no confiar solo en una. Estos helpers llaman por RPC a las mismas funciones `security definer` que usan las policies (`is_org_admin`, `is_super_admin`, `has_org_platform_access`), para no duplicar la lógica de "quién es admin de qué" ni el estado comercial en dos sitios.
 
 **Alumno expulsado ("echado")**: `organization_students.status = 'removed'`
 corta el acceso aunque conserve compras e invitaciones, para mantener el

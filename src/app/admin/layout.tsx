@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { AdminBillingGate } from "@/components/layout/AdminBillingGate";
 import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
+import { resolveEffectiveBillingStatus } from "@/lib/billing/access";
+import { AdminPageBackLink } from "@/components/layout/AdminPageBackLink";
 
 export default async function AdminLayout({
   children,
@@ -34,7 +36,7 @@ export default async function AdminLayout({
     ? await Promise.all([
         supabase
           .from("organization_billing")
-          .select("platform_subscription_status")
+          .select("platform_subscription_status, access_mode, access_expires_at")
           .eq("organization_id", membership.organizationId)
           .maybeSingle(),
         supabase
@@ -53,7 +55,19 @@ export default async function AdminLayout({
         isSuperAdmin={Boolean(isSuperAdmin)}
       />
       <main className="min-w-0 flex-1">
-        <AdminBillingGate status={billing?.platform_subscription_status ?? null}>
+        <AdminPageBackLink />
+        <AdminBillingGate
+          status={
+            isSuperAdmin
+              ? null
+              : resolveEffectiveBillingStatus({
+                  platformSubscriptionStatus:
+                    billing?.platform_subscription_status ?? "canceled",
+                  accessMode: billing?.access_mode,
+                  accessExpiresAt: billing?.access_expires_at,
+                })
+          }
+        >
           {children}
         </AdminBillingGate>
       </main>

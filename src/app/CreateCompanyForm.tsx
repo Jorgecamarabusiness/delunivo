@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { createCompanyAction, type CreateCompanyState } from "./actions";
+import { formatPlatformPrice } from "@/lib/billing/access";
 
 const INITIAL: CreateCompanyState = { error: null };
 
-export function CreateCompanyForm() {
+export function CreateCompanyForm({ priceCents }: { priceCents: number }) {
   const [state, formAction, pending] = useActionState(
     createCompanyAction,
     INITIAL
@@ -84,7 +85,7 @@ export function CreateCompanyForm() {
       </Button>
 
       <p className="text-center text-xs text-muted-foreground">
-        20€/mes. Cancela cuando quieras.
+        {formatPlatformPrice(priceCents)}/mes. Cancela cuando quieras.
       </p>
     </form>
   );

@@ -132,11 +132,11 @@ function ChartIcon({ className }: { className?: string }) {
   );
 }
 
-function MailIcon({ className }: { className?: string }) {
+function PlatformIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 7l9 6 9-6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-3Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" />
     </svg>
   );
 }
@@ -179,25 +179,25 @@ export function AdminSidebar({
     { href: "/admin/configuracion", label: "Cobros", Icon: CreditCardIcon },
     { href: "/admin/facturacion", label: "Facturación", Icon: ReceiptIcon },
     ...(isSuperAdmin
-      ? [{ href: "/admin/emails", label: "Correos de prueba", Icon: MailIcon }]
+      ? [{ href: "/admin/plataforma", label: "Control Delunivo", Icon: PlatformIcon }]
       : []),
   ];
 
   return (
     <aside
-      className={`sticky top-0 flex h-dvh shrink-0 self-start flex-col border-r border-border bg-background transition-[width] duration-200 ${
-        expanded ? "w-16 sm:w-64" : "w-16"
+      className={`admin-sidebar sticky top-0 flex h-dvh shrink-0 self-start flex-col border-r border-border bg-background transition-[width] duration-200 ${
+        expanded ? "admin-sidebar-expanded" : ""
       }`}
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-5">
         <div
           aria-label={PLATFORM_NAME}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-foreground sm:hidden"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-foreground md:hidden"
         >
           D
         </div>
         {expanded ? (
-          <div className="hidden min-w-0 sm:block">
+          <div className="hidden min-w-0 md:block">
             <p className="truncate text-base font-bold tracking-tight">{PLATFORM_NAME}</p>
             <p className="truncate text-xs text-muted-foreground">Bienvenido {adminName}</p>
           </div>
@@ -205,7 +205,7 @@ export function AdminSidebar({
         <button
           type="button"
           onClick={() => setExpanded((value) => !value)}
-          className="ml-auto hidden h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted sm:flex"
+          className="ml-auto hidden h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted md:flex"
           aria-label={expanded ? "Contraer menú" : "Expandir menú"}
         >
           <ChevronIcon
@@ -223,13 +223,13 @@ export function AdminSidebar({
               href={href}
               aria-label={label}
               aria-current={active ? "page" : undefined}
-              title={expanded ? undefined : label}
+              title={label}
               className={`flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
                 active ? "bg-foreground text-background" : "hover:bg-muted"
               }`}
             >
               <Icon className="h-5 w-5 shrink-0" />
-              {expanded ? <span className="hidden truncate sm:inline">{label}</span> : null}
+              {expanded ? <span className="hidden truncate md:inline">{label}</span> : null}
             </Link>
           );
         })}
@@ -239,12 +239,12 @@ export function AdminSidebar({
         <Link
           href={organizationHref ?? "/"}
           aria-label={organizationHref ? "Ver mi página" : "Volver a Delunivo"}
-          title={expanded ? undefined : organizationHref ? "Ver mi página" : "Volver a Delunivo"}
+          title={organizationHref ? "Ver mi página" : "Volver a Delunivo"}
           className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <HomeIcon className="h-5 w-5 shrink-0" />
           {expanded ? (
-            <span className="hidden truncate sm:inline">
+            <span className="hidden truncate md:inline">
               {organizationHref ? "Ver mi página" : "Volver a Delunivo"}
             </span>
           ) : null}

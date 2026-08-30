@@ -20,13 +20,19 @@ export default async function LessonEditorPage({
 
   const { data: course } = await supabase
     .from("courses")
-    .select("id, title")
+    .select("id, title, organization_id")
     .eq("id", id)
     .maybeSingle();
 
   if (!course) {
     return <NotFound message="Curso no encontrado." />;
   }
+
+  const { data: organization } = await supabase
+    .from("organizations")
+    .select("slug")
+    .eq("id", course.organization_id)
+    .maybeSingle();
 
   const { data: lessonRow } = await supabase
     .from("lessons")
@@ -58,7 +64,17 @@ export default async function LessonEditorPage({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-12">
-      <LessonEditorView course={course} section={section} lesson={lesson} />
+      <LessonEditorView
+        course={{
+          id: course.id,
+          title: course.title,
+          publicPath: organization
+            ? `/o/${organization.slug}/cursos/${course.id}/aprender`
+            : null,
+        }}
+        section={section}
+        lesson={lesson}
+      />
     </div>
   );
 }

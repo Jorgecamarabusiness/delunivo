@@ -6,7 +6,7 @@ import { type InputHTMLAttributes, type TextareaHTMLAttributes } from "react";
  * en quince sitios.
  */
 export const inputClassName =
-  "w-full rounded-md border border-border bg-background px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-accent disabled:opacity-50";
+  "min-w-0 w-full rounded-md border border-border bg-background px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-accent disabled:opacity-50";
 
 export function Input({
   className = "",
