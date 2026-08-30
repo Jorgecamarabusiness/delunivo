@@ -37,7 +37,7 @@ Añadida el 2026-08-07. Una fila por cliente ("empresa"). Solo branding público
 |---|---|
 | id | |
 | name | nombre visible del cliente |
-| slug | segmento público de ruta (`/o/{slug}`), unique, solo `[a-z0-9-]`. Históricamente se diseñó también para `{slug}.aularia.app`, dominio que nunca se configuró. Reservados a nivel de aplicación (no en BD): `www`, `app`, `admin`, `api` |
+| slug | segmento público de ruta (`/o/{slug}`), unique, solo `[a-z0-9-]`. Históricamente se diseñó también para `{slug}.delunivo.app`, dominio que nunca se configuró. Reservados a nivel de aplicación (no en BD): `www`, `app`, `admin`, `api` |
 | tagline_template | Titular grande de la portada de la empresa. Plantilla tipo "Aprende {tema} junto a cientos de usuarios con {admin}" ({admin} se sustituye por el nombre del `owner_id`, o por `name` si no tiene). Con `null` se usa un genérico. Editable en `/admin/marca`. |
 | hero_subtitle | **añadida el 2026-08-11** — frase de apoyo debajo del titular en la portada. Nullable, editable en `/admin/marca`. |
 | featured_course_id | **añadida el 2026-08-11** — uuid, FK -> courses.id `on delete set null`. Curso que protagoniza la portada (su `thumbnail_url` es la imagen del hero y su precio el "Desde X €"). Con `null`, `splitForLanding()` usa el curso publicado más antiguo. `updateBrandingAction` valida que el curso sea de esa misma empresa antes de guardarlo. |
@@ -308,8 +308,8 @@ muestra el catálogo. Las lecturas privadas del panel usan
 
 ## Despliegue y dominio
 
-La URL técnica existente es `https://aularia.vercel.app`. Delunivo usa rutas
-`/o/<slug>` porque `*.vercel.app` no permite wildcards de tenant. El rebranding
-local no renombra el proyecto de Vercel, Supabase, repositorio, directorio,
-variables, buckets, tablas ni IDs. Comprar o migrar un dominio queda pospuesto
-hasta que exista una necesidad de producto confirmada.
+La URL técnica de la plataforma es `https://delunivo.vercel.app`. Delunivo usa
+rutas `/o/<slug>` porque `*.vercel.app` no permite wildcards de tenant. Los
+identificadores internos estables de Supabase, buckets, tablas e integraciones
+no se renombran: no son identidad visible y cambiarlos pondría datos o enlaces
+en riesgo. Un dominio propio puede añadirse cuando esté decidido y registrado.

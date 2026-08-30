@@ -18,12 +18,12 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 
 ## Decisiones que no deben reabrirse sin nueva evidencia
 
-- El nombre de producto es Delunivo; `aularia.vercel.app` puede seguir siendo una URL tecnica temporal.
+- El nombre de producto y de los recursos externos visibles es Delunivo.
 - Se prioriza validar con el primer cliente antes de invertir en dominio, marca o infraestructura adicional.
 - Se aplica YAGNI: una necesidad particular de Ivan no se convierte automaticamente en una feature general.
 - El sistema debe preservar aislamiento multi-tenant en datos, permisos, cursos, alumnos, marca y cobros.
 - El flujo publico vigente usa `/o/<slug>`.
-- Los pasos de dashboards externos los ejecuta Jorge con guia paso a paso; Codex implementa directamente el codigo reversible.
+- Codex ejecuta directamente los cambios externos autorizados cuando dispone de acceso; solo pide a Jorge los pasos que realmente requieren su cuenta o una decision.
 
 ## Sistema de interfaz
 
@@ -34,8 +34,8 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 
 ## Estado operativo
 
-- El rebranding local a Delunivo esta implementado; todavia no se ha desplegado.
-- El repositorio, el directorio local, `aularia.vercel.app`, Stripe, Resend y los demas identificadores externos conservan sus nombres actuales. Renombrarlos no es necesario para validar el producto y se pospone hasta que exista una necesidad real.
+- El rebranding de producto a Delunivo esta implementado. El repositorio, el directorio local y los recursos externos visibles deben usar el mismo nombre.
+- Los identificadores internos estables, referencias de proyecto, buckets, tablas, claves y URLs de API no se renombran cuando el cambio no es cosmético: preservarlos evita roturas y no expone una marca distinta al usuario.
 - El esquema real vive en Supabase. `docs/database.md` mantiene el inventario confirmado y el SQL historico; desde 2026-08-30, los cambios nuevos tambien se guardan como migraciones versionadas. Un archivo de migracion no demuestra que se haya aplicado.
 - Codex usa `AGENTS.md`, las skills de `.agents/skills/` y dos revisores read-only en `.codex/agents/`. No se mantienen instrucciones duplicadas para otros agentes.
 
@@ -45,11 +45,11 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 2. Corregir bloqueos reales de activacion, cobro y experiencia del alumno.
 3. Mantener seguridad, aislamiento y fiabilidad de integraciones.
 4. Consolidar componentes o tokens solo cuando aparezca duplicacion real.
-5. Posponer dominio, registro de marca y arquitectura para escala hasta tener evidencia de uso o ingresos.
+5. Decidir y registrar el dominio propio de Delunivo antes de sustituir la URL técnica de Vercel.
 
 ## Riesgos y pendientes conocidos
 
-- Los cambios actuales todavia no se han verificado en un despliegue.
+- Los cambios actuales deben verificarse en el siguiente despliegue.
 - Hay vulnerabilidades de dependencias previamente detectadas que requieren una tarea separada y enfocada.
 - Las acciones de Stripe, Resend, Vercel y Supabase pueden requerir pasos manuales y no deben darse por completadas sin confirmacion.
 

@@ -65,7 +65,7 @@ test("ningún Host se interpreta como subdominio de cliente: la empresa solo sal
   // src/proxy.ts ya no mira el Host para nada — la empresa se resuelve solo por
   // /o/<slug>. Esto lo fija: da igual qué Host llegue, el dominio raíz siempre
   // enseña la landing de Delunivo y nunca el portal de un cliente.
-  for (const host of ["aularia.vercel.app", "escuela-alfa.aularia.app", host_of(orgA)]) {
+  for (const host of ["delunivo.vercel.app", "escuela-alfa.delunivo.app", host_of(orgA)]) {
     const response = await request.get(baseURL + "/", { headers: { host } });
     expect(response.status()).toBeLessThan(500);
     expect(await response.text()).toContain("Crea, vende y comparte conocimiento");
@@ -73,5 +73,5 @@ test("ningún Host se interpreta como subdominio de cliente: la empresa solo sal
 });
 
 function host_of(org: TestOrg): string {
-  return `${org.slug}.aularia.app`;
+  return `${org.slug}.delunivo.app`;
 }

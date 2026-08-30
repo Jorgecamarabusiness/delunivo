@@ -1,5 +1,5 @@
 -- =============================================================================
--- Aularia — 2026-08-11
+-- Delunivo — 2026-08-11
 -- 1) admin_emails       : lista de correos "de pruebas" a los que se redirige
 --                         TODO email cuando el envío real está desactivado.
 -- 2) verification_codes : códigos temporales de 30 min (registro y recuperación

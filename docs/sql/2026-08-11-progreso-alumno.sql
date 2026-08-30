@@ -1,5 +1,5 @@
 -- =============================================================================
--- Aularia — 2026-08-11 (segunda tanda)
+-- Delunivo — 2026-08-11 (segunda tanda)
 -- Progreso del alumno: hasta ahora el "% completado" del aula vivía solo en
 -- memoria (useState) y `video_views` no la escribía NADIE — solo la leía
 -- /admin/estadisticas. Un alumno cerraba la pestaña y perdía su progreso, y las

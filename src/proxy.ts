@@ -9,7 +9,7 @@ import { updateSession } from "@/lib/supabase/middleware";
  * prefijo. El dominio raíz (sin `/o/<slug>`) es la landing de Delunivo, no la
  * tienda de ningún cliente.
  *
- * Antes convivía además una resolución por subdominio (`cliente1.aularia.app`).
+ * Antes convivía además una resolución por subdominio (`cliente1.delunivo.app`).
  * Se eliminó a propósito: solo funcionaba en local con `*.localhost`, porque
  * Vercel no permite reclamar wildcards sobre `*.vercel.app`, así que producía
  * un comportamiento distinto en local y en producción — justo lo que no se
