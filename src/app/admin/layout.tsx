@@ -5,6 +5,8 @@ import { AdminBillingGate } from "@/components/layout/AdminBillingGate";
 import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
 import { resolveEffectiveBillingStatus } from "@/lib/billing/access";
 import { AdminPageBackLink } from "@/components/layout/AdminPageBackLink";
+import { Header } from "@/components/layout/Header";
+import { getActiveImpersonationForUser } from "@/lib/auth/impersonation";
 
 export default async function AdminLayout({
   children,
@@ -32,6 +34,8 @@ export default async function AdminLayout({
     redirect("/");
   }
 
+  const impersonation = await getActiveImpersonationForUser(user.id);
+
   const [{ data: billing }, { data: organization }] = membership
     ? await Promise.all([
         supabase
@@ -48,29 +52,32 @@ export default async function AdminLayout({
     : [{ data: null }, { data: null }];
 
   return (
-    <div className="flex min-h-screen flex-1 bg-background text-foreground">
-      <AdminSidebar
-        adminName={profile?.name ?? ""}
-        organizationHref={organization ? `/o/${organization.slug}` : undefined}
-        isSuperAdmin={Boolean(isSuperAdmin)}
-      />
-      <main className="min-w-0 flex-1">
-        <AdminPageBackLink />
-        <AdminBillingGate
-          status={
-            isSuperAdmin
-              ? null
-              : resolveEffectiveBillingStatus({
-                  platformSubscriptionStatus:
-                    billing?.platform_subscription_status ?? "canceled",
-                  accessMode: billing?.access_mode,
-                  accessExpiresAt: billing?.access_expires_at,
-                })
-          }
-        >
-          {children}
-        </AdminBillingGate>
-      </main>
+    <div className="flex min-h-screen flex-1 flex-col bg-background text-foreground">
+      <Header />
+      <div className="flex min-h-0 flex-1">
+        <AdminSidebar
+          adminName={profile?.name ?? ""}
+          organizationHref={organization ? `/o/${organization.slug}` : undefined}
+          supportMode={Boolean(impersonation)}
+        />
+        <main className="min-w-0 flex-1">
+          <AdminPageBackLink />
+          <AdminBillingGate
+            status={
+              isSuperAdmin
+                ? null
+                : resolveEffectiveBillingStatus({
+                    platformSubscriptionStatus:
+                      billing?.platform_subscription_status ?? "canceled",
+                    accessMode: billing?.access_mode,
+                    accessExpiresAt: billing?.access_expires_at,
+                  })
+            }
+          >
+            {children}
+          </AdminBillingGate>
+        </main>
+      </div>
     </div>
   );
 }

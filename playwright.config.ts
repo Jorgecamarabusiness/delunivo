@@ -50,6 +50,10 @@ export default defineConfig({
       // Los tests verifican la cola en Postgres, pero nunca deben borrar
       // recursos reales de la cuenta de Mux enlazada al entorno local.
       MUX_DELETION_MODE: "off",
+      // Clave efímera exclusivamente para probar Run as en el servidor E2E.
+      IMPERSONATION_SESSION_KEY:
+        process.env.IMPERSONATION_SESSION_KEY ??
+        Buffer.alloc(32, 42).toString("base64"),
     },
   },
 });

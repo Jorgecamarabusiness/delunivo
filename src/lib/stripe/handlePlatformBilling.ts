@@ -14,7 +14,8 @@ function customerId(
 
 /** checkout.session.completed con mode:"subscription" — primer pago de la suscripción de plataforma. */
 export async function handlePlatformSubscriptionCheckout(
-  session: Stripe.Checkout.Session
+  session: Stripe.Checkout.Session,
+  eventAt: Date
 ): Promise<void> {
   const supabase = createAdminClient();
   const { data: attempt, error: attemptError } = await supabase
@@ -41,46 +42,52 @@ export async function handlePlatformSubscriptionCheckout(
     throw new Error("Stripe no devolvió todos los datos de la suscripción.");
   }
 
-  const { data, error } = await supabase
-    .from("organization_billing")
-    .update({
-      platform_stripe_customer_id: stripeCustomerId,
-      platform_subscription_id: stripeSubscriptionId,
-      platform_subscription_status: "active",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("organization_id", organizationId)
-    .select("organization_id")
-    .single();
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "No se encontró la facturación de la empresa.");
-  }
+  const { error } = await supabase.rpc(
+    "apply_platform_subscription_checkout_event",
+    {
+      p_organization_id: organizationId,
+      p_customer_id: stripeCustomerId,
+      p_subscription_id: stripeSubscriptionId,
+      p_event_at: eventAt.toISOString(),
+    }
+  );
+  if (error) throw new Error(error.message);
 
   await markCheckoutAttemptCompleted(attempt.id);
 }
 
-/** invoice.paid / invoice.payment_failed / customer.subscription.deleted — cambios de estado posteriores. */
-export async function updatePlatformBillingStatusByCustomer(
+function expandableId(value: string | { id: string } | null | undefined) {
+  if (!value) return null;
+  return typeof value === "string" ? value : value.id;
+}
+
+export function invoiceSubscriptionId(invoice: Stripe.Invoice) {
+  return expandableId(invoice.parent?.subscription_details?.subscription);
+}
+
+/**
+ * invoice.paid / invoice.payment_failed / customer.subscription.deleted.
+ * Exige cliente Y suscripción: un evento retrasado de una suscripción anterior
+ * del mismo cliente se considera obsoleto y no puede cambiar el estado actual.
+ */
+export async function updatePlatformBillingStatusForSubscription(
   customer: string | Stripe.Customer | Stripe.DeletedCustomer | null,
-  status: BillingStatus
-): Promise<void> {
+  subscriptionId: string | null,
+  status: BillingStatus,
+  eventAt: Date
+): Promise<string | null> {
   const id = customerId(customer);
-  if (!id) throw new Error("Stripe no devolvió el cliente de la suscripción.");
+  if (!id || !subscriptionId) return null;
 
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("organization_billing")
-    .update({
-      platform_subscription_status: status,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("platform_stripe_customer_id", id)
-    .select("organization_id");
-
-  if (error || data?.length !== 1) {
-    throw new Error(
-      error?.message ?? "No se encontró una única empresa para el cliente de Stripe."
-    );
-  }
+  const { data, error } = await createAdminClient().rpc(
+    "apply_platform_billing_status_event",
+    {
+      p_customer_id: id,
+      p_subscription_id: subscriptionId,
+      p_status: status,
+      p_event_at: eventAt.toISOString(),
+    }
+  );
+  if (error) throw new Error(error.message);
+  return typeof data === "string" ? data : null;
 }

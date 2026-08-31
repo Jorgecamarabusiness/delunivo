@@ -57,11 +57,17 @@ Añadida el 2026-08-07 y ampliada el 2026-08-30. Suscripción de PLATAFORMA que 
 | platform_stripe_customer_id | nullable |
 | platform_subscription_id | nullable |
 | platform_subscription_status | 'trialing' \| 'active' \| 'past_due' \| 'canceled', default 'canceled' |
+| platform_billing_last_event_at | fecha del último evento de Stripe aplicado; impide que un checkout, pago o impago retrasado sobrescriba un estado más nuevo. |
 | access_mode | `standard` \| `complimentary` \| `trial`. El acceso gratuito no caduca; las pruebas exigen fecha de fin. |
 | access_expires_at | nullable; fecha de fin de una prueba gratuita. |
 | discount_percent | entero 0–100. |
 | discount_duration | `once` (primera factura mensual) \| `forever`. |
 | stripe_coupon_id | nullable; cupón de Stripe creado para aplicar la condición comercial. |
+| affiliate_discount_cap_percent | tope total del descuento calculado, 50% por defecto; el superadministrador puede elevarlo para una excepción aprobada. |
+| affiliate_reward_percent | recompensa por cada referido activo, 10% por defecto. |
+| effective_discount_percent | descuento total vigente que se sincroniza como un único cupón de Stripe. |
+| referral_welcome_remaining_payments | facturas pagadas que aún reciben el 10% de bienvenida; empieza en 3. |
+| manual_discount_remaining_payments | vale 1 mientras un descuento manual `once` no se haya consumido. |
 | commercial_note | nullable, máximo 1.000 caracteres; contexto interno del superadministrador. |
 | updated_at | última actualización de las condiciones. |
 
@@ -94,6 +100,48 @@ elegir explícitamente una de las empresas que posee el usuario y las server
 actions vuelven a validar ese `organization_id` con `is_org_owner()`. Esto
 permite reactivar una empresa cancelada aunque el mismo usuario administre
 otras empresas activas.
+
+### organization_referral_codes / organization_referrals
+
+Añadidas y verificadas en Supabase el 2026-08-31. El código es opaco, único y
+solo se resuelve en servidor. Cada empresa tiene como máximo un enlace activo;
+cada empresa y cada propietario referidos solo pueden atribuirse una vez. La
+base rechaza autorreferencias, códigos ajenos, atribuciones posteriores al
+inicio de la facturación y altas con más de 15 minutos.
+
+La atribución empieza `pending`. Solo una factura de importe pagado mayor que
+cero la convierte en `active`; un impago o la cancelación la deja `inactive`.
+El invitado recibe 10% durante sus tres primeras facturas pagadas. El referente
+recibe por defecto 10% por cada referido activo. El descuento efectivo suma el
+manual aplicable, la bienvenida y las recompensas, y se limita al tope de la
+empresa (50% normal). Una excepción comercial se expresa elevando ese tope, no
+saltándose el cálculo.
+
+Ambas tablas tienen RLS activa sin policies y sin privilegios para `anon` ni
+`authenticated`; solo `service_role` puede leer o mutar. Las RPC de atribución,
+recálculo y aplicación de eventos también son exclusivas de servidor.
+
+### stripe_platform_webhook_events
+
+Registro privado e idempotente de eventos de la suscripción de plataforma.
+Conserva estado, intentos, error y si el efecto de dominio ya fue aplicado. Un
+evento simultáneo queda `in_progress` para que Stripe reintente; uno completado
+se reconoce como duplicado. Las fechas de facturación impiden que un evento
+antiguo reactive un referido después de una baja más reciente.
+
+### support_impersonation_sessions
+
+Auditoría privada de “Run as”. Guarda actor, objetivo, motivo, caducidad máxima
+de 15 minutos, IP, agente de usuario, estado final y el ID real de la sesión de
+Supabase Auth creada para el objetivo. La sesión original del superadministrador
+se cifra en la aplicación con AES-256-GCM; en la base solo se guarda el marcador
+como SHA-256. No se permite actuar como otro superadministrador ni abrir dos
+sesiones activas para el mismo actor.
+
+RLS está activa sin policies y todos los privilegios de navegador están
+revocados. Las RPC de apertura, enlace a `auth.sessions` y cierre solo se
+conceden a `service_role`. El permiso de borrado existe únicamente para
+mantenimiento/E2E y ninguna ruta de producto lo expone.
 
 ### organization_integrations
 Añadida el 2026-08-07. Claves de pago propias de cada cliente — la tabla más sensible de todas, separada del resto a propósito.
@@ -355,6 +403,20 @@ RLS: cada alumno ve, inserta y borra **solo sus propias filas** (`user_id = auth
   `20260831141239_lock_stripe_checkout_attempts.sql` aplicada manualmente y
   verificada con RLS activa, cero policies públicas, permisos exclusivos de
   `service_role`, siete índices y FKs `RESTRICT`.
+- **2026-08-31** — afiliados y soporte auditado: migraciones
+  `20260831163024_secure_affiliate_program.sql`,
+  `20260831163025_audited_support_impersonation.sql`,
+  `20260831165811_bind_support_auth_session.sql` y
+  `20260831171001_grant_private_service_cleanup.sql`, aplicadas y verificadas
+  en el proyecto Delunivo. Las cuatro tablas privadas tienen RLS sin policies,
+  cero grants para `anon`/`authenticated` y RPC exclusivas de `service_role`.
+- **2026-08-31** — orden temporal de facturación de plataforma: la migración
+  `20260831182500_order_platform_billing_events.sql` añade el reloj del último
+  evento y dos RPC privadas que aplican tanto el checkout inicial como los
+  cambios de estado solo si no existe un evento posterior. Evita que webhooks
+  retrasados de la misma suscripción degraden un pago ya recuperado. Stripe
+  fecha estos eventos con precisión de segundos; un empate exacto conserva el
+  orden de entrega como desempate residual.
 
 ## Emails y verificación de cuenta
 
@@ -381,6 +443,8 @@ RLS **sí está activo** en todas las tablas. Desde el 2026-08-07 el modelo es m
 | `courses` | solo `status = 'published'` (policy `courses_public_read_published`) | `status = 'published'` de cualquier organización, o todas las filas (incl. borradores) de las organizaciones donde es admin |
 | `admin_emails` | nada | solo `is_super_admin()` |
 | `verification_codes` | nada | **nada** — RLS activo sin ninguna policy: solo la service role key |
+| `organization_referral_codes` / `organization_referrals` / `stripe_platform_webhook_events` | nada | **nada** — tablas server-only; el enlace público se valida mediante un route handler y las mutaciones mediante RPC privadas |
+| `support_impersonation_sessions` | nada | **nada** — auditoría y sesión cifrada solo para `service_role`; el navegador conserva únicamente un marcador HttpOnly |
 | `sections` / `lessons` | nada | igual que `courses` para gestión; para VER una lección hace falta seguir `active` en `organization_students` y tener compra o acceso invitado al curso, salvo admins de esa organización |
 | `purchases` | nada | solo su propia fila; los admins ven las de su(s) propia(s) organización(es), nunca las de otra |
 | `profiles` | nada | solo su propia fila; los admins además ven los profiles de sus propios alumnos/co-admins (no los de otras organizaciones) |
@@ -442,6 +506,11 @@ muestra el catálogo. Las lecturas privadas del panel usan
   de conceder acceso. La migración `20260831141239` añade un registro privado
   de intentos para reutilizar la misma sesión ante concurrencia. La migración y
   el código están aplicados y verificados en producción desde el 2026-08-31.
+  Para afiliados se calcula un único descuento efectivo y se envía un único
+  cupón, evitando la multiplicación de descuentos de Stripe. Los eventos de la
+  plataforma se reclaman de forma idempotente y deben coincidir por cliente y
+  por ID exacto de suscripción; una factura o baja retrasada de una suscripción
+  anterior se archiva sin alterar la vigente.
 - **Whop (desactivado):** no hay configuración, compra ni canje en la UI. El
   endpoint histórico responde `200` sin enviar correos, crear compras ni dar
   acceso, para evitar reintentos del proveedor. Se conserva solo el esquema

@@ -1,11 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { randomBytes } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { requireOwnerContext } from "@/lib/organizations/requireOwnerContext";
 import { stripe } from "@/lib/stripe/client";
 import { describeStripeError } from "@/lib/stripe/errors";
 import { createPlatformSubscriptionCheckoutUrl } from "@/lib/stripe/platformSubscription";
 import type { ActionResult } from "@/types";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // Ambas actions llevan la firma de `useActionState` (prevState, formData) para
 // que el formulario pueda pintar el error en pantalla en vez de reventar.
@@ -78,4 +81,33 @@ export async function openBillingPortalAction(
   }
 
   redirect(portalUrl);
+}
+
+export async function ensureReferralCodeAction(
+  organizationId: string
+): Promise<ActionResult> {
+  const auth = await requireOwnerContext({ allowInactive: true, organizationId });
+  if (!auth.ok) return { error: auth.error };
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from("organization_referral_codes")
+    .select("id")
+    .eq("organization_id", auth.context.organizationId)
+    .maybeSingle();
+
+  if (!existing) {
+    const code = randomBytes(18).toString("base64url");
+    const { error } = await admin.from("organization_referral_codes").insert({
+      organization_id: auth.context.organizationId,
+      code,
+      created_by: auth.context.userId,
+    });
+    if (error && error.code !== "23505") {
+      return { error: "No se pudo crear el enlace de invitación." };
+    }
+  }
+
+  revalidatePath("/admin/facturacion");
+  return { error: null };
 }

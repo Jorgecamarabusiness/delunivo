@@ -45,3 +45,12 @@ test.describe("control de acceso", () => {
     await expect(page).toHaveURL(new RegExp(`${IVANORGANICO_PREFIX}/cursos/${MAIN_COURSE_ID}/aprender`));
   });
 });
+
+test("un alumno ve sus cursos comprados en el perfil", async ({ page }) => {
+  await login(page, ACCOUNTS.student.email, ACCOUNTS.student.password);
+  await page.goto("/perfil");
+
+  await expect(page.getByRole("heading", { name: "Mi perfil" })).toBeVisible();
+  await expect(page.getByText("Comprado").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Continuar curso" }).first()).toBeVisible();
+});

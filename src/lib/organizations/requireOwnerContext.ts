@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgMembership } from "./getCurrentOrgMembership";
 import { requireOrgOwner } from "@/lib/auth/requireOrgAdmin";
+import { rejectSensitiveActionDuringImpersonation } from "@/lib/auth/impersonation";
 
 export type OwnerContext = {
   userId: string;
@@ -37,6 +38,11 @@ export async function requireOwnerContext(
   if (!user) {
     return { ok: false, error: "Debes iniciar sesión para hacer esto." };
   }
+
+  const impersonationError = await rejectSensitiveActionDuringImpersonation(
+    user.id
+  );
+  if (impersonationError) return { ok: false, error: impersonationError };
 
   const membership = options.organizationId
     ? null

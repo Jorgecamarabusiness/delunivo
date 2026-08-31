@@ -132,15 +132,6 @@ function ChartIcon({ className }: { className?: string }) {
   );
 }
 
-function PlatformIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-3Z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" />
-    </svg>
-  );
-}
-
 function ChevronIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -158,14 +149,14 @@ function ChevronIcon({ className }: { className?: string }) {
 type AdminSidebarProps = {
   adminName: string;
   organizationHref?: string;
+  supportMode?: boolean;
   /** Solo el dueño de la plataforma ve la lista de correos de prueba. */
-  isSuperAdmin?: boolean;
 };
 
 export function AdminSidebar({
   adminName,
   organizationHref,
-  isSuperAdmin,
+  supportMode = false,
 }: AdminSidebarProps) {
   const [expanded, setExpanded] = useState(true);
   const pathname = usePathname();
@@ -178,14 +169,11 @@ export function AdminSidebar({
     { href: "/admin/marca", label: "Marca", Icon: PaletteIcon },
     { href: "/admin/configuracion", label: "Cobros", Icon: CreditCardIcon },
     { href: "/admin/facturacion", label: "Facturación", Icon: ReceiptIcon },
-    ...(isSuperAdmin
-      ? [{ href: "/admin/plataforma", label: "Control Delunivo", Icon: PlatformIcon }]
-      : []),
   ];
 
   return (
     <aside
-      className={`sticky top-0 flex h-dvh w-16 min-w-[4rem] max-w-[4rem] shrink-0 self-start flex-col border-r border-border bg-background transition-[width] duration-200 md:min-w-0 md:max-w-none ${
+      className={`sticky ${supportMode ? "top-[6.75rem] h-[calc(100dvh-6.75rem)]" : "top-16 h-[calc(100dvh-4rem)]"} flex w-16 min-w-[4rem] max-w-[4rem] shrink-0 self-start flex-col border-r border-border bg-background transition-[width] duration-200 md:min-w-0 md:max-w-none ${
         expanded ? "md:w-64" : "md:w-16"
       }`}
     >

@@ -1,31 +1,9 @@
-import DOMPurify from "isomorphic-dompurify";
 import type { TextBlock as TextBlockType } from "@/types";
 import { Card } from "@/components/ui/Card";
+import { sanitizeLessonHtml } from "@/lib/content/sanitizeLessonHtml";
 
 export function TextBlock({ block }: { block: TextBlockType }) {
-  const html = DOMPurify.sanitize(block.content, {
-    ALLOWED_TAGS: [
-      "p",
-      "br",
-      "strong",
-      "em",
-      "u",
-      "s",
-      "span",
-      "h1",
-      "h2",
-      "h3",
-      "ul",
-      "ol",
-      "li",
-      "blockquote",
-      "code",
-      "pre",
-      "img",
-      "a",
-    ],
-    ALLOWED_ATTR: ["style", "src", "alt", "href", "target", "rel"],
-  });
+  const html = sanitizeLessonHtml(block.content);
 
   return (
     <Card className="p-6">

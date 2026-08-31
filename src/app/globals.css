@@ -69,6 +69,17 @@ textarea:disabled {
   cursor: grabbing;
 }
 
+/* dnd-kit no usa draggable="true": identifica el handle mediante listeners.
+   Esta regla va despuÃ©s del cursor genÃ©rico de los botones para que el ratÃ³n
+   comunique correctamente que aquÃ­ se arrastra, no que se hace clic. */
+button[data-drag-handle] {
+  cursor: grab;
+}
+
+button[data-drag-handle]:active {
+  cursor: grabbing;
+}
+
 mux-uploader::part(drop) {
   min-height: 9rem;
   border: 1px dashed var(--border);

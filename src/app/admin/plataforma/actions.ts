@@ -12,6 +12,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe/client";
 import { describeStripeError } from "@/lib/stripe/errors";
 import { createPlatformCoupon } from "@/lib/stripe/platformCoupons";
+import { reconcileOrganizationCommercialTermsToStripe } from "@/lib/stripe/platformDiscounts";
+import {
+  commercialTermsIdempotencyKey,
+  subscriptionMatchesCommercialTerms,
+} from "@/lib/stripe/subscriptionTerms";
 import type { ActionResult } from "@/types";
 
 async function requirePlatformAdmin() {
@@ -87,8 +92,12 @@ export async function updateOrganizationCommercialTermsAction(
   const accessMode = parseAccessMode(formData.get("accessMode"));
   const expiry = parseExpiry(formData.get("accessExpiresOn"));
   const discountPercent = Number(formData.get("discountPercent") ?? 0);
+  const affiliateDiscountCapPercent = Number(
+    formData.get("affiliateDiscountCapPercent") ?? 50
+  );
   const discountDuration = parseDiscountDuration(formData.get("discountDuration"));
   const commercialNote = String(formData.get("commercialNote") ?? "").trim();
+  const expectedUpdatedAt = String(formData.get("expectedUpdatedAt") ?? "");
 
   if (!accessMode) return { error: "Selecciona un tipo de acceso válido." };
   if (accessMode === "trial" && (!expiry || expiry.getTime() <= Date.now())) {
@@ -101,6 +110,13 @@ export async function updateOrganizationCommercialTermsAction(
   ) {
     return { error: "El descuento debe ser un porcentaje entero entre 0 y 100." };
   }
+  if (
+    !Number.isInteger(affiliateDiscountCapPercent) ||
+    affiliateDiscountCapPercent < 0 ||
+    affiliateDiscountCapPercent > 100
+  ) {
+    return { error: "El tope total debe ser un porcentaje entre 0 y 100." };
+  }
   if (commercialNote.length > 1000) {
     return { error: "La nota no puede superar los 1.000 caracteres." };
   }
@@ -111,7 +127,7 @@ export async function updateOrganizationCommercialTermsAction(
     admin
       .from("organization_billing")
       .select(
-        "platform_subscription_id, platform_subscription_status, access_mode, access_expires_at, discount_percent, discount_duration, stripe_coupon_id, commercial_note"
+        "platform_subscription_id, platform_subscription_status, access_mode, access_expires_at, discount_percent, discount_duration, stripe_coupon_id, commercial_note, affiliate_discount_cap_percent, effective_discount_percent, manual_discount_remaining_payments, updated_at"
       )
       .eq("organization_id", organizationId)
       .maybeSingle(),
@@ -128,75 +144,66 @@ export async function updateOrganizationCommercialTermsAction(
   ) {
     return { error: "No se pudo cargar la configuración comercial de la empresa." };
   }
+  if (!expectedUpdatedAt || current.updated_at !== expectedUpdatedAt) {
+    return {
+      error:
+        "Otra persona ha actualizado esta empresa. Recarga la página antes de volver a guardar.",
+    };
+  }
 
-  const stripeDiscountPercent = accessMode === "complimentary" ? 100 : discountPercent;
-  const stripeDiscountDuration: DiscountDuration =
-    accessMode === "complimentary" ? "forever" : discountDuration;
-  const discountUnchanged =
-    current.access_mode === accessMode &&
+  const manualDiscountUnchanged =
     current.discount_percent === discountPercent &&
     current.discount_duration === discountDuration;
-  let couponId =
-    stripeDiscountPercent > 0 && discountUnchanged ? current.stripe_coupon_id : null;
-
-  if (current.platform_subscription_id && stripeDiscountPercent > 0 && !couponId) {
-    try {
-      const coupon = await createPlatformCoupon({
-        organizationId,
-        organizationName: organization.name,
-        percentOff: stripeDiscountPercent,
-        duration: stripeDiscountDuration,
-      });
-      couponId = coupon.id;
-    } catch (stripeError) {
-      return { error: describeStripeError(stripeError) };
-    }
-  }
+  const manualDiscountRemainingPayments =
+    accessMode === "complimentary"
+      ? 0
+      : manualDiscountUnchanged
+        ? current.manual_discount_remaining_payments
+        : discountDuration === "once" && discountPercent > 0
+          ? 1
+          : 0;
 
   const platformStatus =
     accessMode === "standard" && !current.platform_subscription_id
       ? "canceled"
       : current.platform_subscription_status;
+  const nextUpdatedAt = new Date().toISOString();
   const nextBilling = {
     platform_subscription_status: platformStatus,
     access_mode: accessMode,
     access_expires_at: accessMode === "trial" ? expiry!.toISOString() : null,
     discount_percent: accessMode === "complimentary" ? 0 : discountPercent,
     discount_duration: discountDuration,
-    stripe_coupon_id: couponId,
+    affiliate_discount_cap_percent: affiliateDiscountCapPercent,
+    manual_discount_remaining_payments: manualDiscountRemainingPayments,
+    stripe_coupon_id: current.stripe_coupon_id,
     commercial_note: commercialNote || null,
-    updated_at: new Date().toISOString(),
+    updated_at: nextUpdatedAt,
   };
   const { data: updatedBilling, error } = await admin
     .from("organization_billing")
     .update(nextBilling)
     .eq("organization_id", organizationId)
+    .eq("updated_at", expectedUpdatedAt)
     .select("organization_id")
-    .single();
+    .maybeSingle();
 
-  if (error || !updatedBilling) {
-    return { error: error?.message ?? "No se guardaron las condiciones." };
+  if (error) {
+    return { error: error.message };
+  }
+  if (!updatedBilling) {
+    return {
+      error:
+        "Otra persona ha actualizado esta empresa. Recarga la página antes de volver a guardar.",
+    };
   }
 
-  try {
-    if (current.platform_subscription_id) {
-      const update: Stripe.SubscriptionUpdateParams = {
-        discounts: couponId ? [{ coupon: couponId }] : [],
-      };
-
-      if (accessMode === "trial" && expiry) {
-        update.trial_end = Math.floor(expiry.getTime() / 1000);
-      } else if (current.access_mode === "trial") {
-        const subscription = await stripe.subscriptions.retrieve(
-          current.platform_subscription_id
-        );
-        if (subscription.status === "trialing") update.trial_end = "now";
-      }
-
-      await stripe.subscriptions.update(current.platform_subscription_id, update);
-    }
-  } catch (stripeError) {
-    const { error: rollbackError } = await admin
+  const { error: refreshError } = await admin.rpc(
+    "refresh_organization_effective_discount",
+    { p_organization_id: organizationId }
+  );
+  if (refreshError) {
+    await admin
       .from("organization_billing")
       .update({
         platform_subscription_status: current.platform_subscription_status,
@@ -204,19 +211,186 @@ export async function updateOrganizationCommercialTermsAction(
         access_expires_at: current.access_expires_at,
         discount_percent: current.discount_percent,
         discount_duration: current.discount_duration,
+        affiliate_discount_cap_percent: current.affiliate_discount_cap_percent,
+        effective_discount_percent: current.effective_discount_percent,
+        manual_discount_remaining_payments:
+          current.manual_discount_remaining_payments,
         stripe_coupon_id: current.stripe_coupon_id,
         commercial_note: current.commercial_note,
         updated_at: new Date().toISOString(),
       })
-      .eq("organization_id", organizationId);
+      .eq("organization_id", organizationId)
+      .eq("updated_at", nextUpdatedAt);
+    return { error: refreshError.message };
+  }
 
-    if (rollbackError) {
+  const { data: refreshed, error: refreshedError } = await admin
+    .from("organization_billing")
+    .select("effective_discount_percent, updated_at")
+    .eq("organization_id", organizationId)
+    .single();
+  if (refreshedError || !refreshed) {
+    return { error: "No se pudo confirmar el descuento efectivo." };
+  }
+
+  const stripeDiscountPercent =
+    accessMode === "complimentary" ? 100 : refreshed.effective_discount_percent;
+  let couponId: string | null = null;
+  if (stripeDiscountPercent > 0) {
+    try {
+      const coupon = await createPlatformCoupon({
+        organizationId,
+        organizationName: organization.name,
+        percentOff: stripeDiscountPercent,
+        duration: "forever",
+      });
+      couponId = coupon.id;
+    } catch (stripeError) {
+      await admin
+        .from("organization_billing")
+        .update({
+          platform_subscription_status: current.platform_subscription_status,
+          access_mode: current.access_mode,
+          access_expires_at: current.access_expires_at,
+          discount_percent: current.discount_percent,
+          discount_duration: current.discount_duration,
+          affiliate_discount_cap_percent: current.affiliate_discount_cap_percent,
+          effective_discount_percent: current.effective_discount_percent,
+          manual_discount_remaining_payments:
+            current.manual_discount_remaining_payments,
+          stripe_coupon_id: current.stripe_coupon_id,
+          commercial_note: current.commercial_note,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("organization_id", organizationId)
+        .eq("updated_at", refreshed.updated_at);
+      return { error: describeStripeError(stripeError) };
+    }
+  }
+
+  const couponUpdatedAt = new Date().toISOString();
+  const { data: couponSaved, error: couponSaveError } = await admin
+    .from("organization_billing")
+    .update({ stripe_coupon_id: couponId, updated_at: couponUpdatedAt })
+    .eq("organization_id", organizationId)
+    .eq("updated_at", refreshed.updated_at)
+    .select("organization_id")
+    .maybeSingle();
+  if (couponSaveError || !couponSaved) {
+    try {
+      await reconcileOrganizationCommercialTermsToStripe(organizationId);
+    } catch (reconciliationError) {
+      console.error(
+        "No se pudieron reconciliar las condiciones comerciales ganadoras.",
+        reconciliationError
+      );
       return {
         error:
-          "Stripe rechazó el cambio y no se pudo restaurar el estado anterior. Revisa esta empresa manualmente antes de continuar.",
+          "La empresa cambió mientras se preparaba el descuento y no se pudo confirmar la sincronización con Stripe. Revisa la suscripción antes de continuar.",
       };
     }
-    return { error: describeStripeError(stripeError) };
+    return {
+      error:
+        couponSaveError?.message ??
+        "La empresa cambió mientras se preparaba el descuento. Se ha sincronizado la versión ganadora; recarga la página.",
+    };
+  }
+
+  if (current.platform_subscription_id) {
+    const expectedTerms = {
+      couponId,
+      trialEndsAt: accessMode === "trial" ? expiry : null,
+      shouldEndCurrentTrial:
+        accessMode !== "trial" && current.access_mode === "trial",
+    };
+    const update: Stripe.SubscriptionUpdateParams = {
+      discounts: couponId ? [{ coupon: couponId }] : [],
+      expand: ["discounts.source.coupon"],
+    };
+    if (expectedTerms.trialEndsAt) {
+      update.trial_end = Math.floor(expectedTerms.trialEndsAt.getTime() / 1000);
+    } else if (expectedTerms.shouldEndCurrentTrial) {
+      update.trial_end = "now";
+    }
+
+    let stripeError: unknown = null;
+    try {
+      const subscription = await stripe.subscriptions.update(
+        current.platform_subscription_id,
+        update,
+        {
+          idempotencyKey: commercialTermsIdempotencyKey(
+            current.platform_subscription_id,
+            expectedTerms
+          ),
+        }
+      );
+      if (!subscriptionMatchesCommercialTerms(subscription, expectedTerms)) {
+        stripeError = new Error(
+          "Stripe no devolvió las condiciones comerciales esperadas."
+        );
+      }
+    } catch (error) {
+      stripeError = error;
+    }
+
+    if (stripeError) {
+      try {
+        const recoveredSubscription = await stripe.subscriptions.retrieve(
+          current.platform_subscription_id,
+          { expand: ["discounts.source.coupon"] }
+        );
+        if (
+          subscriptionMatchesCommercialTerms(
+            recoveredSubscription,
+            expectedTerms
+          )
+        ) {
+          stripeError = null;
+        }
+      } catch (verificationError) {
+        console.error(
+          "No se pudo confirmar el estado de Stripe tras actualizar condiciones comerciales.",
+          verificationError
+        );
+        return {
+          error:
+            "Stripe no respondió y no se pudo confirmar el resultado. Las condiciones no se han revertido para evitar sobrescribir un cambio que pudiera haberse aplicado. Revisa esta empresa antes de volver a guardar.",
+        };
+      }
+    }
+
+    if (stripeError) {
+      const { data: rolledBack, error: rollbackError } = await admin
+        .from("organization_billing")
+        .update({
+          platform_subscription_status: current.platform_subscription_status,
+          access_mode: current.access_mode,
+          access_expires_at: current.access_expires_at,
+          discount_percent: current.discount_percent,
+          discount_duration: current.discount_duration,
+          affiliate_discount_cap_percent:
+            current.affiliate_discount_cap_percent,
+          effective_discount_percent: current.effective_discount_percent,
+          manual_discount_remaining_payments:
+            current.manual_discount_remaining_payments,
+          stripe_coupon_id: current.stripe_coupon_id,
+          commercial_note: current.commercial_note,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("organization_id", organizationId)
+        .eq("updated_at", couponUpdatedAt)
+        .select("organization_id")
+        .maybeSingle();
+
+      if (rollbackError || !rolledBack) {
+        return {
+          error:
+            "Stripe rechazó el cambio, pero otra actualización ya había avanzado. No se ha sobrescrito: recarga y revisa esta empresa antes de continuar.",
+        };
+      }
+      return { error: describeStripeError(stripeError) };
+    }
   }
 
   revalidatePath("/admin/plataforma");

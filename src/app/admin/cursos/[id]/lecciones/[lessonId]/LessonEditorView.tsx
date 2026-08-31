@@ -174,6 +174,7 @@ function BlockRow({
     >
       <button
         type="button"
+        data-drag-handle
         {...attributes}
         {...listeners}
         aria-label="Reordenar bloque"

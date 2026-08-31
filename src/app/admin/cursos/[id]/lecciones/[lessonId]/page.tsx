@@ -1,4 +1,6 @@
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { requireOrgAdmin } from "@/lib/auth/requireOrgAdmin";
 import { LessonEditorView } from "./LessonEditorView";
 import type { ContentBlock } from "@/types";
 
@@ -17,6 +19,9 @@ export default async function LessonEditorPage({
 }) {
   const { id, lessonId } = await params;
   const supabase = await createClient();
+
+  const adminCheck = await requireOrgAdmin(supabase, { courseId: id });
+  if (adminCheck.error) notFound();
 
   const { data: course } = await supabase
     .from("courses")

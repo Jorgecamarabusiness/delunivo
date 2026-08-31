@@ -36,7 +36,10 @@ export async function updateSession(
   );
 
   // No eliminar: refresca el token de sesión llamando a getUser().
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: sessionData } = await supabase.auth.getSession();
 
-  return supabaseResponse;
+  return { response: supabaseResponse, user, session: sessionData.session };
 }

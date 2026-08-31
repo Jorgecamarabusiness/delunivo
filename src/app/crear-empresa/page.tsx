@@ -6,7 +6,11 @@ import { createClient } from "@/lib/supabase/server";
 import { CreateCompanyForm } from "../CreateCompanyForm";
 import { getPlatformPriceCents } from "@/lib/billing/platform";
 
-export default async function CrearEmpresaPage() {
+export default async function CrearEmpresaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ referido?: string }>;
+}) {
   // Crear una empresa es algo del dominio raíz. Dentro del portal de un cliente
   // (/o/<slug>/crear-empresa) no tiene sentido: ahí se va a su propia home.
   const supabase = await createClient();
@@ -19,6 +23,7 @@ export default async function CrearEmpresaPage() {
   }
 
   const priceCents = await getPlatformPriceCents();
+  const referralStatus = (await searchParams).referido;
 
   return (
     <AuthShell
@@ -33,7 +38,16 @@ export default async function CrearEmpresaPage() {
         </>
       }
     >
-      <CreateCompanyForm priceCents={priceCents} />
+      <CreateCompanyForm
+        priceCents={priceCents}
+        referralStatus={
+          referralStatus === "1"
+            ? "valid"
+            : referralStatus === "invalido"
+              ? "invalid"
+              : null
+        }
+      />
     </AuthShell>
   );
 }

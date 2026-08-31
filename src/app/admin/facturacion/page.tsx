@@ -12,6 +12,8 @@ import {
 import { getPlatformPriceCents } from "@/lib/billing/platform";
 import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
 import { BillingActions } from "./BillingActions";
+import { AffiliatePanel } from "./AffiliatePanel";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const STATUS_LABEL: Record<string, string> = {
   trialing: "En periodo de prueba",
@@ -75,16 +77,42 @@ export default async function FacturacionPage({
     (organization) => organization.id === selectedOrganizationId
   );
 
-  const [{ data: billing }, priceCents] = await Promise.all([
-    supabase
+  const admin = createAdminClient();
+  const [
+    { data: billing },
+    priceCents,
+    { data: referralCode },
+    { data: referrals },
+  ] = await Promise.all([
+    admin
       .from("organization_billing")
       .select(
-        "platform_subscription_status, platform_stripe_customer_id, platform_subscription_id, access_mode, access_expires_at, discount_percent, discount_duration"
+        "platform_subscription_status, platform_stripe_customer_id, platform_subscription_id, access_mode, access_expires_at, discount_percent, discount_duration, effective_discount_percent, affiliate_discount_cap_percent, referral_welcome_remaining_payments"
       )
       .eq("organization_id", selectedOrganizationId)
       .maybeSingle(),
     getPlatformPriceCents(),
+    admin
+      .from("organization_referral_codes")
+      .select("code")
+      .eq("organization_id", selectedOrganizationId)
+      .eq("is_active", true)
+      .maybeSingle(),
+    admin
+      .from("organization_referrals")
+      .select("status")
+      .eq("referrer_organization_id", selectedOrganizationId),
   ]);
+  const activeReferrals = (referrals ?? []).filter(
+    (referral) => referral.status === "active"
+  ).length;
+  const pendingReferrals = (referrals ?? []).filter(
+    (referral) => referral.status === "pending"
+  ).length;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const referralUrl = referralCode?.code
+    ? `${siteUrl}/referidos/${referralCode.code}`
+    : null;
 
   const status =
     resolveEffectiveBillingStatus({
@@ -171,13 +199,13 @@ export default async function FacturacionPage({
             .
           </p>
         ) : null}
-        {!complimentary && (billing?.discount_percent ?? 0) > 0 ? (
+        {!complimentary && (billing?.effective_discount_percent ?? 0) > 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">
-            Tienes un {billing!.discount_percent}% de descuento{" "}
-            {billing!.discount_duration === "forever"
-              ? "todos los meses"
-              : "en el primer mes"}
-            .
+            Tu descuento efectivo actual es del{" "}
+            {billing!.effective_discount_percent}%.
+            {(billing?.referral_welcome_remaining_payments ?? 0) > 0
+              ? ` Incluye la bienvenida de referido durante ${billing!.referral_welcome_remaining_payments} mensualidades pagadas más.`
+              : ""}
           </p>
         ) : null}
 
@@ -201,6 +229,15 @@ export default async function FacturacionPage({
           complimentaryWithoutStripe={complimentary && !canManage}
         />
       </div>
+
+      <AffiliatePanel
+        organizationId={selectedOrganizationId}
+        referralUrl={referralUrl}
+        activeReferrals={activeReferrals}
+        pendingReferrals={pendingReferrals}
+        effectiveDiscountPercent={billing?.effective_discount_percent ?? 0}
+        discountCapPercent={billing?.affiliate_discount_cap_percent ?? 50}
+      />
     </div>
   );
 }

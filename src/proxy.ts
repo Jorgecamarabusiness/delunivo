@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { enforceImpersonationSession } from "@/lib/auth/impersonationProxy";
 
 /**
  * Enrutamiento multi-tenant POR RUTA, y solo por ruta.
@@ -23,7 +24,8 @@ export async function proxy(request: NextRequest) {
   const pathMatch = request.nextUrl.pathname.match(ORG_PATH_PREFIX);
 
   if (!pathMatch) {
-    return updateSession(request);
+    const auth = await updateSession(request);
+    return enforceImpersonationSession({ request, ...auth });
   }
 
   const [, orgSlug, rest] = pathMatch;
@@ -35,9 +37,10 @@ export async function proxy(request: NextRequest) {
   const rewrittenUrl = request.nextUrl.clone();
   rewrittenUrl.pathname = rest || "/";
 
-  return updateSession(request, () =>
+  const auth = await updateSession(request, () =>
     NextResponse.rewrite(rewrittenUrl, { request: { headers: requestHeaders } })
   );
+  return enforceImpersonationSession({ request, ...auth });
 }
 
 export const config = {

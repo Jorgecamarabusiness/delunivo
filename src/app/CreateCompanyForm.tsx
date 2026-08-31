@@ -10,7 +10,13 @@ import { formatPlatformPrice } from "@/lib/billing/access";
 
 const INITIAL: CreateCompanyState = { error: null };
 
-export function CreateCompanyForm({ priceCents }: { priceCents: number }) {
+export function CreateCompanyForm({
+  priceCents,
+  referralStatus = null,
+}: {
+  priceCents: number;
+  referralStatus?: "valid" | "invalid" | null;
+}) {
   const [state, formAction, pending] = useActionState(
     createCompanyAction,
     INITIAL
@@ -18,6 +24,17 @@ export function CreateCompanyForm({ priceCents }: { priceCents: number }) {
 
   return (
     <form action={formAction} className="mt-8 flex flex-col gap-5">
+      {referralStatus === "valid" ? (
+        <Alert variant="success">
+          Enlace de invitación aplicado: tendrás un 10% de descuento durante tus
+          tres primeras mensualidades pagadas.
+        </Alert>
+      ) : null}
+      {referralStatus === "invalid" ? (
+        <Alert variant="error">
+          Este enlace de invitación no es válido o ya está desactivado.
+        </Alert>
+      ) : null}
       <Field
         label="Nombre de tu empresa"
         htmlFor="companyName"

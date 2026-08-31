@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { slugify, isReservedSlug } from "@/lib/organizations/slug";
 import { createUnverifiedUser } from "@/lib/auth/accounts";
@@ -9,6 +10,10 @@ import {
   CODE_TTL_MINUTES,
 } from "@/lib/auth/verificationCodes";
 import { sendSignupCodeEmail } from "@/lib/email/templates";
+import {
+  REFERRAL_CODE_PATTERN,
+  REFERRAL_COOKIE,
+} from "@/lib/referrals/constants";
 
 export type CreateCompanyState = {
   error: string | null;
@@ -62,6 +67,19 @@ export async function createCompanyAction(
   }
 
   const admin = createAdminClient();
+  const cookieStore = await cookies();
+  const cookieReferralCode = cookieStore.get(REFERRAL_COOKIE)?.value ?? "";
+  let referralCode: string | null = null;
+
+  if (REFERRAL_CODE_PATTERN.test(cookieReferralCode)) {
+    const { data: validReferralCode } = await admin
+      .from("organization_referral_codes")
+      .select("code")
+      .eq("code", cookieReferralCode)
+      .eq("is_active", true)
+      .maybeSingle();
+    referralCode = validReferralCode?.code ?? null;
+  }
 
   // Se comprueba el slug ANTES de crear la cuenta: si no hay dirección libre,
   // mejor no dejar un usuario suelto sin empresa.
@@ -113,10 +131,49 @@ export async function createCompanyAction(
   ]);
 
   if (billingError || adminError) {
+    await admin
+      .from("organization_admins")
+      .delete()
+      .eq("organization_id", organization.id);
+    await admin
+      .from("organization_billing")
+      .delete()
+      .eq("organization_id", organization.id);
+    await admin.from("organizations").delete().eq("id", organization.id);
+    await admin.auth.admin.deleteUser(userId).catch(() => {});
     return {
       error: (billingError ?? adminError)?.message ?? "No se pudo terminar de crear la empresa.",
     };
   }
+
+  if (referralCode) {
+    const { error: referralError } = await admin.rpc(
+      "attach_organization_referral",
+      {
+        p_code: referralCode,
+        p_referred_organization_id: organization.id,
+        p_referred_owner_id: userId,
+      }
+    );
+
+    if (referralError) {
+      await admin
+        .from("organization_admins")
+        .delete()
+        .eq("organization_id", organization.id);
+      await admin
+        .from("organization_billing")
+        .delete()
+        .eq("organization_id", organization.id);
+      await admin.from("organizations").delete().eq("id", organization.id);
+      await admin.auth.admin.deleteUser(userId).catch(() => {});
+      return {
+        error:
+          "No se pudo validar el enlace de referido. Ábrelo de nuevo antes de crear la cuenta.",
+      };
+    }
+  }
+  cookieStore.delete(REFERRAL_COOKIE);
 
   // La fila en "profiles" la crea el trigger on_auth_user_created.
 

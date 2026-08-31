@@ -188,6 +188,7 @@ function LessonRow({
       >
       <button
         type="button"
+        data-drag-handle
         {...attributes}
         {...listeners}
         aria-label="Reordenar lección"
@@ -388,6 +389,7 @@ function SectionRow({
       <div className="flex flex-wrap items-center gap-3 px-4 py-4">
         <button
           type="button"
+          data-drag-handle
           {...attributes}
           {...listeners}
           aria-label="Reordenar sección"

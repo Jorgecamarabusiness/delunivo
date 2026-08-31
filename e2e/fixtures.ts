@@ -94,6 +94,36 @@ export async function createTestOrg(opts?: {
 export async function destroyTestOrg(testOrg: TestOrg): Promise<void> {
   const admin = adminClient();
   const orgId = testOrg.orgId;
+  const userIds = [testOrg.owner.id, ...testOrg.extraUserIds];
+
+  await admin
+    .from("stripe_platform_webhook_events")
+    .delete()
+    .like("event_id", `%${orgId}%`);
+
+  for (const userId of userIds) {
+    await admin
+      .from("support_impersonation_sessions")
+      .delete()
+      .eq("actor_user_id", userId);
+    await admin
+      .from("support_impersonation_sessions")
+      .delete()
+      .eq("target_user_id", userId);
+  }
+
+  await admin
+    .from("organization_referrals")
+    .delete()
+    .eq("referrer_organization_id", orgId);
+  await admin
+    .from("organization_referrals")
+    .delete()
+    .eq("referred_organization_id", orgId);
+  await admin
+    .from("organization_referral_codes")
+    .delete()
+    .eq("organization_id", orgId);
 
   const { data: courses } = await admin
     .from("courses")
@@ -115,7 +145,6 @@ export async function destroyTestOrg(testOrg: TestOrg): Promise<void> {
   await admin.from("organization_billing").delete().eq("organization_id", orgId);
   await admin.from("organizations").delete().eq("id", orgId);
 
-  const userIds = [testOrg.owner.id, ...testOrg.extraUserIds];
   for (const userId of userIds) {
     // Los códigos de verificación se guardan por email, no por user_id, así que
     // hay que leerlo del perfil antes de borrarlo.

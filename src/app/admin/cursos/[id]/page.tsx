@@ -1,4 +1,9 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { requireOrgAdmin } from "@/lib/auth/requireOrgAdmin";
+import { buttonClassName } from "@/components/ui/Button";
+import { EyeIcon } from "@/components/ui/Icons";
 import { CurriculumEditor } from "./CurriculumEditor";
 
 function NotFound({ message }: { message: string }) {
@@ -17,10 +22,13 @@ export default async function CourseCurriculumPage({
   const { id } = await params;
   const supabase = await createClient();
 
+  const adminCheck = await requireOrgAdmin(supabase, { courseId: id });
+  if (adminCheck.error) notFound();
+
   const [courseResult, sectionsResult, lessonsResult] = await Promise.all([
     supabase
       .from("courses")
-      .select("id, title, status")
+      .select("id, title, status, organization_id")
       .eq("id", id)
       .maybeSingle(),
     supabase
@@ -41,6 +49,12 @@ export default async function CourseCurriculumPage({
     return <NotFound message="Curso no encontrado." />;
   }
 
+  const { data: organization } = await supabase
+    .from("organizations")
+    .select("slug")
+    .eq("id", course.organization_id)
+    .maybeSingle();
+
   const lessons = lessonsResult.data ?? [];
   const sections = (sectionsResult.data ?? []).map((section) => ({
     id: section.id,
@@ -57,6 +71,19 @@ export default async function CourseCurriculumPage({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-12">
+      {organization ? (
+        <div className="mb-5 flex justify-end">
+          <Link
+            href={`/o/${organization.slug}/cursos/${course.id}`}
+            target="_blank"
+            rel="noreferrer"
+            className={buttonClassName("outline", "sm")}
+          >
+            <EyeIcon className="h-4 w-4" />
+            Vista previa
+          </Link>
+        </div>
+      ) : null}
       <CurriculumEditor
         course={{
           id: course.id,

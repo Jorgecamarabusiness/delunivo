@@ -8,17 +8,20 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Field } from "@/components/ui/Field";
 import { Input, Textarea, inputClassName } from "@/components/ui/Input";
+import { ChevronDownIcon } from "@/components/ui/Icons";
 import type {
   CommercialAccessMode,
   DiscountDuration,
 } from "@/lib/billing/access";
 import { updateOrganizationCommercialTermsAction } from "./actions";
+import { RunAsButton } from "./RunAsButton";
 
 type OrganizationTerms = {
   id: string;
   name: string;
   slug: string;
   ownerLabel: string;
+  ownerUserId: string;
   statusLabel: string;
   statusVariant: "solid" | "outline";
   stripeStatus: string;
@@ -27,7 +30,13 @@ type OrganizationTerms = {
   accessExpiresAt: string | null;
   discountPercent: number;
   discountDuration: DiscountDuration;
+  effectiveDiscountPercent: number;
+  affiliateDiscountCapPercent: number;
+  referralWelcomeRemainingPayments: number;
+  activeReferrals: number;
+  pendingReferrals: number;
   commercialNote: string | null;
+  updatedAt: string;
 };
 
 function dateValue(value: string | null) {
@@ -79,29 +88,31 @@ export function OrganizationCommercialForm({ organization }: { organization: Org
   }
 
   return (
-    <article className="min-w-0 rounded-lg border border-border p-5 sm:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <details className="group min-w-0 rounded-lg border border-border bg-background">
+      <summary className="flex min-h-20 list-none flex-col gap-3 rounded-lg p-5 transition-colors hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground sm:flex-row sm:items-center sm:justify-between sm:p-6 [&::-webkit-details-marker]:hidden">
         <div className="min-w-0">
           <h3 className="truncate text-lg font-semibold">{organization.name}</h3>
           <p className="mt-1 break-all text-sm text-muted-foreground">
             /o/{organization.slug} · {organization.ownerLabel}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant={organization.statusVariant}>{organization.statusLabel}</Badge>
           <Badge variant="outline">Stripe: {organization.stripeStatus}</Badge>
+          <ChevronDownIcon className="ml-1 h-5 w-5 text-muted-foreground transition-transform group-open:rotate-180" />
         </div>
-      </div>
+      </summary>
 
       <form
         ref={formRef}
-        className="mt-6 grid gap-5 lg:grid-cols-2"
+        className="grid gap-5 border-t border-border p-5 lg:grid-cols-2 sm:p-6"
         onSubmit={(event) => {
           event.preventDefault();
           setError(null);
           setDialogOpen(true);
         }}
       >
+        <input type="hidden" name="expectedUpdatedAt" value={organization.updatedAt} />
         <Field
           label="Acceso a Delunivo"
           htmlFor={`access-${organization.id}`}
@@ -155,7 +166,7 @@ export function OrganizationCommercialForm({ organization }: { organization: Org
         )}
 
         <Field
-          label="Descuento"
+          label="Descuento manual"
           htmlFor={`discount-${organization.id}`}
           hint={
             accessMode === "complimentary"
@@ -183,6 +194,26 @@ export function OrganizationCommercialForm({ organization }: { organization: Org
         </Field>
 
         <Field
+          label="Tope total de descuento"
+          htmlFor={`discount-cap-${organization.id}`}
+          hint="50% es el límite normal. Súbelo solo para una excepción aprobada, por ejemplo Sata."
+        >
+          <div className="flex items-center gap-3">
+            <Input
+              id={`discount-cap-${organization.id}`}
+              name="affiliateDiscountCapPercent"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              defaultValue={organization.affiliateDiscountCapPercent}
+              className="max-w-28"
+            />
+            <span className="text-sm text-muted-foreground">%</span>
+          </div>
+        </Field>
+
+        <Field
           label="Duración del descuento"
           htmlFor={`duration-${organization.id}`}
           hint="Primer mes descuenta únicamente la primera factura mensual."
@@ -201,6 +232,29 @@ export function OrganizationCommercialForm({ organization }: { organization: Org
             <input type="hidden" name="discountDuration" value="once" />
           ) : null}
         </Field>
+
+        <div className="lg:col-span-2">
+          <div className="grid gap-3 rounded-md border border-border bg-muted/30 p-4 sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Descuento efectivo</p>
+              <p className="mt-1 text-lg font-semibold">
+                {organization.effectiveDiscountPercent}%
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Referidos</p>
+              <p className="mt-1 text-sm font-semibold">
+                {organization.activeReferrals} pagando · {organization.pendingReferrals} pendientes
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Bienvenida</p>
+              <p className="mt-1 text-sm font-semibold">
+                {organization.referralWelcomeRemainingPayments} mensualidades restantes
+              </p>
+            </div>
+          </div>
+        </div>
 
         <div className="lg:col-span-2">
           <Field
@@ -227,6 +281,16 @@ export function OrganizationCommercialForm({ organization }: { organization: Org
         </div>
       </form>
 
+      <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-4 sm:px-6">
+        <p className="text-sm text-muted-foreground">
+          Abre la cuenta del propietario para reproducir una incidencia.
+        </p>
+        <RunAsButton
+          targetUserId={organization.ownerUserId}
+          targetName={organization.ownerLabel}
+        />
+      </div>
+
       <ConfirmDialog
         open={dialogOpen}
         title={`Actualizar condiciones de ${organization.name}`}
@@ -240,6 +304,6 @@ export function OrganizationCommercialForm({ organization }: { organization: Org
       >
         {error ? <Alert variant="error">{error}</Alert> : null}
       </ConfirmDialog>
-    </article>
+    </details>
   );
 }

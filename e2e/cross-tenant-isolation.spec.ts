@@ -107,5 +107,19 @@ test("la base de datos rechaza asociar una lección a un capítulo de otro curso
   });
 
   expect(mismatch.error?.code).toBe("23503");
+  await admin.from("sections").delete().eq("id", sectionB.id);
   await admin.from("courses").delete().eq("id", courseB.id);
+});
+
+test("un admin de otra organización no puede abrir el editor profundo por ID", async ({
+  page,
+}) => {
+  await login(page, orgB.owner.email, orgB.owner.password, orgB.prefix);
+  await page.goto(`/admin/cursos/${courseId}`);
+
+  // En App Router el status puede haberse enviado ya como 200 cuando
+  // notFound() corta un Server Component en streaming. La pantalla 404 y la
+  // ausencia de datos privados son la garantia observable relevante.
+  await expect(page).toHaveTitle(/404/);
+  await expect(page.locator("body")).not.toContainText(courseTitle);
 });

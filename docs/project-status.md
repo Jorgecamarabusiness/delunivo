@@ -8,7 +8,7 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 
 ## Arquitectura actual
 
-- Next.js 16 App Router, React 19, TypeScript y Tailwind CSS 4.
+- Next.js 16.3.3 App Router, React 19, TypeScript y Tailwind CSS 4.
 - Supabase para autenticacion, Postgres y Storage.
 - Stripe y Stripe Connect para cobros. Whop está desactivado: su endpoint
   responde sin efectos y el acceso vigente se obtiene mediante Stripe o una
@@ -17,6 +17,9 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 - Tenancy publica por rutas `/o/<slug>`; no depende de subdominios.
 - Administracion en `/admin`; catalogo, compra y aprendizaje en las rutas publicas.
 - Control comercial exclusivo de superadministradores en `/admin/plataforma`: precio para nuevas altas, estado real de Stripe, acceso gratuito, pruebas, descuentos y correos de prueba.
+- Afiliados de plataforma con enlace opaco: 10% para el referente por cada empresa con pago vigente, 10% de bienvenida durante tres facturas pagadas y tope normal del 50%, ampliable por el superadministrador para una excepción documentada.
+- Soporte “Run as” exclusivo de superadministradores, con motivo obligatorio, sesión Auth separada, auditoría, caducidad de 15 minutos y restauración de la sesión original. Las acciones de facturación e integraciones permanecen bloqueadas durante la intervención.
+- El header global ofrece accesos segun rol a la portada de Delunivo, la portada de la empresa, administracion, control de plataforma y perfil. El perfil agrupa los cursos comprados o invitados del usuario aunque pertenezcan a empresas distintas.
 - Identidad de plataforma centralizada en `src/lib/brand.ts` y marca de cada organizacion en su configuracion.
 
 ## Decisiones que no deben reabrirse sin nueva evidencia
@@ -53,6 +56,9 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 - Los IDs de cliente y suscripción de Stripe son únicos por empresa y los webhooks fallan explícitamente si no encuentran exactamente una fila, para que Stripe pueda reintentarlos.
 - Un propietario de varias empresas puede elegir cuál gestionar en `/admin/facturacion`; el ID seleccionado se vuelve a validar como owner antes de abrir Checkout o el portal de Stripe.
 - Los cursos se crean privados, pueden alternarse entre públicos y privados y solo se eliminan si no tienen ventas; la base de datos protege ese historial con `ON DELETE RESTRICT`. Los recursos de Mux se limpian mediante una cola persistente con reintento diario.
+- La compra de cursos es un pago unico y concede acceso exclusivamente al curso comprado; no es una suscripcion del alumno ni desbloquea el catalogo completo de la empresa.
+- El control de plataforma lista alumnos con filtro por empresa y mantiene las fichas comerciales de empresa cerradas hasta que el superadministrador decide desplegarlas. Los descuentos manuales pueden aplicarse una vez o para siempre y se sincronizan con Stripe de forma idempotente.
+- El esquema de afiliados y “Run as” está aplicado y verificado en Supabase. Las tablas son server-only y los eventos de Stripe exigen el ID exacto de la suscripción vigente para que una factura o baja antigua no cambie estado ni descuentos.
 - Las transiciones de ruta y los envíos de formularios usan indicadores de carga compartidos; las consultas independientes de cursos y membresías se ejecutan en paralelo para reducir esperas.
 - Codex usa `AGENTS.md`, las skills de `.agents/skills/` y dos revisores read-only en `.codex/agents/`. No se mantienen instrucciones duplicadas para otros agentes.
 
@@ -67,9 +73,11 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 ## Riesgos y pendientes conocidos
 
 - La subida larga de Mux esta validada a 720p y la de 1080p con un archivo corto; sigue pendiente repetir ambas condiciones en un mismo video largo 1080p cuando haya un archivo real disponible.
-- El reproductor genera avisos por falta de token de miniatura y se observo un error minificado de hidratacion React en la ruta de aprendizaje. La reproduccion funciona, pero ambos deben revisarse durante la auditoria.
+- El bloqueo del reproductor causado por la carga server-side de `jsdom` desde `isomorphic-dompurify` quedó corregido y desplegado el 2026-08-31. El aula autenticada se verificó en `www.delunivo.com`, incluida la lección, el índice y el progreso, sin errores ni avisos de consola.
 - Stripe Tax aun no esta activado en Checkout. No bloquea las pruebas ni el alta de Sata, pero antes de escalar cobros debe automatizarse con precios inclusivos, recopilacion de direccion/NIF-IVA y los codigos fiscales definidos para SaaS y cursos grabados. El checkout fail-closed que elimina el fallback de ventas a la cuenta de plataforma, bloquea duplicados y endurece el webhook esta desplegado en produccion desde el 2026-08-31, con su migracion aplicada y verificada.
-- Hay vulnerabilidades de dependencias previamente detectadas que requieren una tarea separada y enfocada.
+- Next.js 16.3.3, el programa de afiliados y “Run as” están desplegados en producción desde el 2026-08-31. `IMPERSONATION_SESSION_KEY` está configurada como secreto de Vercel Production y el despliegue `dpl_4iEm1EK4yThAk78e82Pm4GNvZJHN` quedó promovido y verificado sin errores de runtime.
+- Quedan como comprobaciones operativas no bloqueantes una entrada y salida real de “Run as” sobre una cuenta de prueba y observar un ciclo real de facturación con afiliado. No deben simularse sobre usuarios o cobros reales solo para completar el checklist.
+- Las condiciones comerciales rechazan formularios obsoletos y, si una escritura optimista pierde una carrera, releen y sincronizan en Stripe la versión ganadora. Mientras solo opere un superadministrador no hay concurrencia práctica; antes de habilitar varios conviene sustituir esta reconciliación acotada por una outbox serializada por suscripción.
 - Las acciones de Stripe, Resend, Vercel y Supabase pueden requerir pasos manuales y no deben darse por completadas sin confirmacion.
 
 ## Mantenimiento de este documento

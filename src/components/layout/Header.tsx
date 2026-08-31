@@ -1,14 +1,23 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOutAction } from "@/lib/auth/actions";
-import { isAnyOrgAdmin } from "@/lib/auth/requireOrgAdmin";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
+import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
 import { orgPath } from "@/lib/organizations/orgPath";
 import {
   getPublishedCourses,
   shouldShowCoursesNav,
 } from "@/lib/courses/publicCourses";
 import { PLATFORM_NAME } from "@/lib/brand";
+import {
+  AdminIcon,
+  CurriculumIcon,
+  HomeIcon,
+  LogOutIcon,
+  UserIcon,
+} from "@/components/ui/Icons";
+import { getActiveImpersonationForUser } from "@/lib/auth/impersonation";
+import { stopRunAsAction } from "@/app/admin/plataforma/runAsActions";
 
 export async function Header() {
   const supabase = await createClient();
@@ -30,15 +39,32 @@ export async function Header() {
 
   let name: string | null = null;
   let isAdmin = false;
+  let isSuperAdmin = false;
+  let managedOrganizationHref: string | null = null;
+  let impersonation: Awaited<ReturnType<typeof getActiveImpersonationForUser>> = null;
 
   if (user) {
-    const [{ data: profile }, adminCheck] = await Promise.all([
+    const [{ data: profile }, { data: superAdmin }, membership] = await Promise.all([
       supabase.from("profiles").select("name").eq("id", user.id).maybeSingle(),
-      isAnyOrgAdmin(supabase, user.id),
+      supabase.rpc("is_super_admin"),
+      getCurrentOrgMembership(supabase, user.id),
     ]);
 
     name = profile?.name ?? null;
-    isAdmin = adminCheck;
+    isSuperAdmin = Boolean(superAdmin);
+    isAdmin = Boolean(membership) || isSuperAdmin;
+    impersonation = await getActiveImpersonationForUser(user.id);
+
+    if (membership) {
+      const { data: managedOrganization } = await supabase
+        .from("organizations")
+        .select("slug")
+        .eq("id", membership.organizationId)
+        .maybeSingle();
+      managedOrganizationHref = managedOrganization
+        ? `/o/${managedOrganization.slug}`
+        : null;
+    }
   }
 
   // El enlace "Cursos" solo aparece si la landing de la empresa NO llega a
@@ -53,11 +79,27 @@ export async function Header() {
   const brandName = organization?.name ?? PLATFORM_NAME;
 
   return (
-    <header className="border-b border-border">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5">
+    <div className="sticky top-0 z-50">
+      {impersonation ? (
+        <div className="flex min-h-11 items-center justify-between gap-3 bg-amber-300 px-3 text-xs font-semibold text-amber-950 sm:px-6 sm:text-sm">
+          <p className="min-w-0 truncate">
+            Run as: estás actuando como {impersonation.targetName} · termina antes de 15 min
+          </p>
+          <form action={stopRunAsAction}>
+            <button
+              type="submit"
+              className="inline-flex min-h-11 shrink-0 items-center rounded-full bg-amber-950 px-3 py-1.5 text-xs font-semibold text-amber-50 hover:opacity-85"
+            >
+              Salir de Run as
+            </button>
+          </form>
+        </div>
+      ) : null}
+      <header className="h-16 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+      <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-2 px-3 sm:gap-4 sm:px-6">
         <Link
-          href={isAdmin ? "/admin" : homeHref}
-          className="flex min-w-0 items-center gap-2 text-lg font-bold tracking-tight sm:text-xl"
+          href={homeHref}
+          className="flex min-h-11 min-w-0 items-center gap-2 text-base font-bold tracking-tight sm:text-xl"
         >
           {organization?.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -70,29 +112,138 @@ export async function Header() {
           <span className="truncate">{brandName}</span>
         </Link>
 
-        <nav className="flex shrink-0 items-center gap-3 sm:gap-4">
+        <nav aria-label="Navegación principal" className="flex shrink-0 items-center gap-1 sm:gap-2">
           {showCoursesNav && (
             <Link
               href={coursesHref}
-              className="text-sm font-medium hover:underline"
+              aria-label="Cursos"
+              title="Cursos"
+              className="hidden h-11 w-11 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-muted sm:inline-flex sm:w-auto sm:gap-2 sm:px-3"
             >
-              Cursos
+              <CurriculumIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Cursos</span>
             </Link>
           )}
 
           {user ? (
             <>
-              <span className="hidden max-w-[16ch] truncate text-sm font-medium sm:inline">
-                {name ?? user.email}
-              </span>
-              <form action={signOutAction}>
+              {organization ? (
+                <Link
+                  href="/"
+                  aria-label={`Ir a ${PLATFORM_NAME}`}
+                  title={`Ir a ${PLATFORM_NAME}`}
+                  className="hidden h-11 w-11 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-muted sm:inline-flex sm:w-auto sm:gap-2 sm:px-3"
+                >
+                  <HomeIcon className="h-4 w-4" />
+                  <span className="hidden lg:inline">{PLATFORM_NAME}</span>
+                </Link>
+              ) : null}
+
+              {managedOrganizationHref && managedOrganizationHref !== homeHref ? (
+                <Link
+                  href={managedOrganizationHref}
+                  aria-label="Ver mi página"
+                  title="Ver mi página"
+                  className="hidden h-11 w-11 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-muted sm:inline-flex sm:w-auto sm:gap-2 sm:px-3"
+                >
+                  <HomeIcon className="h-4 w-4" />
+                  <span className="hidden lg:inline">Mi página</span>
+                </Link>
+              ) : null}
+
+              {isAdmin ? (
+                <Link
+                  href="/admin"
+                  aria-label="Administración"
+                  title="Administración"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-muted sm:w-auto sm:gap-2 sm:px-3"
+                >
+                  <AdminIcon className="h-4 w-4" />
+                  <span className="hidden lg:inline">Admin</span>
+                </Link>
+              ) : null}
+
+              {isSuperAdmin ? (
+                <Link
+                  href="/admin/plataforma"
+                  aria-label="Control Delunivo"
+                  title="Control Delunivo"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-foreground text-sm font-medium text-background transition-opacity hover:opacity-85 sm:w-auto sm:gap-2 sm:px-3"
+                >
+                  <AdminIcon className="h-4 w-4" />
+                  <span className="hidden lg:inline">Control</span>
+                </Link>
+              ) : null}
+
+              <Link
+                href="/perfil"
+                aria-label="Mi perfil y mis cursos"
+                title="Mi perfil y mis cursos"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-muted sm:w-auto sm:gap-2 sm:px-3"
+              >
+                <UserIcon className="h-4 w-4" />
+                <span className="hidden xl:inline">{name ?? "Mi perfil"}</span>
+              </Link>
+
+              <form action={signOutAction} className="hidden sm:block">
                 <button
                   type="submit"
-                  className="rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground hover:text-background sm:px-5"
+                  aria-label="Cerrar sesión"
+                  title="Cerrar sesión"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border text-sm font-medium transition-colors hover:bg-foreground hover:text-background sm:w-auto sm:gap-2 sm:px-3"
                 >
-                  Salir
+                  <LogOutIcon className="h-4 w-4" />
+                  <span className="hidden xl:inline">Salir</span>
                 </button>
               </form>
+
+              <details className="group relative sm:hidden">
+                <summary
+                  aria-label="Más opciones"
+                  title="Más opciones"
+                  className="inline-flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-full border border-border text-lg font-semibold tracking-widest transition-colors hover:bg-muted [&::-webkit-details-marker]:hidden"
+                >
+                  <span aria-hidden="true">•••</span>
+                </summary>
+                <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 flex min-w-52 flex-col rounded-lg border border-border bg-background p-2 shadow-lg">
+                  {showCoursesNav ? (
+                    <Link
+                      href={coursesHref}
+                      className="flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium hover:bg-muted"
+                    >
+                      <CurriculumIcon className="h-4 w-4" />
+                      Cursos
+                    </Link>
+                  ) : null}
+                  {organization ? (
+                    <Link
+                      href="/"
+                      className="flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium hover:bg-muted"
+                    >
+                      <HomeIcon className="h-4 w-4" />
+                      Ir a {PLATFORM_NAME}
+                    </Link>
+                  ) : null}
+                  {managedOrganizationHref && managedOrganizationHref !== homeHref ? (
+                    <Link
+                      href={managedOrganizationHref}
+                      className="flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium hover:bg-muted"
+                    >
+                      <HomeIcon className="h-4 w-4" />
+                      Ver mi página
+                    </Link>
+                  ) : null}
+                  <form action={signOutAction}>
+                    <button
+                      type="submit"
+                      className="flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm font-medium hover:bg-muted"
+                    >
+                      <LogOutIcon className="h-4 w-4" />
+                      Cerrar sesión
+                    </button>
+                  </form>
+                </div>
+              </details>
             </>
           ) : (
             <Link
@@ -104,6 +255,7 @@ export async function Header() {
           )}
         </nav>
       </div>
-    </header>
+      </header>
+    </div>
   );
 }

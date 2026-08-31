@@ -110,7 +110,7 @@ test("un curso puede hacerse público, privado y eliminarse con confirmación", 
   await card.getByRole("button", { name: "Hacer privado" }).click();
   await expect(card.getByRole("button", { name: "Hacer público" })).toBeVisible();
 
-  await card.getByRole("button", { name: "Eliminar", exact: true }).click();
+  await card.getByRole("button", { name: "Eliminar curso", exact: true }).click();
   const dialog = page.getByRole("alertdialog", { name: "Eliminar curso" });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Eliminar curso" }).click();
@@ -149,7 +149,7 @@ test("un curso con ventas conserva el curso y el historial de compra", async ({ 
   await login(page, org.owner.email, org.owner.password, org.prefix);
   await page.goto("/admin/cursos");
   const card = page.getByRole("article", { name: soldCourseTitle });
-  await card.getByRole("button", { name: "Eliminar", exact: true }).click();
+  await card.getByRole("button", { name: "Eliminar curso", exact: true }).click();
   const dialog = page.getByRole("alertdialog", { name: "Eliminar curso" });
   await dialog.getByRole("button", { name: "Eliminar curso" }).click();
   await expect(dialog).toContainText("tiene ventas y no se puede eliminar");

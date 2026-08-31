@@ -4,7 +4,7 @@ import { PLATFORM_NAME } from "@/lib/brand";
 import { hasComplimentaryAccess, isFutureDate } from "@/lib/billing/access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "./client";
-import { createPlatformCoupon } from "./platformCoupons";
+import { ensureOrganizationDiscountCoupon } from "./platformDiscounts";
 import {
   claimCheckoutAttempt,
   getCheckoutUrlForAttempt,
@@ -22,15 +22,14 @@ export async function createPlatformSubscriptionCheckoutUrl(
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const admin = createAdminClient();
 
-  const [billingResult, organizationResult, settingsResult] = await Promise.all([
+  const [billingResult, settingsResult] = await Promise.all([
     admin
       .from("organization_billing")
       .select(
-        "platform_stripe_customer_id, platform_subscription_id, platform_subscription_status, access_mode, access_expires_at, discount_percent, discount_duration, stripe_coupon_id"
+        "platform_stripe_customer_id, platform_subscription_id, platform_subscription_status, access_mode, access_expires_at"
       )
       .eq("organization_id", organizationId)
       .single(),
-    admin.from("organizations").select("name").eq("id", organizationId).single(),
     admin
       .from("platform_settings")
       .select("monthly_price_cents")
@@ -40,17 +39,14 @@ export async function createPlatformSubscriptionCheckoutUrl(
 
   if (
     billingResult.error ||
-    organizationResult.error ||
     settingsResult.error ||
     !billingResult.data ||
-    !organizationResult.data ||
     !settingsResult.data
   ) {
     throw new Error("No se pudo verificar la facturación de la empresa.");
   }
 
   const billing = billingResult.data;
-  const organization = organizationResult.data;
   const priceCents = settingsResult.data.monthly_price_cents;
   if (!Number.isInteger(priceCents) || priceCents < 100) {
     throw new Error("El precio mensual de Delunivo no es válido.");
@@ -77,27 +73,9 @@ export async function createPlatformSubscriptionCheckoutUrl(
     return null;
   }
 
-  let couponId =
-    billing?.discount_percent && billing.discount_percent > 0
-      ? billing.stripe_coupon_id
-      : null;
-
-  if (billing?.discount_percent && billing.discount_percent > 0 && !couponId) {
-    const coupon = await createPlatformCoupon({
-      organizationId,
-      organizationName: organization.name ?? PLATFORM_NAME,
-      percentOff: billing.discount_percent,
-      duration: billing.discount_duration === "forever" ? "forever" : "once",
-    });
-    couponId = coupon.id;
-    const { error: couponUpdateError } = await admin
-      .from("organization_billing")
-      .update({ stripe_coupon_id: coupon.id, updated_at: new Date().toISOString() })
-      .eq("organization_id", organizationId);
-    if (couponUpdateError) {
-      throw new Error("No se pudo guardar el descuento antes de abrir Stripe.");
-    }
-  }
+  // Manual, bienvenida y referidos se suman en base de datos con un único
+  // tope y llegan a Stripe como UN cupón para evitar porcentajes multiplicados.
+  const { couponId } = await ensureOrganizationDiscountCoupon(organizationId);
 
   const trialDays =
     billing?.access_mode === "trial" && isFutureDate(billing.access_expires_at)
