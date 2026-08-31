@@ -3,9 +3,13 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { stripe } from "@/lib/stripe/client";
 import { getConnectedStripeAccountId } from "@/lib/organizations/integrations";
 import { orgPath } from "@/lib/organizations/orgPath";
+import {
+  claimCheckoutAttempt,
+  getCheckoutUrlForAttempt,
+} from "@/lib/stripe/checkoutAttempts";
+import { describeStripeError } from "@/lib/stripe/errors";
 
 type ActionResult = {
   error: string | null;
@@ -33,44 +37,87 @@ export async function createStripeCheckoutAction(
     return { error: "Curso no encontrado." };
   }
 
+  const [accessResult, purchaseResult] = await Promise.all([
+    supabase.rpc("has_course_access", { target_course_id: course.id }),
+    supabase
+      .from("purchases")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("course_id", course.id)
+      .maybeSingle(),
+  ]);
+  if (accessResult.error || purchaseResult.error) {
+    return { error: "No se pudo comprobar tu acceso antes de cobrar." };
+  }
+  if (purchaseResult.data) {
+    return {
+      error:
+        "Este curso ya fue comprado con esta cuenta. Si no puedes entrar, contacta con el profesor; no se ha realizado ningún cobro nuevo.",
+    };
+  }
+  if (accessResult.data) {
+    return { error: "Ya tienes acceso a este curso; no se ha realizado ningún cobro." };
+  }
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const admin = createAdminClient();
 
-  // Si la organización ya conectó su propia cuenta de Stripe (Fase 5), el
-  // dinero cae directo ahí y el evento "checkout.session.completed" llega al
-  // webhook de Connect, no al de la cuenta principal. Si no, se mantiene el
-  // comportamiento de siempre (cobra la cuenta principal de la plataforma) —
-  // así no se rompe nada para organizaciones que todavía no se han conectado.
   const connectedAccountId = await getConnectedStripeAccountId(
     admin,
     course.organization_id
   );
-
-  const session = await stripe.checkout.sessions.create(
-    {
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            product_data: { name: course.title },
-            unit_amount: Math.round(course.price * 100),
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: `${siteUrl}${await orgPath(`/cursos/${courseId}`)}?checkout=success`,
-      cancel_url: `${siteUrl}${await orgPath(`/cursos/${courseId}`)}?checkout=cancelled`,
-      client_reference_id: user.id,
-      metadata: { course_id: courseId, user_id: user.id },
-    },
-    connectedAccountId ? { stripeAccount: connectedAccountId } : undefined
-  );
-
-  if (!session.url) {
-    return { error: "No se pudo iniciar el pago con Stripe." };
+  if (!connectedAccountId) {
+    return {
+      error:
+        "El profesor todavía no ha terminado de conectar Stripe. No se ha realizado ningún cobro.",
+    };
   }
 
-  redirect(session.url);
+  const amountTotal = Math.round(Number(course.price) * 100);
+  if (!Number.isInteger(amountTotal) || amountTotal < 50) {
+    return { error: "El precio del curso no es válido para cobrar con Stripe." };
+  }
+
+  const coursePath = await orgPath(`/cursos/${courseId}`);
+  const stripeParams = {
+    mode: "payment" as const,
+    payment_method_types: ["card" as const],
+    line_items: [
+      {
+        price_data: {
+          currency: "eur",
+          product_data: { name: course.title },
+          unit_amount: amountTotal,
+        },
+        quantity: 1,
+      },
+    ],
+    success_url: `${siteUrl}${coursePath}?checkout=success`,
+    cancel_url: `${siteUrl}${coursePath}?checkout=cancelled`,
+    client_reference_id: user.id,
+    metadata: {
+      course_id: courseId,
+      user_id: user.id,
+      organization_id: course.organization_id,
+    },
+  };
+
+  let checkoutUrl: string;
+  try {
+    const attempt = await claimCheckoutAttempt({
+      checkoutKind: "course_purchase",
+      organizationId: course.organization_id,
+      userId: user.id,
+      courseId,
+      stripeAccountId: connectedAccountId,
+      stripeParams,
+      expectedAmountTotal: amountTotal,
+      expectedCurrency: "eur",
+    });
+    checkoutUrl = await getCheckoutUrlForAttempt(attempt);
+  } catch (error) {
+    return { error: describeStripeError(error) };
+  }
+
+  redirect(checkoutUrl);
 }

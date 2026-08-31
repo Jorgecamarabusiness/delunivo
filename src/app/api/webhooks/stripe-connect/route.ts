@@ -27,10 +27,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Firma inválida." }, { status: 400 });
   }
 
+  const configuredForLiveMode = process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_");
+  if (event.livemode !== configuredForLiveMode) {
+    return NextResponse.json({ received: true, ignored: "stripe_mode_mismatch" });
+  }
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     try {
-      await handleCheckoutSessionCompleted(session);
+      if (!event.account) {
+        throw new Error("El evento Connect no identifica la cuenta conectada.");
+      }
+      await handleCheckoutSessionCompleted(session, event.account);
     } catch (error) {
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "Error desconocido." },
@@ -41,7 +49,17 @@ export async function POST(request: NextRequest) {
 
   if (event.type === "account.updated") {
     const account = event.data.object as Stripe.Account;
-    const status = account.charges_enabled && account.details_submitted
+    if (!event.account || event.account !== account.id) {
+      return NextResponse.json(
+        { error: "La cuenta del evento Connect no coincide." },
+        { status: 400 }
+      );
+    }
+
+    const status =
+      account.charges_enabled &&
+      account.payouts_enabled &&
+      account.details_submitted
       ? "connected"
       : "pending";
 

@@ -69,7 +69,9 @@ export default async function ConfiguracionPage({
         integrations.stripe_account_id
       );
       stripeStatus =
-        account.charges_enabled && account.details_submitted
+        account.charges_enabled &&
+        account.payouts_enabled &&
+        account.details_submitted
           ? "connected"
           : "pending";
 
@@ -95,7 +97,7 @@ export default async function ConfiguracionPage({
         <p className="mt-2 text-sm text-muted-foreground">
           {stripeStatus
             ? STRIPE_STATUS_LABEL[stripeStatus] ?? stripeStatus
-            : "Todavía no conectado — las ventas con tarjeta se cobran hoy en la cuenta principal de la plataforma."}
+            : "Todavía no conectado — las ventas con tarjeta permanecerán bloqueadas hasta terminar la conexión."}
         </p>
         {stripeError && (
           <Alert variant="error" className="mt-4">

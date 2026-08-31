@@ -22,7 +22,7 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 ## Decisiones que no deben reabrirse sin nueva evidencia
 
 - El nombre de producto y de los recursos externos visibles es Delunivo.
-- Se prioriza validar con el primer cliente antes de invertir en dominio, marca o infraestructura adicional.
+- La infraestructura base de produccion (dominio, hosting, base de datos, email, video y cobros) debe estar activa antes de incorporar al primer cliente real; la ampliacion posterior se decide por uso medido.
 - Se aplica YAGNI: una necesidad particular de Ivan no se convierte automaticamente en una feature general.
 - El sistema debe preservar aislamiento multi-tenant en datos, permisos, cursos, alumnos, marca y cobros.
 - El flujo publico vigente usa `/o/<slug>`.
@@ -39,7 +39,12 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 
 - El rebranding de producto a Delunivo esta en `main`. GitHub, el equipo y proyecto de Vercel, el dominio tecnico y el nombre visible del proyecto Supabase usan Delunivo.
 - La carpeta local ya se llama `delunivo`.
-- La URL y la configuracion publica de Vercel usan `https://delunivo.vercel.app`; el dominio y el redirect de autenticacion anteriores se retiraron.
+- La URL canonica de produccion es `https://www.delunivo.com`; `https://delunivo.com` redirige a `www` y la URL tecnica de Vercel no se entrega como URL de producto. Supabase Auth admite el dominio canonico y conserva la URL tecnica solo como redirect de compatibilidad.
+- El equipo de Vercel esta en Pro, con tarjeta activa y datos fiscales de autonomo. El aviso de gasto bajo demanda esta fijado en 20 USD adicionales, con notificaciones activas y sin pausa automatica de produccion.
+- La organizacion de Supabase esta en Pro con Spend Cap activo y un unico proyecto, `Delunivo` (`jgxqdzmmeveksseflyst`). El proyecto inicial vacio fue verificado sin tablas, usuarios ni archivos y eliminado el 2026-08-31; el coste proyectado quedo en 25 USD/mes.
+- Resend entrega desde `Delunivo <hola@mail.delunivo.com>` con el dominio `mail.delunivo.com` verificado (DKIM, SPF y DMARC). Un restablecimiento real de contrasena llego correctamente en produccion.
+- Stripe live esta activo para la suscripcion de plataforma y Stripe Connect. Produccion usa clave live y Preview clave de prueba; los webhooks de plataforma y Connect apuntan a `www.delunivo.com`. La cuenta bancaria de Jorge recibe la suscripcion de Delunivo; cada profesor debe conectar su propia cuenta para recibir ventas de cursos.
+- Mux usa el entorno `Production`, plan Pay as you go, reproduccion firmada y webhook `https://www.delunivo.com/api/webhooks/mux`. El webhook real respondio 200 y aplico un video de 53:12 a 720p; tambien hay evidencia separada de subida y reproduccion a 1080p.
 - Los identificadores internos estables, referencias de proyecto, buckets, tablas, claves y URLs de API no se renombran cuando el cambio no es cosmetico: preservarlos evita roturas y no expone una marca distinta al usuario.
 - El esquema real vive en Supabase. `docs/database.md` mantiene el inventario confirmado y el SQL historico; desde 2026-08-30, los cambios nuevos tambien se guardan como migraciones versionadas. Un archivo de migracion no demuestra que se haya aplicado.
 - El precio inicial de plataforma es 30 EUR/mes y se lee de `platform_settings`; cambiarlo no altera las suscripciones de Stripe ya creadas.
@@ -56,14 +61,13 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 2. Corregir bloqueos reales de activacion, cobro y experiencia del alumno.
 3. Mantener seguridad, aislamiento y fiabilidad de integraciones.
 4. Consolidar componentes o tokens solo cuando aparezca duplicacion real.
-5. Decidir y registrar el dominio propio de Delunivo antes de sustituir la URL tecnica de Vercel.
+5. Completar la auditoria final de produccion y entregar una cuenta real a Sata en cuanto pase el checklist bloqueante.
 
 ## Riesgos y pendientes conocidos
 
-- El vertical Mux esta configurado y validado de extremo a extremo con una
-  subida y reproduccion reales.
-- Resend todavia necesita un dominio propio verificado y `RESEND_FROM_EMAIL`
-  en Vercel para entregar a destinatarios reales en produccion.
+- La subida larga de Mux esta validada a 720p y la de 1080p con un archivo corto; sigue pendiente repetir ambas condiciones en un mismo video largo 1080p cuando haya un archivo real disponible.
+- El reproductor genera avisos por falta de token de miniatura y se observo un error minificado de hidratacion React en la ruta de aprendizaje. La reproduccion funciona, pero ambos deben revisarse durante la auditoria.
+- La fiscalidad automatica de Stripe no esta activada en Checkout y debe validarse antes de cobrar ventas o suscripciones reales. El checkout fail-closed que elimina el fallback de ventas a la cuenta de plataforma, bloquea duplicados y endurece el webhook esta desplegado en produccion desde el 2026-08-31, con su migracion aplicada y verificada.
 - Hay vulnerabilidades de dependencias previamente detectadas que requieren una tarea separada y enfocada.
 - Las acciones de Stripe, Resend, Vercel y Supabase pueden requerir pasos manuales y no deben darse por completadas sin confirmacion.
 

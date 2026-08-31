@@ -101,8 +101,8 @@ Añadida el 2026-08-07. Claves de pago propias de cada cliente — la tabla más
 | columna | notas |
 |---|---|
 | organization_id | uuid, PK y FK -> organizations.id (1 fila por organización) |
-| stripe_account_id | nullable — cuenta Stripe Connect Express del cliente (Fase 5, todavía sin usar) |
-| stripe_connect_status | nullable |
+| stripe_account_id | nullable — cuenta Stripe Connect Express de la organización; los cobros de sus cursos deben crearse en esta cuenta conectada |
+| stripe_connect_status | nullable — `pending` \| `connected`; se actualiza al volver del onboarding y mediante el webhook Connect `account.updated` |
 | whop_api_key_encrypted | nullable — cifrada en reposo (Fase 5, todavía sin usar) |
 | whop_product_id | nullable |
 
@@ -241,7 +241,7 @@ RLS activo y **sin ninguna policy, a propósito**: con RLS activo y cero policie
 | order_index | confirmado |
 | is_preview | inferido |
 | status | 'published' \| 'draft', default 'published' — añadida el 2026-07-23. Se filtra en `/cursos/[id]/aprender` junto con `sections.status`. |
-| blocks | jsonb, confirmado — array de bloques `{type: "video"\|"video_file"\|"text", ...}`. `"video"` se muestra en el admin como **"Embed media"** (enlace externo tipo YouTube/Vimeo); `"video_file"` es un vídeo subido directamente por el admin a Supabase Storage (bucket `lesson-media`) — añadido el 2026-07-23. Ambos usan el campo `video_url`. El contenido de los bloques `"text"` es HTML (editor de texto enriquecido), se sanea con `isomorphic-dompurify` antes de renderizarlo al alumno. |
+| blocks | jsonb, confirmado — array de bloques `{type: "video"\|"video_file"\|"text", ...}`. `"video"` se muestra en el admin como **"Embed media"** (enlace externo tipo YouTube/Vimeo) y usa `video_url`. Para las subidas nuevas, `"video_file"` guarda `mux_video_asset_id`, que referencia `video_assets`; el archivo se procesa y reproduce de forma privada mediante Mux. Los bloques antiguos pueden conservar `video_url` con una ruta de Supabase Storage por compatibilidad. El contenido de los bloques `"text"` es HTML (editor de texto enriquecido), se sanea con `isomorphic-dompurify` antes de renderizarlo al alumno. |
 
 ### purchases
 | columna | notas |
@@ -254,6 +254,32 @@ RLS activo y **sin ninguna policy, a propósito**: con RLS activo y cero policie
 | payment_method | 'stripe' \| 'whop', default 'stripe' — añadida el 2026-07-23. |
 | external_reference | nullable, texto libre — añadida el 2026-07-23. Id de la Checkout Session de Stripe, o la license key/membership id de Whop. Único junto con `payment_method` (evita reutilizar un mismo código/sesión). Hay además un unique en `(user_id, course_id)` para que no se dupliquen compras. |
 | organization_id | uuid, FK -> organizations.id, **not null** — añadida el 2026-08-07, denormalizada desde `courses.organization_id` en el momento de insertar (evita un join extra en cada policy RLS y congela la atribución si algún día un curso cambia de organización). |
+
+### stripe_checkout_attempts
+
+Añadida y verificada en producción el 2026-08-31. Registro privado y
+server-only que coordina la creación idempotente de Checkout para impedir dos
+sesiones cobrables por la misma compra o suscripción.
+
+| columna | notas |
+|---|---|
+| id | uuid, PK; también forma la clave idempotente enviada a Stripe |
+| checkout_kind | `course_purchase` \| `platform_subscription` |
+| organization_id / user_id | FK obligatorias con `ON DELETE RESTRICT` |
+| course_id | FK nullable; obligatoria para compra de curso y nula para suscripción de plataforma |
+| stripe_account_id | cuenta Connect obligatoria para cursos; nula para suscripción de plataforma |
+| stripe_session_id / stripe_session_url | nullable hasta crear la sesión; el ID es único y ambos campos aparecen juntos |
+| stripe_params | jsonb, parámetros inmutables usados al reintentar la misma petición idempotente |
+| expected_amount_total / expected_currency | validación económica del webhook; el importe es obligatorio para cursos |
+| status | `creating` \| `open` \| `completed` \| `expired` \| `failed` |
+| expires_at / error_message | estado operativo y último error, nullable |
+| created_at / updated_at | timestamptz |
+
+Índices únicos parciales permiten como máximo un intento `creating`/`open` por
+alumno+curso y uno por organización para la suscripción de plataforma. RLS está
+activa sin policies; `anon` y `authenticated` no tienen privilegios y solo
+`service_role` puede leer o mutar la tabla. El rollback versionado es
+destructivo y no debe ejecutarse con el código de Checkout desplegado.
 
 ### video_views
 **Una fila = esa lección está completada por ese alumno.** No hay estado intermedio ni segundos vistos.
@@ -324,6 +350,11 @@ RLS: cada alumno ve, inserta y borra **solo sus propias filas** (`user_id = auth
   `20260830215237_harden_organization_billing_privileges.sql` retira además
   todos los privilegios de escritura históricos de `authenticated` y hace que
   el helper comercial se ejecute sin privilegios elevados.
+- **2026-08-31** — `stripe_checkout_attempts`: coordinación idempotente y
+  privada de Checkout para cursos y suscripciones. Migración
+  `20260831141239_lock_stripe_checkout_attempts.sql` aplicada manualmente y
+  verificada con RLS activa, cero policies públicas, permisos exclusivos de
+  `service_role`, siete índices y FKs `RESTRICT`.
 
 ## Emails y verificación de cuenta
 
@@ -374,11 +405,11 @@ esa función.
 
 ## Storage
 
-- **`lesson-media`** (bucket **privado** desde el 2026-08-02, antes público) — creado el 2026-07-23. Contiene:
-  - `videos/` — archivos de vídeo subidos directamente por el admin para bloques de tipo `video_file`. **Sin lectura pública**: solo se puede leer generando una URL firmada con el cliente admin (service role), que se salta RLS. Eso lo hace `src/lib/storage/media.ts` (`getSignedVideoUrl`), llamado desde `src/app/cursos/[id]/aprender/page.tsx` **después** de comprobar que el usuario es admin o compró el curso, y desde `src/lib/storage/actions.ts` (`getVideoPreviewUrlAction`) para la previsualización del admin en el editor.
+- **`lesson-media`** (bucket **privado** desde el 2026-08-02, antes público) — creado el 2026-07-23. Se conserva para imágenes y vídeos heredados; las subidas nuevas de vídeo usan Mux. Contiene:
+  - `videos/` — archivos heredados de bloques `video_file`. **Sin lectura pública**: solo se pueden leer mediante una URL firmada generada en servidor después de comprobar que el usuario administra o compró el curso.
   - `images/` — imágenes insertadas dentro del editor de texto enriquecido (bloques `text`). Sigue con lectura pública (policy `lesson_media_public_read_images`, filtra por `(storage.foldername(name))[1] = 'images'`).
-- La subida ya **no** se hace desde el navegador: pasa por el route handler `src/app/api/admin/media/upload/route.ts`, que comprueba `requireAnyOrgAdmin()` (desde el 2026-08-07; antes `requireAdmin()`) y sube con el cliente admin (service role). `src/lib/storage/uploadLessonMedia.ts` (cliente) solo hace `fetch()` a ese endpoint.
-- **Ojo con `video_url` en `lessons.blocks`**: para bloques `video_file`, este campo puede contener dos formatos según cuándo se subió el vídeo — una ruta relativa nueva (`videos/uuid.mp4`) o una URL pública antigua de cuando el bucket era público (`.../object/public/lesson-media/videos/uuid.mp4`, de antes del 2026-08-02). `extractStoragePath()` en `src/lib/storage/media.ts` normaliza ambos casos antes de firmar la URL — no hizo falta migrar los datos existentes.
+- Las imágenes se suben mediante `src/app/api/admin/media/upload/route.ts`, que comprueba `requireAnyOrgAdmin()` y escribe con el cliente admin. Los vídeos nuevos se cargan directamente a Mux mediante una URL de subida creada por `src/app/api/admin/mux/uploads/route.ts`; no atraviesan Vercel ni Supabase Storage.
+- **Ojo con `video_url` en `lessons.blocks`**: en bloques `video_file` heredados puede contener una ruta relativa de Storage (`videos/uuid.mp4`) o una URL pública antigua. `extractStoragePath()` normaliza ambos formatos antes de firmar la lectura. Los bloques nuevos usan `mux_video_asset_id` y no necesitan `video_url`.
 - **Sin aislamiento por organización todavía**: el path de los archivos (`videos/uuid.ext`, `images/uuid.ext`) no lleva `organization_id`, así que ni la RLS de `storage.objects` ni el route handler de subida saben de qué cliente es cada archivo en el momento de subirlo (la subida ocurre antes de asociarse a ninguna lección). Las policies de `storage.objects` sobre `lesson-media` (`Admins can delete/update/upload lesson media`) se cambiaron el 2026-08-07 de `profiles.is_admin` a `is_super_admin()` — funcionalmente equivalente a como estaba antes (un único admin global), no un aislamiento real por cliente. El aislamiento efectivo hoy depende de que la asociación archivo→lección (`updateLessonBlocksAction`) sí compruebe `requireOrgAdmin({lessonId})` correctamente. Si se quiere que Storage aísle también por organización, habría que meter `organization_id` en el path al subir — pendiente, ver Fase 9 del plan.
 - **Bug corregido el 2026-08-07**: existía una policy `"Lesson media is publicly readable"` que daba lectura pública a TODO el bucket (incluidos los vídeos), contradiciendo la migración del 2026-08-02 que decía haberla sustituido por `lesson_media_public_read_images` — nunca se borró la vieja. Borrada.
 - **Bucket `course-videos` eliminado (policy) el 2026-08-07**: resto de una integración anterior ya no usada (confirmado con el usuario). Si el bucket en sí seguía vacío, también se borró desde el dashboard.
@@ -402,10 +433,15 @@ muestra el catálogo. Las lecturas privadas del panel usan
 
 ## Integraciones externas
 
-- **Stripe:** el checkout de cursos usa la cuenta conectada de la organización
-  cuando existe y la cuenta principal como fallback. La suscripción de plataforma
-  se procesa en la cuenta principal. Los webhooks validan su firma y escriben con
-  el cliente admin en servidor.
+- **Stripe:** Stripe Connect está activo y cada organización puede enlazar su
+  cuenta Express. Los cobros de cursos deben ejecutarse exclusivamente en la
+  cuenta conectada correspondiente; la suscripción de plataforma se procesa en
+  la cuenta principal. Sin Connect listo, la venta queda bloqueada y nunca usa
+  la cuenta principal como fallback. Los webhooks validan firma, modo, cuenta
+  origen, estado de pago, importe, moneda, usuario, curso y organización antes
+  de conceder acceso. La migración `20260831141239` añade un registro privado
+  de intentos para reutilizar la misma sesión ante concurrencia. La migración y
+  el código están aplicados y verificados en producción desde el 2026-08-31.
 - **Whop (desactivado):** no hay configuración, compra ni canje en la UI. El
   endpoint histórico responde `200` sin enviar correos, crear compras ni dar
   acceso, para evitar reintentos del proveedor. Se conserva solo el esquema
@@ -424,8 +460,9 @@ muestra el catálogo. Las lecturas privadas del panel usan
 
 ## Despliegue y dominio
 
-La URL técnica de la plataforma es `https://delunivo.vercel.app`. Delunivo usa
-rutas `/o/<slug>` porque `*.vercel.app` no permite wildcards de tenant. Los
+La URL canónica de producción es `https://www.delunivo.com`; el dominio raíz
+redirige a `www` y `https://delunivo.vercel.app` se conserva solo como URL
+técnica de compatibilidad. Delunivo usa rutas `/o/<slug>`. Los
 identificadores internos estables de Supabase, buckets, tablas e integraciones
 no se renombran: no son identidad visible y cambiarlos pondría datos o enlaces
-en riesgo. Un dominio propio puede añadirse cuando esté decidido y registrado.
+en riesgo.

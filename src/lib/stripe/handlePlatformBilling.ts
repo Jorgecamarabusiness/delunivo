@@ -1,5 +1,7 @@
 import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { markCheckoutAttemptCompleted } from "./checkoutAttempts";
+import { validatePlatformCheckoutSession } from "./checkoutValidation";
 
 type BillingStatus = "active" | "past_due" | "canceled";
 
@@ -14,7 +16,22 @@ function customerId(
 export async function handlePlatformSubscriptionCheckout(
   session: Stripe.Checkout.Session
 ): Promise<void> {
-  const organizationId = session.metadata?.organization_id;
+  const supabase = createAdminClient();
+  const { data: attempt, error: attemptError } = await supabase
+    .from("stripe_checkout_attempts")
+    .select(
+      "id, checkout_kind, organization_id, user_id, expected_currency, stripe_account_id"
+    )
+    .eq("stripe_session_id", session.id)
+    .maybeSingle();
+  if (attemptError || !attempt || attempt.stripe_account_id !== null) {
+    throw new Error("No existe un intento de suscripción válido para esta sesión.");
+  }
+
+  const validationError = validatePlatformCheckoutSession({ session, attempt });
+  if (validationError) throw new Error(validationError);
+
+  const organizationId = attempt.organization_id;
   const stripeCustomerId = customerId(session.customer);
   const stripeSubscriptionId =
     typeof session.subscription === "string"
@@ -24,7 +41,6 @@ export async function handlePlatformSubscriptionCheckout(
     throw new Error("Stripe no devolvió todos los datos de la suscripción.");
   }
 
-  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("organization_billing")
     .update({
@@ -40,6 +56,8 @@ export async function handlePlatformSubscriptionCheckout(
   if (error || !data) {
     throw new Error(error?.message ?? "No se encontró la facturación de la empresa.");
   }
+
+  await markCheckoutAttemptCompleted(attempt.id);
 }
 
 /** invoice.paid / invoice.payment_failed / customer.subscription.deleted — cambios de estado posteriores. */

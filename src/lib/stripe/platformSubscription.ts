@@ -5,6 +5,10 @@ import { hasComplimentaryAccess, isFutureDate } from "@/lib/billing/access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "./client";
 import { createPlatformCoupon } from "./platformCoupons";
+import {
+  claimCheckoutAttempt,
+  getCheckoutUrlForAttempt,
+} from "./checkoutAttempts";
 
 /**
  * Checkout de la suscripción que cada organización paga a Delunivo. El precio
@@ -22,7 +26,7 @@ export async function createPlatformSubscriptionCheckoutUrl(
     admin
       .from("organization_billing")
       .select(
-        "platform_stripe_customer_id, access_mode, access_expires_at, discount_percent, discount_duration, stripe_coupon_id"
+        "platform_stripe_customer_id, platform_subscription_id, platform_subscription_status, access_mode, access_expires_at, discount_percent, discount_duration, stripe_coupon_id"
       )
       .eq("organization_id", organizationId)
       .single(),
@@ -50,6 +54,17 @@ export async function createPlatformSubscriptionCheckoutUrl(
   const priceCents = settingsResult.data.monthly_price_cents;
   if (!Number.isInteger(priceCents) || priceCents < 100) {
     throw new Error("El precio mensual de Delunivo no es válido.");
+  }
+
+  if (
+    billing.platform_subscription_id &&
+    ["trialing", "active", "past_due"].includes(
+      billing.platform_subscription_status
+    )
+  ) {
+    throw new Error(
+      "Esta empresa ya tiene una suscripción de Stripe; gestiona la existente desde el portal."
+    );
   }
 
   if (
@@ -95,7 +110,7 @@ export async function createPlatformSubscriptionCheckoutUrl(
         )
       : null;
 
-  const session = await stripe.checkout.sessions.create({
+  const stripeParams = {
     mode: "subscription",
     payment_method_types: ["card"],
     line_items: [
@@ -112,7 +127,7 @@ export async function createPlatformSubscriptionCheckoutUrl(
     success_url: `${siteUrl}/admin/facturacion?empresa=${organizationId}&checkout=success`,
     cancel_url: `${siteUrl}/admin/facturacion?empresa=${organizationId}&checkout=cancelled`,
     client_reference_id: userId,
-    metadata: { organization_id: organizationId },
+    metadata: { organization_id: organizationId, user_id: userId },
     ...(billing.platform_stripe_customer_id
       ? { customer: billing.platform_stripe_customer_id }
       : {}),
@@ -125,7 +140,18 @@ export async function createPlatformSubscriptionCheckoutUrl(
           },
         }
       : {}),
+  } satisfies Parameters<typeof stripe.checkout.sessions.create>[0];
+
+  const attempt = await claimCheckoutAttempt({
+    checkoutKind: "platform_subscription",
+    organizationId,
+    userId,
+    courseId: null,
+    stripeAccountId: null,
+    stripeParams,
+    expectedAmountTotal: null,
+    expectedCurrency: "eur",
   });
 
-  return session.url;
+  return getCheckoutUrlForAttempt(attempt);
 }

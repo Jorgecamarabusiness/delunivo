@@ -14,13 +14,18 @@ export async function createPlatformCoupon({
   percentOff: number;
   duration: DiscountDuration;
 }) {
-  return stripe.coupons.create({
-    percent_off: percentOff,
-    duration,
-    name:
-      percentOff === 100
-        ? `Invitación gratuita · ${organizationName}`
-        : `${percentOff}% · ${organizationName}`,
-    metadata: { organization_id: organizationId },
-  });
+  return stripe.coupons.create(
+    {
+      percent_off: percentOff,
+      duration,
+      name:
+        percentOff === 100
+          ? `Invitación gratuita · ${organizationName}`
+          : `${percentOff}% · ${organizationName}`,
+      metadata: { organization_id: organizationId },
+    },
+    {
+      idempotencyKey: `delunivo-coupon-${organizationId}-${percentOff}-${duration}`,
+    }
+  );
 }

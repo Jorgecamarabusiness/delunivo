@@ -9,11 +9,15 @@ export async function getConnectedStripeAccountId(
   admin: SupabaseClient,
   organizationId: string
 ): Promise<string | null> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from("organization_integrations")
     .select("stripe_account_id, stripe_connect_status")
     .eq("organization_id", organizationId)
     .maybeSingle();
+
+  if (error) {
+    throw new Error("No se pudo comprobar la cuenta de cobro del profesor.");
+  }
 
   if (!data?.stripe_account_id || data.stripe_connect_status !== "connected") {
     return null;
