@@ -61,7 +61,7 @@ export function BrandingForm({
     organization.featured_course_id ?? ""
   );
   const [primaryColor, setPrimaryColor] = useState(
-    organization.primary_color ?? "#16a34a"
+    organization.primary_color ?? "#4f46e5"
   );
   const [logoUrl, setLogoUrl] = useState(organization.logo_url ?? "");
   const [uploading, setUploading] = useState(false);

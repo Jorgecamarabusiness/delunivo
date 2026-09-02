@@ -21,6 +21,10 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 - Soporte “Run as” exclusivo de superadministradores, con motivo obligatorio, sesión Auth separada, auditoría, caducidad de 15 minutos y restauración de la sesión original. Las acciones de facturación e integraciones permanecen bloqueadas durante la intervención.
 - El header global ofrece accesos segun rol a la portada de Delunivo, la portada de la empresa, administracion, control de plataforma y perfil. El perfil agrupa los cursos comprados o invitados del usuario aunque pertenezcan a empresas distintas.
 - Identidad de plataforma centralizada en `src/lib/brand.ts` y marca de cada organizacion en su configuracion.
+- La identidad visual oficial de Delunivo usa el simbolo índigo y coral en la
+  cabecera, la portada y el panel. Sus variantes optimizadas se asignan a
+  favicon, Apple touch icon y manifest instalable; la pieza horizontal de
+  campaña se reserva para las previsualizaciones Open Graph y Twitter.
 
 ## Decisiones que no deben reabrirse sin nueva evidencia
 

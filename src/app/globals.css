@@ -8,10 +8,10 @@
   --muted-foreground: #71717a;
 
   /* Color de marca de cada empresa. El layout raíz lo sobreescribe en <html>
-     con organizations.primary_color; este es el verde de Delunivo por defecto. */
-  --accent: #16a34a;
-  --accent-foreground: #0a0a0a;
-  --accent-content: #15803d;
+     con organizations.primary_color; este es el índigo de Delunivo por defecto. */
+  --accent: #4f46e5;
+  --accent-foreground: #ffffff;
+  --accent-content: #4338ca;
 }
 
 @theme inline {

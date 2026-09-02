@@ -6,7 +6,7 @@
  * parecería un bug de Delunivo, no una mala elección de color.
  *
  * Usa la luminancia relativa y elige la opción con mayor contraste WCAG. No
- * usa un umbral visual aproximado: ese atajo hacía fallar el verde de Delunivo.
+ * usa un umbral visual aproximado: ese atajo falla con algunos tonos de marca.
  */
 export function readableTextColor(hex: string | null): string | null {
   if (!hex) return null;

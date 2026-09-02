@@ -52,7 +52,7 @@ export function renderEmail(content: EmailContent): string {
 <html lang="es">
   <body style="margin:0;padding:24px;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
     <div style="max-width:480px;margin:0 auto;background:#ffffff;border:1px solid #e4e4e7;border-radius:16px;padding:32px;">
-      <div style="margin:0 0 24px;font-size:15px;font-weight:700;color:#16a34a;">${PLATFORM_NAME}</div>
+      <div style="margin:0 0 24px;font-size:15px;font-weight:700;color:#4338ca;">${PLATFORM_NAME}</div>
       <h1 style="margin:0 0 20px;font-size:21px;line-height:1.3;color:#0a0a0a;">${escapeHtml(content.heading)}</h1>
       ${paragraphs}
       ${code}

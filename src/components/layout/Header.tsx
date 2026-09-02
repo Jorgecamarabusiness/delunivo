@@ -19,6 +19,7 @@ import {
 import { getActiveImpersonationForUser } from "@/lib/auth/impersonation";
 import { stopRunAsAction } from "@/app/admin/plataforma/runAsActions";
 import { BrandLogo } from "@/components/media/PublicImages";
+import { PlatformLogo } from "@/components/media/PlatformLogo";
 
 export async function Header() {
   const supabase = await createClient();
@@ -104,7 +105,9 @@ export async function Header() {
         >
           {organization ? (
             <BrandLogo src={organization.logoUrl} name={brandName} />
-          ) : null}
+          ) : (
+            <PlatformLogo priority />
+          )}
           <span className="truncate">{brandName}</span>
         </Link>
 

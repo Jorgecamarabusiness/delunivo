@@ -5,6 +5,7 @@ import { Container } from "@/components/ui/Container";
 import { buttonClassName } from "@/components/ui/Button";
 import { PLATFORM_DESCRIPTION, PLATFORM_NAME } from "@/lib/brand";
 import { formatPlatformPrice } from "@/lib/billing/access";
+import { PlatformLogo } from "@/components/media/PlatformLogo";
 
 const FEATURES = [
   {
@@ -56,7 +57,10 @@ export function DelunivoLanding({
       <main id="contenido-principal" className="flex-1">
         <section className="border-b border-border">
           <Container className="py-20 text-center sm:py-28">
-            <p className="text-sm font-semibold text-accent-content">
+            <div className="flex justify-center">
+              <PlatformLogo size="lg" priority />
+            </div>
+            <p className="mt-6 text-sm font-semibold text-accent-content">
               Tu escuela online, en marcha hoy
             </p>
 

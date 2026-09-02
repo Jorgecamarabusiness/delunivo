@@ -15,6 +15,29 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const platformIcons: Metadata["icons"] = {
+  icon: [
+    {
+      url: "/branding/delunivo-favicon-32.png",
+      type: "image/png",
+      sizes: "32x32",
+    },
+    {
+      url: "/branding/delunivo-favicon-64.png",
+      type: "image/png",
+      sizes: "64x64",
+    },
+  ],
+  shortcut: "/branding/delunivo-favicon-32.png",
+  apple: [
+    {
+      url: "/branding/delunivo-apple-touch-icon-180.png",
+      type: "image/png",
+      sizes: "180x180",
+    },
+  ],
+};
+
 export async function generateMetadata(): Promise<Metadata> {
   const organization = await getCurrentOrganization();
 
@@ -24,17 +47,27 @@ export async function generateMetadata(): Promise<Metadata> {
       applicationName: PLATFORM_NAME,
       title: PLATFORM_NAME,
       description: PLATFORM_DESCRIPTION,
+      icons: platformIcons,
       openGraph: {
         type: "website",
         locale: "es_ES",
         siteName: PLATFORM_NAME,
         title: PLATFORM_NAME,
         description: PLATFORM_DESCRIPTION,
+        images: [
+          {
+            url: "/branding/delunivo-social-1200x627.jpg",
+            width: 1200,
+            height: 627,
+            alt: "Delunivo — Tu academia. Tu marca.",
+          },
+        ],
       },
       twitter: {
-        card: "summary",
+        card: "summary_large_image",
         title: PLATFORM_NAME,
         description: PLATFORM_DESCRIPTION,
+        images: ["/branding/delunivo-social-1200x627.jpg"],
       },
     };
   }
@@ -44,6 +77,7 @@ export async function generateMetadata(): Promise<Metadata> {
     applicationName: PLATFORM_NAME,
     title: `${organization.name} — ${PLATFORM_NAME}`,
     description: `Cursos online de ${organization.name}.`,
+    icons: platformIcons,
   };
 }
 

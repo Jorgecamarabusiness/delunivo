@@ -9,12 +9,19 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",
-    theme_color: "#15803d",
+    theme_color: "#4f46e5",
     icons: [
       {
-        src: "/icon",
-        sizes: "32x32",
+        src: "/branding/delunivo-icon-512.png",
+        sizes: "512x512",
         type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/branding/delunivo-app-icon-1024.png",
+        sizes: "1024x1024",
+        type: "image/png",
+        purpose: "any",
       },
     ],
   };

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { PLATFORM_NAME } from "@/lib/brand";
+import { PlatformLogo } from "@/components/media/PlatformLogo";
 
 function UsersIcon({ className }: { className?: string }) {
   return (
@@ -180,16 +181,16 @@ export function AdminSidebar({
       <div className="flex items-center justify-between border-b border-border px-4 py-5">
         <div
           aria-label={PLATFORM_NAME}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-foreground md:hidden"
+          className={`flex min-w-0 items-center gap-3 ${expanded ? "" : "md:hidden"}`}
         >
-          D
+          <PlatformLogo />
+          {expanded ? (
+            <div className="hidden min-w-0 md:block">
+              <p className="truncate text-base font-bold tracking-tight">{PLATFORM_NAME}</p>
+              <p className="truncate text-xs text-muted-foreground">Bienvenido {adminName}</p>
+            </div>
+          ) : null}
         </div>
-        {expanded ? (
-          <div className="hidden min-w-0 md:block">
-            <p className="truncate text-base font-bold tracking-tight">{PLATFORM_NAME}</p>
-            <p className="truncate text-xs text-muted-foreground">Bienvenido {adminName}</p>
-          </div>
-        ) : null}
         <button
           type="button"
           onClick={() => setExpanded((value) => !value)}
