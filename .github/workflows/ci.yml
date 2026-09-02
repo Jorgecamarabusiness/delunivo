@@ -57,9 +57,24 @@ jobs:
 
       - run: npm ci
 
-      - run: npx playwright install --with-deps chromium
+      - name: Validar entorno E2E aislado
+        id: e2e-environment
+        env:
+          E2E_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: |
+          if [[ -z "$E2E_SUPABASE_URL" || "$E2E_SUPABASE_URL" == *"jgxqdzmmeveksseflyst"* ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::E2E omitidos: configura un proyecto o rama Supabase exclusivo para pruebas. Producción nunca se usa."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Instalar Chromium para E2E
+        if: steps.e2e-environment.outputs.enabled == 'true'
+        run: npx playwright install --with-deps chromium
 
       - name: Tests E2E (Playwright)
+        if: steps.e2e-environment.outputs.enabled == 'true'
         run: npx playwright test
         env:
           # Estas deben pertenecer al proyecto E2E, nunca al de producción.
@@ -89,7 +104,7 @@ jobs:
           E2E_NOACCESS_PASSWORD: ${{ secrets.E2E_NOACCESS_PASSWORD }}
 
       - uses: actions/upload-artifact@v5
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.e2e-environment.outputs.enabled == 'true' }}
         with:
           name: playwright-report
           path: playwright-report/
