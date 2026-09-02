@@ -1,6 +1,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { slugify, isReservedSlug } from "./slug.ts";
+import {
+  slugify,
+  isReservedSlug,
+  validateOrganizationSlug,
+} from "./slug.ts";
 
 /**
  * El slug es la dirección pública de cada empresa (/o/<slug>), así que se genera
@@ -51,5 +55,25 @@ describe("isReservedSlug — direcciones que no puede ocupar un cliente", () => 
 
   test("un nombre normal no está reservado", () => {
     assert.equal(isReservedSlug("cursos-de-ana"), false);
+  });
+});
+
+describe("validateOrganizationSlug — valida la dirección elegida", () => {
+  test("normaliza el texto antes de validarlo", () => {
+    assert.deepEqual(validateOrganizationSlug("  Iván Orgánico  "), {
+      ok: true,
+      slug: "ivan-organico",
+    });
+  });
+
+  test("rechaza direcciones vacías, reservadas o demasiado largas", () => {
+    assert.equal(validateOrganizationSlug("!!!").ok, false);
+    assert.equal(validateOrganizationSlug("admin").ok, false);
+    assert.equal(validateOrganizationSlug("a".repeat(64)).ok, false);
+  });
+
+  test("acepta una dirección normal de hasta 63 caracteres", () => {
+    assert.equal(validateOrganizationSlug("mi-escuela").ok, true);
+    assert.equal(validateOrganizationSlug("a".repeat(63)).ok, true);
   });
 });

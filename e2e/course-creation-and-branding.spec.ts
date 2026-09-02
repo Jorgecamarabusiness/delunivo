@@ -176,3 +176,46 @@ test("editar la marca cambia el nombre visible en el portal público", async ({ 
   await page.goto(org.prefix + "/");
   await expect(page.locator("header")).toContainText(newName);
 });
+
+test("permite elegir un enlace libre y copiar la URL pública", async ({
+  page,
+  baseURL,
+}) => {
+  await login(page, org.owner.email, org.owner.password, org.prefix);
+  await page.goto("/admin/marca");
+
+  const slugInput = page.getByLabel("Enlace de tu escuela");
+  await slugInput.fill("Iván Orgánico");
+  await expect(slugInput).toHaveValue("ivan-organico");
+  await expect(page.getByText("Ese enlace ya está ocupado.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Guardar cambios" })).toBeDisabled();
+
+  const nextSlug = `marca-e2e-${Date.now()}`;
+  await slugInput.fill(nextSlug);
+  await expect(page.getByText("Este enlace está libre.")).toBeVisible();
+
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: "Copiar enlace" }).click();
+  await expect(page.getByRole("button", { name: "Copiado ✓" })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe(`${baseURL}/o/${org.slug}`);
+
+  const oldPrefix = org.prefix;
+  await page.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect(page.getByText("Cambios guardados.")).toBeVisible();
+  await expect(page.getByText("Este es tu enlace actual.")).toBeVisible();
+  await expect(page.getByText(`${baseURL}/o/${nextSlug}`, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /Copiar enlace|Copiado/ }).click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toBe(`${baseURL}/o/${nextSlug}`);
+
+  const oldResponse = await page.goto(oldPrefix + "/");
+  expect(oldResponse?.status()).toBe(404);
+
+  org.slug = nextSlug;
+  org.prefix = `/o/${nextSlug}`;
+  await page.goto(org.prefix + "/");
+  await expect(page.locator("header")).toContainText("Marca Actualizada");
+});

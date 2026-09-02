@@ -63,6 +63,9 @@ export default async function MarcaPage() {
     : { data: null };
 
   const ownerName = ownerProfile?.name?.trim() || organization.name;
+  const siteOrigin = (
+    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+  ).replace(/\/$/, "");
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
@@ -85,6 +88,7 @@ export default async function MarcaPage() {
         organization={organization}
         courses={courses ?? []}
         ownerName={ownerName}
+        siteOrigin={siteOrigin}
       />
     </div>
   );
