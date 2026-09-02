@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Lesson, Section } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { VideoBlock } from "@/components/lesson-blocks/VideoBlock";
@@ -58,6 +58,10 @@ export function AprenderView({
   const [completed, setCompleted] = useState<Set<string>>(
     () => new Set(completedLessonIds)
   );
+  const savingLessonIdsRef = useRef(new Set<string>());
+  const [savingLessonIds, setSavingLessonIds] = useState<Set<string>>(
+    () => new Set()
+  );
   // En móvil el índice es un cajón que se abre por encima del contenido. En
   // escritorio (lg+) siempre está visible y este estado no se usa.
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -78,6 +82,13 @@ export function AprenderView({
    * el cambio para no enseñar un progreso que no está en la base de datos.
    */
   function setLessonCompleted(lessonId: string, value: boolean) {
+    // Prevent an INSERT and DELETE for the same lesson from racing when the
+    // user clicks twice before the first Server Action finishes.
+    if (savingLessonIdsRef.current.has(lessonId)) return;
+    savingLessonIdsRef.current.add(lessonId);
+    setSavingLessonIds((current) => new Set(current).add(lessonId));
+    setSaveError(null);
+
     setCompleted((prev) => {
       const next = new Set(prev);
       if (value) next.add(lessonId);
@@ -85,17 +96,35 @@ export function AprenderView({
       return next;
     });
 
-    void setLessonCompletedAction(lessonId, value).then((result) => {
-      if (!result.error) return;
+    void setLessonCompletedAction(lessonId, value)
+      .then((result) => {
+        if (!result.error) return;
 
-      setCompleted((prev) => {
-        const next = new Set(prev);
-        if (value) next.delete(lessonId);
-        else next.add(lessonId);
-        return next;
+        setCompleted((prev) => {
+          const next = new Set(prev);
+          if (value) next.delete(lessonId);
+          else next.add(lessonId);
+          return next;
+        });
+        setSaveError("No se pudo guardar tu progreso. Revisa tu conexión.");
+      })
+      .catch(() => {
+        setCompleted((prev) => {
+          const next = new Set(prev);
+          if (value) next.delete(lessonId);
+          else next.add(lessonId);
+          return next;
+        });
+        setSaveError("No se pudo guardar tu progreso. Revisa tu conexión.");
+      })
+      .finally(() => {
+        savingLessonIdsRef.current.delete(lessonId);
+        setSavingLessonIds((current) => {
+          const next = new Set(current);
+          next.delete(lessonId);
+          return next;
+        });
       });
-      setSaveError("No se pudo guardar tu progreso. Revisa tu conexión.");
-    });
   }
 
   function toggleCompleted(lessonId: string, event: React.MouseEvent) {
@@ -161,12 +190,14 @@ export function AprenderView({
                       <button
                         type="button"
                         onClick={(event) => toggleCompleted(lesson.id, event)}
+                        disabled={savingLessonIds.has(lesson.id)}
+                        aria-busy={savingLessonIds.has(lesson.id)}
                         aria-label={
                           isCompleted
                             ? "Marcar lección como pendiente"
                             : "Marcar lección como completada"
                         }
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs ${
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs disabled:opacity-60 ${
                           isCompleted
                             ? "border-foreground bg-foreground text-background"
                             : isActive

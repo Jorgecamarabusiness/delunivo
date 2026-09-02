@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input, Textarea } from "@/components/ui/Input";
 import { CourseThumbnail } from "@/components/courses/CourseCard";
-import { uploadLessonMedia } from "@/lib/storage/uploadLessonMedia";
+import { uploadPublicImage } from "@/lib/storage/uploadLessonMedia";
 import { updateCourseSettingsAction } from "./actions";
 
 export type CourseSettings = {
@@ -43,7 +43,10 @@ export function CourseSettingsForm({ course }: { course: CourseSettings }) {
 
     setUploading(true);
     setError(null);
-    const result = await uploadLessonMedia(file, "images");
+    const result = await uploadPublicImage(file, {
+      type: "course",
+      id: course.id,
+    });
     setUploading(false);
 
     if (result.error || !result.url) {

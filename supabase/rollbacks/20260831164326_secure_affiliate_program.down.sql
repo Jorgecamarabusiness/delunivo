@@ -1,4 +1,4 @@
--- DESTRUCTIVE: removes affiliate attribution, audit history and discount state.
+-- DESTRUCTIVE: removes affiliate attribution, audit history, and discount state.
 drop function if exists public.claim_stripe_platform_webhook_event(text, text);
 drop function if exists public.apply_stripe_affiliate_billing_event(text, uuid, text, timestamptz, integer);
 drop function if exists public.refresh_organization_effective_discount(uuid);

@@ -1,4 +1,4 @@
--- Affiliate attribution and server-only Stripe discount coordination.
+-- Affiliate attribution and private Stripe discount coordination.
 -- The application always sends Stripe one computed coupon so percentage
 -- components add exactly and the configured cap cannot be bypassed by stacking.
 

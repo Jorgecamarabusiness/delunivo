@@ -1,3 +1,4 @@
+-- Revoke the maintenance-only cleanup grants.
 revoke delete on table public.organization_referral_codes from service_role;
 revoke delete on table public.organization_referrals from service_role;
 revoke delete on table public.stripe_platform_webhook_events from service_role;

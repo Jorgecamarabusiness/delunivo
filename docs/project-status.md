@@ -1,6 +1,6 @@
 # Delunivo: estado y decisiones vigentes
 
-Ultima actualizacion: 2026-08-31.
+Ultima actualizacion: 2026-09-02.
 
 ## Producto
 
@@ -50,7 +50,7 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 - La politica fiscal provisional no bloquea la auditoria: los precios publicados se consideran finales con IVA incluido y, para operaciones espanolas, se reserva el 21 % general. La suscripcion de Delunivo se clasifica como SaaS y los cursos grabados bajo demanda como servicios electronicos; no se presume exencion educativa. Stripe Tax y OSS se automatizaran antes de escalar ventas internacionales o superar el umbral B2C intracomunitario aplicable. Mientras no exista esa automatizacion, cualquier cobro real debe facturarse y contabilizarse con su desglose fiscal.
 - Mux usa el entorno `Production`, plan Pay as you go, reproduccion firmada y webhook `https://www.delunivo.com/api/webhooks/mux`. El webhook real respondio 200 y aplico un video de 53:12 a 720p; tambien hay evidencia separada de subida y reproduccion a 1080p.
 - Los identificadores internos estables, referencias de proyecto, buckets, tablas, claves y URLs de API no se renombran cuando el cambio no es cosmetico: preservarlos evita roturas y no expone una marca distinta al usuario.
-- El esquema real vive en Supabase. `docs/database.md` mantiene el inventario confirmado y el SQL historico; desde 2026-08-30, los cambios nuevos tambien se guardan como migraciones versionadas. Un archivo de migracion no demuestra que se haya aplicado.
+- El esquema real vive en Supabase. `docs/database.md` mantiene el inventario confirmado y `20260830000000_initial_platform_baseline.sql` permite reconstruirlo desde cero sin copiar datos reales. El historial local y remoto está alineado y cada migración nueva se verifica primero en una rama vacía.
 - El precio inicial de plataforma es 30 EUR/mes y se lee de `platform_settings`; cambiarlo no altera las suscripciones de Stripe ya creadas.
 - La suspensión comercial se aplica tanto en la interfaz como en server actions y RLS; no se puede editar una empresa suspendida mediante la Data API. Los alumnos mantienen el acceso ya concedido.
 - Los IDs de cliente y suscripción de Stripe son únicos por empresa y los webhooks fallan explícitamente si no encuentran exactamente una fila, para que Stripe pueda reintentarlos.
@@ -72,13 +72,54 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 
 ## Riesgos y pendientes conocidos
 
-- La subida larga de Mux esta validada a 720p y la de 1080p con un archivo corto; sigue pendiente repetir ambas condiciones en un mismo video largo 1080p cuando haya un archivo real disponible.
+- Los dos bloqueos críticos de Supabase detectados el 2026-09-02 quedaron
+  resueltos y verificados en producción: no existe escritura de `profiles`
+  desde roles de navegador y los códigos se emiten/consumen mediante RPC
+  atómicas privadas. La migración
+  `20260902092019_harden_signup_media_and_progress.sql` también endurece el
+  progreso, crea `public-media` aislado por organización, sustituye el logo
+  roto de Ivan y deja `test2` en borrador. Su historial remoto está alineado.
+- Los E2E ya no usan producción. El 2026-09-02 se creó una rama efímera sin
+  datos, se reconstruyó el esquema completo desde migraciones, se sembraron
+  fixtures artificiales y pasaron los 53 escenarios de Playwright, incluido
+  vídeo privado firmado. El seed rechaza el project ref real y genera
+  `.env.e2e.local` automáticamente en ejecuciones locales. Tras verificar los
+  resultados, la rama y todos sus datos sintéticos se eliminaron.
+- Las rutas legales, primera capa informativa y consentimiento de contenido
+  digital están implementados localmente. `LEGAL_NAME`, `LEGAL_TAX_ID`,
+  `LEGAL_ADDRESS` y `LEGAL_CONTACT_EMAIL` están configuradas en Vercel para
+  Production, Preview y Development. La revisión se desplegó y verificó en
+  `www.delunivo.com` el 2026-09-02 mediante el deployment
+  `dpl_EDywxYWUza85XH7qCLZh8ossUR3J`.
+- `test2` quedó en borrador tras verificar cero ventas. Otros cursos pueden ser
+  demostraciones y no se ocultan ni eliminan sin una decisión del propietario
+  y una comprobación previa de ventas.
+- El historial local y remoto coincide en 21 migraciones. Incluye una baseline
+  reproducible, la eliminación de un índice único duplicado y la optimización
+  de RLS/FKs. Antes de eliminar la rama de prueba se comprobó que coincidía con
+  producción en tablas, columnas, restricciones e índices.
+- Los asesores de Supabase ya no muestran funciones `security definer`
+  anónimas, FKs sin índice ni avisos de rendimiento RLS. Permanecen como
+  hallazgos informativos las tablas privadas con RLS sin policies y las RPC
+  autenticadas que la aplicación llama deliberadamente.
+- Los tenants inexistentes responden HTTP 404 antes del streaming y el progreso
+  del alumno bloquea mutaciones simultáneas para que dos clics rápidos no
+  inviertan el estado persistido.
+- Supabase Auth rechaza contraseñas filtradas, exige 10 caracteres como mínimo
+  y al menos una letra y un número; los valores se guardaron y se verificaron
+  de nuevo en el dashboard del proyecto Delunivo.
+
+- La subida y reproducción de un vídeo real largo a 1080p ya fue validada por el propietario. No queda como bloqueo de producción; los E2E mantienen además la comprobación automatizada de autorización del vídeo privado.
 - El bloqueo del reproductor causado por la carga server-side de `jsdom` desde `isomorphic-dompurify` quedó corregido y desplegado el 2026-08-31. El aula autenticada se verificó en `www.delunivo.com`, incluida la lección, el índice y el progreso, sin errores ni avisos de consola.
-- Stripe Tax aun no esta activado en Checkout. No bloquea las pruebas ni el alta de Sata, pero antes de escalar cobros debe automatizarse con precios inclusivos, recopilacion de direccion/NIF-IVA y los codigos fiscales definidos para SaaS y cursos grabados. El checkout fail-closed que elimina el fallback de ventas a la cuenta de plataforma, bloquea duplicados y endurece el webhook esta desplegado en produccion desde el 2026-08-31, con su migracion aplicada y verificada.
+- Stripe Tax aun no esta activado en Checkout. La primera etapa comercial queda limitada a ventas en España, con precios finales que incluyen IVA y facturación/contabilización con el desglose fiscal correspondiente. Antes de aceptar ventas internacionales debe automatizarse la fiscalidad con precios inclusivos, recopilación de dirección/NIF-IVA y los códigos fiscales definidos para SaaS y cursos grabados. El checkout fail-closed que elimina el fallback de ventas a la cuenta de plataforma, bloquea duplicados y endurece el webhook esta desplegado en produccion desde el 2026-08-31, con su migracion aplicada y verificada.
 - Next.js 16.3.3, el programa de afiliados y “Run as” están desplegados en producción desde el 2026-08-31. `IMPERSONATION_SESSION_KEY` está configurada como secreto de Vercel Production y el despliegue `dpl_4iEm1EK4yThAk78e82Pm4GNvZJHN` quedó promovido y verificado sin errores de runtime.
 - Quedan como comprobaciones operativas no bloqueantes una entrada y salida real de “Run as” sobre una cuenta de prueba y observar un ciclo real de facturación con afiliado. No deben simularse sobre usuarios o cobros reales solo para completar el checklist.
 - Las condiciones comerciales rechazan formularios obsoletos y, si una escritura optimista pierde una carrera, releen y sincronizan en Stripe la versión ganadora. Mientras solo opere un superadministrador no hay concurrencia práctica; antes de habilitar varios conviene sustituir esta reconciliación acotada por una outbox serializada por suscripción.
-- Las acciones de Stripe, Resend, Vercel y Supabase pueden requerir pasos manuales y no deben darse por completadas sin confirmacion.
+- Las acciones de Stripe, Resend, Vercel y Supabase se automatizan por API, CLI
+  o navegador autenticado cuando la tarea las autoriza. Solo requieren un paso
+  de Jorge ante 2FA/CAPTCHA, falta de permisos, aceptación de costes o contratos,
+  una decisión material, o una acción destructiva no autorizada; nunca se dan
+  por completadas sin verificar el estado remoto.
 
 ## Mantenimiento de este documento
 

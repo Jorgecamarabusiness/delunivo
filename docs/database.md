@@ -1,6 +1,6 @@
 # Base de datos (Supabase)
 
-El estado real del esquema vive en Supabase (cloud) y no hay Prisma. Este archivo es el inventario versionado del esquema confirmado y del SQL historico aplicado manualmente. Desde 2026-08-30, los cambios nuevos tambien deben conservarse como migraciones en `supabase/migrations/` y, cuando sea seguro, como rollback en `supabase/rollbacks/`. La presencia de un archivo no demuestra que se haya aplicado: **actualiza este documento solo despues de verificar el resultado real en Supabase**.
+El estado real del esquema vive en Supabase (cloud) y no hay Prisma. Este archivo es el inventario versionado del esquema confirmado. `20260830000000_initial_platform_baseline.sql` captura, sin datos reales, la base histórica anterior a las migraciones incrementales; una rama vacía puede reconstruir todo el esquema aplicando `supabase/migrations/` en orden. Cuando sea seguro, los cambios también tienen rollback en `supabase/rollbacks/`. La presencia de un archivo no demuestra que se haya aplicado: **actualiza este documento solo después de verificar el resultado real en Supabase**.
 
 Convención: columnas en `snake_case` en la base de datos; las server actions las consumen tal cual (no hay capa de mapeo a camelCase). Los tipos de `src/types/index.ts` no siempre coinciden con las columnas reales — ver nota en `purchases`.
 
@@ -265,9 +265,20 @@ Añadida el 2026-08-11. Códigos temporales de 6 dígitos que sustituyen a los e
 | attempts | máximo 5 intentos fallidos antes de invalidarlo |
 | created_at | |
 
-RLS activo y **sin ninguna policy, a propósito**: con RLS activo y cero policies nadie puede leerla ni escribirla salvo la service role key. Un código de verificación no debe ser legible por ningún cliente, ni siquiera por su propio destinatario — solo se comprueba en servidor. La comparación es en tiempo constante (`crypto.timingSafeEqual`).
+RLS activo y **sin ninguna policy, a propósito**. Desde la migración
+`20260902092019_harden_signup_media_and_progress.sql`, `anon` y
+`authenticated` tampoco tienen grants sobre la tabla: solo `service_role`
+puede usarla. Un código de verificación no debe ser legible por ningún cliente,
+ni siquiera por su propio destinatario.
 
-**Límite de emisión** (`checkIssueRateLimit`, 2026-08-11): máximo 3 códigos por correo y 60 en total cada 15 minutos, contando filas por `created_at` — sin tabla nueva. Cada código emitido es un email enviado, así que sin este tope cualquiera podía quemar la cuota de Resend pulsando "enviar otro código" o bombardear el buzón de una persona real metiendo su correo en `/forgot-password`. El tope de 5 intentos protege un código ya emitido, no su emisión: son dos cosas distintas.
+**Emisión y consumo atómicos** (2026-09-02): las RPC privadas
+`issue_verification_code` y `consume_verification_code`, ejecutables solo por
+`service_role`, serializan la emisión con un advisory lock y bloquean la fila
+al consumirla. Así, solicitudes concurrentes no pueden saltarse los topes ni
+usar el mismo código dos veces. El índice parcial único
+`verification_codes_one_active_idx` garantiza un solo código activo por
+`lower(email), purpose`. Se mantienen los límites de 3 códigos por correo y 60
+en total cada 15 minutos, además de 5 intentos fallidos por código.
 
 ### sections
 | columna | notas |
@@ -343,7 +354,7 @@ destructivo y no debe ejecutarse con el código de Checkout desplegado.
 
 `unique(user_id, lesson_id)` (índice `video_views_user_lesson_key`, añadido el 2026-08-11): antes no existía y cada marcado creaba una fila nueva, por eso `/admin/estadisticas` tenía que deduplicar a mano con un `Set` de `user_id:lesson_id`.
 
-RLS: cada alumno ve, inserta y borra **solo sus propias filas** (`user_id = auth.uid()`); los admins ven las de lecciones de cursos de su(s) organización(es). La policy de DELETE (`video_views_owner_delete`) se añadió el 2026-08-11 — antes solo había de INSERT, así que desmarcar una lección no daba error pero tampoco borraba nada: la interfaz se quedaba desmarcada y la base de datos no.
+RLS: cada alumno ve, inserta y borra **solo sus propias filas** (`user_id = (select auth.uid())`); los admins ven las de lecciones de cursos de su(s) organización(es). Las policies de escritura exigen además acceso vigente al curso. La policy de DELETE original se añadió el 2026-08-11 — antes solo había de INSERT, así que desmarcar una lección no daba error pero tampoco borraba nada: la interfaz se quedaba desmarcada y la base de datos no.
 
 **Escrituras**: `setLessonCompletedAction` (`src/app/cursos/[id]/aprender/actions.ts`), con el cliente de sesión (no el admin) porque la RLS ya garantiza que nadie toca el progreso de otro. Hasta el 2026-08-11 **nadie escribía en esta tabla**: el progreso del aula vivía solo en un `useState` y se perdía al cerrar la pestaña, mientras `/admin/estadisticas` mostraba datos congelados de filas antiguas.
 
@@ -404,19 +415,37 @@ RLS: cada alumno ve, inserta y borra **solo sus propias filas** (`user_id = auth
   verificada con RLS activa, cero policies públicas, permisos exclusivos de
   `service_role`, siete índices y FKs `RESTRICT`.
 - **2026-08-31** — afiliados y soporte auditado: migraciones
-  `20260831163024_secure_affiliate_program.sql`,
-  `20260831163025_audited_support_impersonation.sql`,
-  `20260831165811_bind_support_auth_session.sql` y
-  `20260831171001_grant_private_service_cleanup.sql`, aplicadas y verificadas
+  `20260831164326_secure_affiliate_program.sql`,
+  `20260831164334_audited_support_impersonation.sql`,
+  `20260831170054_bind_support_auth_session.sql` y
+  `20260831171052_grant_private_service_cleanup.sql`, aplicadas y verificadas
   en el proyecto Delunivo. Las cuatro tablas privadas tienen RLS sin policies,
   cero grants para `anon`/`authenticated` y RPC exclusivas de `service_role`.
 - **2026-08-31** — orden temporal de facturación de plataforma: la migración
-  `20260831182500_order_platform_billing_events.sql` añade el reloj del último
+  `20260831174551_order_platform_billing_events.sql` añade el reloj del último
   evento y dos RPC privadas que aplican tanto el checkout inicial como los
   cambios de estado solo si no existe un evento posterior. Evita que webhooks
   retrasados de la misma suscripción degraden un pago ya recuperado. Stripe
   fecha estos eventos con precisión de segundos; un empate exacto conserva el
   orden de entrega como desempate residual.
+- **2026-09-02** — endurecimiento de alta, medios y progreso: la migración
+  `20260902092019_harden_signup_media_and_progress.sql` retira a los clientes
+  cualquier escritura directa sobre `profiles`, cierra las RPC heredadas,
+  hace atómicas la emisión y el consumo de códigos, limita la inserción y el
+  borrado de progreso a lecciones con acceso vigente y crea el bucket
+  `public-media`. También sustituye el logo roto de Ivan por un asset local y
+  pasa el curso de prueba `test2` a borrador tras confirmar que no tenía
+  ventas. Aplicada y verificada en Delunivo; su versión y la de
+  `20260831141239` están registradas en el historial remoto.
+- **2026-09-02** — reproducibilidad y rendimiento: se añadió
+  `20260830000000_initial_platform_baseline.sql`, se marcó como aplicada en el
+  historial de producción porque representa el esquema histórico ya existente,
+  y una rama vacía aplicó correctamente la cadena completa. Las migraciones
+  `20260902124433_remove_redundant_purchase_unique.sql` y
+  `20260902124822_optimize_rls_and_foreign_keys.sql` eliminan una restricción
+  duplicada, cierran cuatro helpers a `anon`, consolidan policies equivalentes,
+  evitan reevaluar `auth.uid()` por fila y añaden los índices de FK que faltaban.
+  Tras E2E 53/53, ambas se aplicaron y verificaron en producción.
 
 ## Emails y verificación de cuenta
 
@@ -447,7 +476,7 @@ RLS **sí está activo** en todas las tablas. Desde el 2026-08-07 el modelo es m
 | `support_impersonation_sessions` | nada | **nada** — auditoría y sesión cifrada solo para `service_role`; el navegador conserva únicamente un marcador HttpOnly |
 | `sections` / `lessons` | nada | igual que `courses` para gestión; para VER una lección hace falta seguir `active` en `organization_students` y tener compra o acceso invitado al curso, salvo admins de esa organización |
 | `purchases` | nada | solo su propia fila; los admins ven las de su(s) propia(s) organización(es), nunca las de otra |
-| `profiles` | nada | solo su propia fila; los admins además ven los profiles de sus propios alumnos/co-admins (no los de otras organizaciones) |
+| `profiles` | nada | solo lectura: su propia fila; los admins además ven los profiles de sus propios alumnos/co-admins (no los de otras organizaciones). La creación queda exclusivamente en el trigger de Auth; no existe escritura directa desde navegador. |
 | `video_views` | nada | solo sus propias filas; los admins ven las de lecciones de cursos de su(s) propia(s) organización(es) |
 | `organizations` | branding público (`name`, `slug`, `logo_url`, etc., lectura abierta) | igual + puede editar si es admin de esa organización |
 | `organization_billing` / `organization_integrations` | nada | estado comercial visible al admin mediante columnas limitadas; notas y cupón son internos. Integraciones: solo owner con acceso activo |
@@ -469,12 +498,24 @@ esa función.
 
 ## Storage
 
+- **`public-media`** (bucket público, creado el 2026-09-02) — imágenes de marca,
+  curso y contenido. Límite de 10 MB; solo PNG, JPEG, WebP y GIF validados por
+  firma binaria. Las escrituras pasan por
+  `src/app/api/admin/media/upload/route.ts`, que exige el alcance concreto
+  (`brand`, `course` o `lesson`), valida `requireOrgAdmin()` y guarda bajo
+  `<organization_id>/<scope>/...`. No hay escritura directa desde navegador.
 - **`lesson-media`** (bucket **privado** desde el 2026-08-02, antes público) — creado el 2026-07-23. Se conserva para imágenes y vídeos heredados; las subidas nuevas de vídeo usan Mux. Contiene:
   - `videos/` — archivos heredados de bloques `video_file`. **Sin lectura pública**: solo se pueden leer mediante una URL firmada generada en servidor después de comprobar que el usuario administra o compró el curso.
-  - `images/` — imágenes insertadas dentro del editor de texto enriquecido (bloques `text`). Sigue con lectura pública (policy `lesson_media_public_read_images`, filtra por `(storage.foldername(name))[1] = 'images'`).
-- Las imágenes se suben mediante `src/app/api/admin/media/upload/route.ts`, que comprueba `requireAnyOrgAdmin()` y escribe con el cliente admin. Los vídeos nuevos se cargan directamente a Mux mediante una URL de subida creada por `src/app/api/admin/mux/uploads/route.ts`; no atraviesan Vercel ni Supabase Storage.
+  - `images/` — imágenes heredadas del editor enriquecido. Conservan la policy
+    pública histórica para no romper contenido ya publicado, pero las nuevas
+    subidas ya no entran aquí.
+- Los vídeos nuevos se cargan directamente a Mux mediante una URL de subida creada por `src/app/api/admin/mux/uploads/route.ts`; no atraviesan Vercel ni Supabase Storage.
 - **Ojo con `video_url` en `lessons.blocks`**: en bloques `video_file` heredados puede contener una ruta relativa de Storage (`videos/uuid.mp4`) o una URL pública antigua. `extractStoragePath()` normaliza ambos formatos antes de firmar la lectura. Los bloques nuevos usan `mux_video_asset_id` y no necesitan `video_url`.
-- **Sin aislamiento por organización todavía**: el path de los archivos (`videos/uuid.ext`, `images/uuid.ext`) no lleva `organization_id`, así que ni la RLS de `storage.objects` ni el route handler de subida saben de qué cliente es cada archivo en el momento de subirlo (la subida ocurre antes de asociarse a ninguna lección). Las policies de `storage.objects` sobre `lesson-media` (`Admins can delete/update/upload lesson media`) se cambiaron el 2026-08-07 de `profiles.is_admin` a `is_super_admin()` — funcionalmente equivalente a como estaba antes (un único admin global), no un aislamiento real por cliente. El aislamiento efectivo hoy depende de que la asociación archivo→lección (`updateLessonBlocksAction`) sí compruebe `requireOrgAdmin({lessonId})` correctamente. Si se quiere que Storage aísle también por organización, habría que meter `organization_id` en el path al subir — pendiente, ver Fase 9 del plan.
+- Los paths antiguos de `lesson-media` no contienen `organization_id`; se
+  mantienen solo por compatibilidad. Para previsualizarlos, el servidor exige
+  el `lessonId`, comprueba acceso y verifica que el path esté realmente
+  referenciado por esa lección. El aislamiento de las imágenes nuevas sí está
+  en el path de `public-media` y en la autorización del route handler.
 - **Bug corregido el 2026-08-07**: existía una policy `"Lesson media is publicly readable"` que daba lectura pública a TODO el bucket (incluidos los vídeos), contradiciendo la migración del 2026-08-02 que decía haberla sustituido por `lesson_media_public_read_images` — nunca se borró la vieja. Borrada.
 - **Bucket `course-videos` eliminado (policy) el 2026-08-07**: resto de una integración anterior ya no usada (confirmado con el usuario). Si el bucket en sí seguía vacío, también se borró desde el dashboard.
 
@@ -483,7 +524,10 @@ esa función.
 `src/proxy.ts` resuelve el tenant exclusivamente desde la ruta `/o/<slug>`.
 El proxy elimina el prefijo para el rewrite interno e inyecta los headers
 `x-org-slug` y `x-org-path-prefix`. No inspecciona `Host` ni admite
-subdominios.
+subdominios. Antes del streaming hace una consulta pública mínima por slug; si
+no existe, reescribe a la página 404 con estado HTTP 404 real. Ante un fallo de
+red abre el paso para que la página haga la comprobación autoritativa, evitando
+convertir una caída transitoria de Supabase en un falso 404 de cliente.
 
 `getCurrentOrganization()` busca la organización por `x-org-slug`. Sin slug
 devuelve `null`: la raíz muestra Delunivo y nunca infiere una organización.

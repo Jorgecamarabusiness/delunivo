@@ -203,6 +203,7 @@ export function AddContentPanel({
 
           <div className="mt-6">
             <TextBlockForm
+              lessonId={lessonId}
               onCancel={onClose}
               isSaving={isSaving}
               error={actionError}

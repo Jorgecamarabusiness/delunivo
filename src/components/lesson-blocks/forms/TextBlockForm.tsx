@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { RichTextEditor } from "@/components/lesson-blocks/RichTextEditor";
-import { uploadLessonMedia } from "@/lib/storage/uploadLessonMedia";
+import { uploadPublicImage } from "@/lib/storage/uploadLessonMedia";
 
 function isContentEmpty(html: string): boolean {
   return html.replace(/<[^>]*>/g, "").trim().length === 0;
 }
 
 export function TextBlockForm({
+  lessonId,
   initialTitle = "",
   initialContent = "",
   onCancel,
@@ -18,6 +19,7 @@ export function TextBlockForm({
   error,
   submitLabel,
 }: {
+  lessonId: string;
   initialTitle?: string;
   initialContent?: string;
   onCancel: () => void;
@@ -30,7 +32,7 @@ export function TextBlockForm({
   const [content, setContent] = useState(initialContent);
 
   async function handleUploadImage(file: File) {
-    const result = await uploadLessonMedia(file, "images");
+    const result = await uploadPublicImage(file, { type: "lesson", id: lessonId });
     return result.url;
   }
 

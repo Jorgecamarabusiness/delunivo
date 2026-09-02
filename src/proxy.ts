@@ -20,6 +20,38 @@ import { enforceImpersonationSession } from "@/lib/auth/impersonationProxy";
  */
 const ORG_PATH_PREFIX = /^\/o\/([a-z0-9-]+)(\/.*)?$/;
 
+async function organizationExists(slug: string): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Fail open on configuration or network errors: the page still performs the
+  // authoritative lookup and can render its normal error boundary. A transient
+  // dependency failure must not turn a real customer portal into a false 404.
+  if (!supabaseUrl || !anonKey) return true;
+
+  try {
+    const query = new URL("/rest/v1/organizations", supabaseUrl);
+    query.searchParams.set("slug", `eq.${slug}`);
+    query.searchParams.set("select", "id");
+    query.searchParams.set("limit", "1");
+
+    const response = await fetch(query, {
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(3_000),
+    });
+    if (!response.ok) return true;
+
+    const rows = (await response.json()) as Array<{ id: string }>;
+    return rows.length > 0;
+  } catch {
+    return true;
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const pathMatch = request.nextUrl.pathname.match(ORG_PATH_PREFIX);
 
@@ -29,6 +61,15 @@ export async function proxy(request: NextRequest) {
   }
 
   const [, orgSlug, rest] = pathMatch;
+
+  // `notFound()` inside the streamed root page can only add `noindex`; once
+  // headers have been sent Next.js must keep HTTP 200. Resolve the lightweight
+  // existence check here so unknown tenants have a real 404 status as well.
+  if (!(await organizationExists(orgSlug))) {
+    const notFoundUrl = request.nextUrl.clone();
+    notFoundUrl.pathname = "/__tenant-not-found";
+    return NextResponse.rewrite(notFoundUrl, { status: 404 });
+  }
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-org-slug", orgSlug);

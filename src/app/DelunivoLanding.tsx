@@ -17,7 +17,7 @@ const FEATURES = [
   },
   {
     title: "Vídeo protegido",
-    body: "Tus vídeos no son descargables ni compartibles: cada reproducción usa un enlace firmado que caduca y solo funciona para quien ha pagado.",
+    body: "Reproducción protegida con enlaces firmados que caducan y se entregan solo a quien tiene acceso al curso.",
   },
 ];
 
@@ -53,10 +53,10 @@ export function DelunivoLanding({
     <div className="flex flex-1 flex-col bg-background text-foreground">
       <Header />
 
-      <main className="flex-1">
+      <main id="contenido-principal" className="flex-1">
         <section className="border-b border-border">
           <Container className="py-20 text-center sm:py-28">
-            <p className="text-sm font-semibold text-accent">
+            <p className="text-sm font-semibold text-accent-content">
               Tu escuela online, en marcha hoy
             </p>
 

@@ -58,14 +58,14 @@ export function VideoFileForm({
     if (!initialUrl || initialMuxVideoAssetId) return;
     let cancelled = false;
 
-    getVideoPreviewUrlAction(initialUrl).then((url) => {
+    getVideoPreviewUrlAction(lessonId, initialUrl).then((url) => {
       if (!cancelled) setLegacyPreviewUrl(url);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [initialMuxVideoAssetId, initialUrl]);
+  }, [initialMuxVideoAssetId, initialUrl, lessonId]);
 
   useEffect(
     () => () => {

@@ -26,9 +26,12 @@ test("/register en el dominio raíz redirige a la landing de Delunivo", async ({
   ).toBeVisible();
 });
 
-test("/o/<slug-inexistente>/register también cae a la landing, no rompe", async ({ page }) => {
-  await page.goto(`/o/no-existe-${Date.now()}/register`);
-  await expect(page).toHaveURL("/");
+test("/o/<slug-inexistente>/register responde 404 sin filtrar datos", async ({ page }) => {
+  const response = await page.goto(`/o/no-existe-${Date.now()}/register`);
+  expect(response?.status()).toBe(404);
+  await expect(
+    page.getByRole("heading", { name: "Esta página no existe" })
+  ).toBeVisible();
 });
 
 test("registrarse en /o/<slug> mete al alumno en el roster y le pide el código", async ({
@@ -43,18 +46,11 @@ test("registrarse en /o/<slug> mete al alumno en el roster y le pide el código"
   await page.getByLabel("Confirmar contraseña").fill("Test-Aa1-2345");
   await page.getByRole("button", { name: "Crear cuenta" }).click();
 
-  // OJO: getByRole("alert") a secas también matchea el "route announcer" que
-  // inyecta Next.js en todas las páginas — hay que acotarlo al <form>.
-  const alert = page.locator("form").getByRole("alert");
-
-  // La cuenta y el roster se crean ANTES de mandar el email, así que el estado
-  // en base de datos es el mismo tanto si el envío funciona (redirige a
-  // /verificar) como si falla por un motivo externo (Resend sin clave válida en
-  // CI, por ejemplo) y se queda en el formulario mostrando el error.
-  await Promise.race([
-    page.waitForURL((url) => url.pathname.startsWith(`${org.prefix}/verificar`)),
-    alert.waitFor({ state: "visible" }),
-  ]);
+  // Incluso si el primer envío falla, el alta queda recuperable en /verificar
+  // con la opción de reenviar; nunca vuelve a un formulario que ya creó cuenta.
+  await page.waitForURL((url) =>
+    url.pathname.startsWith(`${org.prefix}/verificar`)
+  );
 
   const admin = adminClient();
   const { data: profile } = await admin

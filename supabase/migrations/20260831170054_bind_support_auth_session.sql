@@ -1,3 +1,4 @@
+-- Bind audit rows to the real Supabase Auth session.
 alter table public.support_impersonation_sessions
   add column target_auth_session_id uuid unique;
 

@@ -110,6 +110,7 @@ function BlockRow({
       <div ref={setNodeRef} style={style} className="rounded-md border border-border p-4">
         {block.type === "text" ? (
           <TextBlockForm
+            lessonId={lessonId}
             initialTitle={block.title ?? ""}
             initialContent={block.content}
             onCancel={() => setIsEditing(false)}

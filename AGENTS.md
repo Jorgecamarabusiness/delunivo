@@ -15,7 +15,8 @@ Delunivo es una plataforma SaaS multi-tenant para crear, vender y consumir curso
 ## Acuerdo de trabajo con Jorge
 
 - Si la tarea es codigo y el alcance esta claro, implementala directamente y verifica el resultado.
-- Si requiere un dashboard, una cuenta, un secreto, un pago, DNS, produccion o cualquier paso externo, guia a Jorge con un solo paso concreto cada vez: indica donde entrar, que cambiar, que deberia ver y espera su confirmacion antes de depender de ese cambio.
+- Si requiere un dashboard o cualquier paso externo y existe una API o CLI autenticada, o puedes controlar una sesion autenticada del navegador, ejecutalo directamente cuando este dentro de la autorizacion expresa de la tarea. Verifica antes el objetivo con una operacion de solo lectura y prefiere API o CLI frente al navegador.
+- Pide a Jorge un unico paso concreto y espera su confirmacion solo ante una barrera real: 2FA o CAPTCHA, falta de sesion o permisos, aceptacion de costes o contratos, una decision de producto material, o una accion destructiva o irreversible que no haya autorizado expresamente. Nunca pidas secretos en el chat.
 - No afirmes que una accion manual o externa esta completada sin evidencia.
 - Pide aclaracion solo cuando la respuesta cambie materialmente el producto, pueda causar perdida de datos o requiera nueva autorizacion.
 - Al terminar, responde de forma concisa: resultado general, verificaciones ejecutadas y siguiente paso o recomendacion. No pegues logs completos salvo que expliquen un fallo.

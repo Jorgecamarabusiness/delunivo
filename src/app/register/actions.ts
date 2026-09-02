@@ -10,6 +10,7 @@ import {
   CODE_TTL_MINUTES,
 } from "@/lib/auth/verificationCodes";
 import { sendSignupCodeEmail } from "@/lib/email/templates";
+import { passwordPolicyError } from "@/lib/auth/passwordPolicy";
 
 export type RegisterState = {
   error: string | null;
@@ -37,9 +38,8 @@ export async function registerAction(
   if (password !== confirmPassword) {
     return { error: "Las contraseñas no coinciden." };
   }
-  if (password.length < 6) {
-    return { error: "La contraseña debe tener al menos 6 caracteres." };
-  }
+  const passwordError = passwordPolicyError(password);
+  if (passwordError) return { error: passwordError };
 
   const admin = createAdminClient();
 
@@ -69,12 +69,16 @@ export async function registerAction(
     });
 
   if (membershipError) {
+    await admin.auth.admin.deleteUser(userId).catch(() => {});
     return { error: membershipError.message };
   }
 
   const { code, error: codeError } = await issueVerificationCode(email, "signup");
   if (codeError) {
-    return { error: codeError };
+    const nextPath = await orgPath("/cursos");
+    redirect(
+      `${await orgPath("/verificar")}?email=${encodeURIComponent(email)}&next=${encodeURIComponent(nextPath)}&delivery=retry`
+    );
   }
 
   const { error: emailError } = await sendSignupCodeEmail({
@@ -83,7 +87,10 @@ export async function registerAction(
     minutes: CODE_TTL_MINUTES,
   });
   if (emailError) {
-    return { error: emailError };
+    const nextPath = await orgPath("/cursos");
+    redirect(
+      `${await orgPath("/verificar")}?email=${encodeURIComponent(email)}&next=${encodeURIComponent(nextPath)}&delivery=retry`
+    );
   }
 
   const nextPath = await orgPath("/cursos");

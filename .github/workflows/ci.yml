@@ -62,7 +62,7 @@ jobs:
       - name: Tests E2E (Playwright)
         run: npx playwright test
         env:
-          # Estas SÍ tienen que ser las reales: los tests inician sesión contra tu Supabase de verdad.
+          # Estas deben pertenecer al proyecto E2E, nunca al de producción.
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SITE_URL: http://localhost:3100

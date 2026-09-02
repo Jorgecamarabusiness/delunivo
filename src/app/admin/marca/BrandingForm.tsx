@@ -6,8 +6,9 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input, inputClassName } from "@/components/ui/Input";
-import { uploadLessonMedia } from "@/lib/storage/uploadLessonMedia";
+import { uploadPublicImage } from "@/lib/storage/uploadLessonMedia";
 import { updateBrandingAction } from "./actions";
+import { BrandLogo } from "@/components/media/PublicImages";
 
 type Organization = {
   name: string;
@@ -57,7 +58,7 @@ export function BrandingForm({
 
     setUploading(true);
     setError(null);
-    const result = await uploadLessonMedia(file, "images");
+    const result = await uploadPublicImage(file, { type: "brand" });
     setUploading(false);
 
     if (result.error || !result.url) {
@@ -171,14 +172,11 @@ export function BrandingForm({
             <p className="text-xs text-muted-foreground">Subiendo…</p>
           )}
         </Field>
-        {logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={logoUrl}
-            alt=""
-            className="h-12 w-12 rounded-full border border-border object-cover"
-          />
-        ) : null}
+        <BrandLogo
+          src={logoUrl || null}
+          name={name}
+          className="h-12 w-12 border border-border"
+        />
       </div>
 
       <Field

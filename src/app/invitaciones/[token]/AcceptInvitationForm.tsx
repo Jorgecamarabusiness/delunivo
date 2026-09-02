@@ -6,6 +6,7 @@ import {
   acceptInvitationWithNewAccountAction,
   acceptInvitationWithExistingSessionAction,
 } from "./actions";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/passwordPolicy";
 
 export function AcceptInvitationForm({
   token,
@@ -68,7 +69,7 @@ export function AcceptInvitationForm({
           name="password"
           type="password"
           required
-          minLength={6}
+          minLength={MIN_PASSWORD_LENGTH}
           className="rounded-md border border-border px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-accent"
         />
       </div>
@@ -82,7 +83,7 @@ export function AcceptInvitationForm({
           name="confirmPassword"
           type="password"
           required
-          minLength={6}
+          minLength={MIN_PASSWORD_LENGTH}
           className="rounded-md border border-border px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-accent"
         />
       </div>

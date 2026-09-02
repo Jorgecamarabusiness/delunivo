@@ -8,6 +8,7 @@ import {
   startSessionForVerifiedEmail,
 } from "@/lib/auth/accounts";
 import { consumeVerificationCode } from "@/lib/auth/verificationCodes";
+import { passwordPolicyError } from "@/lib/auth/passwordPolicy";
 
 export type ResetPasswordState = {
   error: string | null;
@@ -31,9 +32,8 @@ export async function resetPasswordAction(
   if (password !== confirmPassword) {
     return { error: "Las contraseñas no coinciden." };
   }
-  if (password.length < 6) {
-    return { error: "La contraseña debe tener al menos 6 caracteres." };
-  }
+  const passwordError = passwordPolicyError(password);
+  if (passwordError) return { error: passwordError };
 
   const { error: codeError } = await consumeVerificationCode(
     email,

@@ -14,6 +14,7 @@ import {
   REFERRAL_CODE_PATTERN,
   REFERRAL_COOKIE,
 } from "@/lib/referrals/constants";
+import { passwordPolicyError } from "@/lib/auth/passwordPolicy";
 
 export type CreateCompanyState = {
   error: string | null;
@@ -50,16 +51,19 @@ export async function createCompanyAction(
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
   const companyName = String(formData.get("companyName") ?? "").trim();
+  const acceptedTerms = formData.get("acceptTerms") === "yes";
 
   if (!name || !email || !password || !companyName) {
     return { error: "Completa todos los campos." };
   }
+  if (!acceptedTerms) {
+    return { error: "Debes aceptar las condiciones y la política de privacidad." };
+  }
   if (password !== confirmPassword) {
     return { error: "Las contraseñas no coinciden." };
   }
-  if (password.length < 6) {
-    return { error: "La contraseña debe tener al menos 6 caracteres." };
-  }
+  const passwordError = passwordPolicyError(password);
+  if (passwordError) return { error: passwordError };
 
   const baseSlug = slugify(companyName);
   if (!baseSlug) {
@@ -179,7 +183,9 @@ export async function createCompanyAction(
 
   const { code, error: codeError } = await issueVerificationCode(email, "signup");
   if (codeError) {
-    return { error: codeError };
+    redirect(
+      `/verificar?email=${encodeURIComponent(email)}&next=${encodeURIComponent("/admin/facturacion")}&delivery=retry`
+    );
   }
 
   const { error: emailError } = await sendSignupCodeEmail({
@@ -188,7 +194,9 @@ export async function createCompanyAction(
     minutes: CODE_TTL_MINUTES,
   });
   if (emailError) {
-    return { error: emailError };
+    redirect(
+      `/verificar?email=${encodeURIComponent(email)}&next=${encodeURIComponent("/admin/facturacion")}&delivery=retry`
+    );
   }
 
   // Tras verificar el correo entra directo al panel; el cobro de la suscripción

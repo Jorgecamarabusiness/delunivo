@@ -20,6 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   if (!organization) {
     return {
+      metadataBase: new URL("https://www.delunivo.com"),
       applicationName: PLATFORM_NAME,
       title: PLATFORM_NAME,
       description: PLATFORM_DESCRIPTION,
@@ -39,6 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 
   return {
+    metadataBase: new URL("https://www.delunivo.com"),
     applicationName: PLATFORM_NAME,
     title: `${organization.name} — ${PLATFORM_NAME}`,
     description: `Cursos online de ${organization.name}.`,
@@ -71,7 +73,15 @@ export default async function RootLayout({
           : undefined
       }
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <a
+          href="#contenido-principal"
+          className="sr-only z-[100] rounded-md bg-background px-4 py-3 font-medium focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+        >
+          Saltar al contenido
+        </a>
+        {children}
+      </body>
     </html>
   );
 }

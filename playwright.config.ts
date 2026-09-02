@@ -10,6 +10,18 @@ for (const file of [".env.local", ".env.e2e.local"]) {
   }
 }
 
+const productionProjectRef = "jgxqdzmmeveksseflyst";
+const e2eSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+if (e2eSupabaseUrl) {
+  const targetRef = new URL(e2eSupabaseUrl).hostname.split(".")[0];
+  if (targetRef === productionProjectRef) {
+    throw new Error(
+      "E2E bloqueado: NEXT_PUBLIC_SUPABASE_URL apunta al proyecto de producción. " +
+        "Configura un proyecto o rama Supabase exclusivo para pruebas."
+    );
+  }
+}
+
 const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
 

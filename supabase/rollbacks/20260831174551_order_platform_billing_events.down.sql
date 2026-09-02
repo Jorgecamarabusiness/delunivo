@@ -1,3 +1,4 @@
+-- Restore billing writes to the previous application contract.
 revoke all on function public.apply_platform_billing_status_event(
   text, text, text, timestamptz
 ) from service_role;

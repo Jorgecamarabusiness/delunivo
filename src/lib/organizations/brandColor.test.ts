@@ -22,8 +22,8 @@ describe("readableTextColor — texto legible sobre el color de marca", () => {
     assert.equal(readableTextColor("#ffffff"), NEGRO);
   });
 
-  test("el verde de Delunivo lleva texto blanco", () => {
-    assert.equal(readableTextColor("#16a34a"), BLANCO);
+  test("el verde de Delunivo elige negro porque da mayor contraste", () => {
+    assert.equal(readableTextColor("#16a34a"), NEGRO);
   });
 
   test("acepta el formato corto de 3 dígitos", () => {

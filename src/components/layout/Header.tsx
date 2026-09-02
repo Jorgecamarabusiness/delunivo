@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/Icons";
 import { getActiveImpersonationForUser } from "@/lib/auth/impersonation";
 import { stopRunAsAction } from "@/app/admin/plataforma/runAsActions";
+import { BrandLogo } from "@/components/media/PublicImages";
 
 export async function Header() {
   const supabase = await createClient();
@@ -101,13 +102,8 @@ export async function Header() {
           href={homeHref}
           className="flex min-h-11 min-w-0 items-center gap-2 text-base font-bold tracking-tight sm:text-xl"
         >
-          {organization?.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={organization.logoUrl}
-              alt=""
-              className="h-8 w-8 shrink-0 rounded-full object-cover"
-            />
+          {organization ? (
+            <BrandLogo src={organization.logoUrl} name={brandName} />
           ) : null}
           <span className="truncate">{brandName}</span>
         </Link>
@@ -248,7 +244,7 @@ export async function Header() {
           ) : (
             <Link
               href={loginHref}
-              className="rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground hover:text-background sm:px-5"
+              className="inline-flex min-h-11 items-center rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground hover:text-background sm:px-5"
             >
               Iniciar sesión
             </Link>

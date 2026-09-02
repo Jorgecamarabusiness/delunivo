@@ -1,69 +1,15 @@
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  consumeStatusError,
+  issueStatusError,
+} from "@/lib/auth/verificationCodeStatus";
 
 export type VerificationPurpose = "signup" | "password_reset";
 
 /** Minutos que vive un código antes de caducar. */
 export const CODE_TTL_MINUTES = 30;
 
-/** Intentos fallidos permitidos antes de invalidar el código. */
-const MAX_ATTEMPTS = 5;
-
-/**
- * Topes de EMISIÓN de códigos. Cada código emitido es un email enviado, así que
- * sin límite cualquiera puede (a) quemar la cuota de Resend pulsando "enviar
- * otro código", y (b) bombardear el buzón de una persona real metiendo su
- * correo en /forgot-password una y otra vez. El tope de intentos de más arriba
- * no cubre nada de esto: protege el código ya emitido, no su emisión.
- *
- * Se cuentan filas de `verification_codes` por `created_at`, sin tabla nueva.
- */
-const RATE_WINDOW_MINUTES = 15;
-/** Por correo: 3 en 15 min da margen a "no me ha llegado" sin permitir spam. */
-const MAX_CODES_PER_EMAIL = 3;
-/**
- * Global: techo de seguridad contra un atacante que use muchos correos
- * distintos. Muy por encima del tráfico legítimo de esta plataforma; si algún
- * día se queda corto, se sube aquí.
- */
-const MAX_CODES_GLOBAL = 60;
-
-export type IssueRateLimit = { limited: true; error: string } | { limited: false };
-
-async function checkIssueRateLimit(
-  admin: ReturnType<typeof createAdminClient>,
-  normalizedEmail: string
-): Promise<IssueRateLimit> {
-  const since = new Date(Date.now() - RATE_WINDOW_MINUTES * 60_000).toISOString();
-
-  const [{ count: perEmail }, { count: global }] = await Promise.all([
-    admin
-      .from("verification_codes")
-      .select("id", { count: "exact", head: true })
-      .eq("email", normalizedEmail)
-      .gte("created_at", since),
-    admin
-      .from("verification_codes")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", since),
-  ]);
-
-  if ((perEmail ?? 0) >= MAX_CODES_PER_EMAIL) {
-    return {
-      limited: true,
-      error: `Has pedido demasiados códigos seguidos. Espera ${RATE_WINDOW_MINUTES} minutos y vuelve a intentarlo.`,
-    };
-  }
-
-  if ((global ?? 0) >= MAX_CODES_GLOBAL) {
-    return {
-      limited: true,
-      error: "Ahora mismo no podemos enviar más códigos. Inténtalo en unos minutos.",
-    };
-  }
-
-  return { limited: false };
-}
 
 function hashCode(code: string): string {
   return crypto.createHash("sha256").update(code).digest("hex");
@@ -90,30 +36,17 @@ export async function issueVerificationCode(
 ): Promise<{ code: string; error: string | null }> {
   const admin = createAdminClient();
   const normalized = email.trim().toLowerCase();
-
-  const rateLimit = await checkIssueRateLimit(admin, normalized);
-  if (rateLimit.limited) {
-    return { code: "", error: rateLimit.error };
-  }
-
-  await admin
-    .from("verification_codes")
-    .update({ consumed_at: new Date().toISOString() })
-    .eq("email", normalized)
-    .eq("purpose", purpose)
-    .is("consumed_at", null);
-
   const code = generateCode();
-  const expiresAt = new Date(Date.now() + CODE_TTL_MINUTES * 60_000);
-
-  const { error } = await admin.from("verification_codes").insert({
-    email: normalized,
-    code_hash: hashCode(code),
-    purpose,
-    expires_at: expiresAt.toISOString(),
+  const { data, error } = await admin.rpc("issue_verification_code", {
+    p_email: normalized,
+    p_code_hash: hashCode(code),
+    p_purpose: purpose,
   });
 
   if (error) return { code: "", error: error.message };
+
+  const statusError = issueStatusError(data);
+  if (statusError) return { code: "", error: statusError };
 
   return { code, error: null };
 }
@@ -133,60 +66,26 @@ export async function consumeVerificationCode(
   const admin = createAdminClient();
   const normalized = email.trim().toLowerCase();
   const cleanCode = code.replace(/\D/g, "");
+  const { data, error } = await admin.rpc("consume_verification_code", {
+    p_email: normalized,
+    p_code_hash: hashCode(cleanCode),
+    p_purpose: purpose,
+  });
 
-  const { data: row } = await admin
-    .from("verification_codes")
-    .select("id, code_hash, expires_at, attempts")
-    .eq("email", normalized)
-    .eq("purpose", purpose)
-    .is("consumed_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  if (error) return { error: error.message };
+  return { error: consumeStatusError(data) };
+}
 
-  if (!row) {
-    return { error: "No hay ningún código pendiente. Pide uno nuevo." };
-  }
-
-  if (new Date(row.expires_at).getTime() < Date.now()) {
-    return { error: "El código ha caducado. Pide uno nuevo." };
-  }
-
-  if (row.attempts >= MAX_ATTEMPTS) {
-    await admin
-      .from("verification_codes")
-      .update({ consumed_at: new Date().toISOString() })
-      .eq("id", row.id);
-    return { error: "Demasiados intentos fallidos. Pide un código nuevo." };
-  }
-
-  // Comparación en tiempo constante: los dos lados son hashes hex de 64
-  // caracteres, así que siempre tienen la misma longitud.
-  const expected = Buffer.from(row.code_hash, "utf8");
-  const provided = Buffer.from(hashCode(cleanCode), "utf8");
-  const matches =
-    expected.length === provided.length &&
-    crypto.timingSafeEqual(expected, provided);
-
-  if (!matches) {
-    await admin
-      .from("verification_codes")
-      .update({ attempts: row.attempts + 1 })
-      .eq("id", row.id);
-
-    const left = MAX_ATTEMPTS - (row.attempts + 1);
-    return {
-      error:
-        left > 0
-          ? `Código incorrecto. Te quedan ${left} intentos.`
-          : "Código incorrecto. Pide un código nuevo.",
-    };
-  }
-
+/** Revoca códigos emitidos durante un alta que después tuvo que deshacerse. */
+export async function revokeVerificationCodes(
+  email: string,
+  purpose: VerificationPurpose
+): Promise<void> {
+  const admin = createAdminClient();
   await admin
     .from("verification_codes")
     .update({ consumed_at: new Date().toISOString() })
-    .eq("id", row.id);
-
-  return { error: null };
+    .eq("email", email.trim().toLowerCase())
+    .eq("purpose", purpose)
+    .is("consumed_at", null);
 }

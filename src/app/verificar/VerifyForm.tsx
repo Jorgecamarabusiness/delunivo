@@ -9,7 +9,15 @@ import { verifyCodeAction, resendCodeAction, type VerifyState } from "./actions"
 
 const INITIAL: VerifyState = { error: null };
 
-export function VerifyForm({ email, next }: { email: string; next: string }) {
+export function VerifyForm({
+  email,
+  next,
+  deliveryNeedsRetry = false,
+}: {
+  email: string;
+  next: string;
+  deliveryNeedsRetry?: boolean;
+}) {
   const [state, formAction, pending] = useActionState(verifyCodeAction, INITIAL);
   const [resendState, resendAction, resending] = useActionState(
     resendCodeAction,
@@ -18,6 +26,12 @@ export function VerifyForm({ email, next }: { email: string; next: string }) {
 
   return (
     <>
+      {deliveryNeedsRetry ? (
+        <Alert variant="info" className="mt-8">
+          Tu cuenta se ha creado, pero el primer envío no se pudo completar.
+          Pulsa “enviar otro código” para continuar sin repetir el alta.
+        </Alert>
+      ) : null}
       <form action={formAction} className="mt-8 flex flex-col gap-5">
         <input type="hidden" name="email" value={email} />
         <input type="hidden" name="next" value={next} />

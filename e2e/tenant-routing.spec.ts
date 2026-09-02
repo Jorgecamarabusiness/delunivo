@@ -48,14 +48,11 @@ test("/o/<slug> muestra el branding propio de esa organización, no el de otra",
   await expect(page.locator("header")).not.toContainText(/Escuela Alfa/);
 });
 
-test("un slug de organización inexistente cae a la landing genérica, no rompe ni filtra otro cliente", async ({
+test("un slug de organización inexistente responde 404 y no duplica la landing", async ({
   page,
 }) => {
   const response = await page.goto("/o/no-existe-" + Date.now() + "/");
-  expect(response?.status()).toBeLessThan(500);
-  await expect(
-    page.getByRole("heading", { name: /Crea, vende y comparte conocimiento/i })
-  ).toBeVisible();
+  expect(response?.status()).toBe(404);
 });
 
 test("ningún Host se interpreta como subdominio de cliente: la empresa solo sale de la ruta", async ({

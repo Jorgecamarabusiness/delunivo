@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { resetPasswordAction, type ResetPasswordState } from "./actions";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/passwordPolicy";
 
 const INITIAL: ResetPasswordState = { error: null };
 
@@ -56,7 +57,7 @@ export function ResetPasswordForm({ email }: { email: string }) {
           type="password"
           placeholder="••••••••"
           required
-          minLength={6}
+          minLength={MIN_PASSWORD_LENGTH}
           autoComplete="new-password"
         />
       </Field>
@@ -68,7 +69,7 @@ export function ResetPasswordForm({ email }: { email: string }) {
           type="password"
           placeholder="••••••••"
           required
-          minLength={6}
+          minLength={MIN_PASSWORD_LENGTH}
           autoComplete="new-password"
         />
       </Field>

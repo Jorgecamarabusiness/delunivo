@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hashInvitationToken } from "@/lib/invitations/token";
+import { passwordPolicyError } from "@/lib/auth/passwordPolicy";
 
 type ActionResult = { error: string | null };
 
@@ -80,6 +81,8 @@ export async function acceptInvitationWithNewAccountAction(
 ): Promise<ActionResult> {
   if (!password) return { error: "Introduce una contraseña." };
   if (password !== confirmPassword) return { error: "Las contraseñas no coinciden." };
+  const passwordError = passwordPolicyError(password);
+  if (passwordError) return { error: passwordError };
 
   const invitation = await loadPendingInvitation(token);
   if (!invitation) return { error: "Esta invitación ha caducado o no es válida." };

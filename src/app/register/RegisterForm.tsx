@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { registerAction, type RegisterState } from "./actions";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/passwordPolicy";
+import Link from "next/link";
 
 const INITIAL: RegisterState = { error: null };
 
@@ -43,7 +45,7 @@ export function RegisterForm() {
           type="password"
           placeholder="••••••••"
           required
-          minLength={6}
+          minLength={MIN_PASSWORD_LENGTH}
           autoComplete="new-password"
         />
       </Field>
@@ -55,12 +57,21 @@ export function RegisterForm() {
           type="password"
           placeholder="••••••••"
           required
-          minLength={6}
+          minLength={MIN_PASSWORD_LENGTH}
           autoComplete="new-password"
         />
       </Field>
 
       {state.error && <Alert variant="error">{state.error}</Alert>}
+
+      <p className="text-xs leading-5 text-muted-foreground">
+        Usaremos tus datos para crear la cuenta y darte acceso a la escuela.
+        Consulta la{" "}
+        <Link href="/privacidad" className="font-medium text-foreground underline">
+          política de privacidad
+        </Link>
+        .
+      </p>
 
       <Button type="submit" variant="primary" disabled={pending}>
         {pending ? "Creando cuenta…" : "Crear cuenta"}

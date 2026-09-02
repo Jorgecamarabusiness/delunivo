@@ -9,9 +9,9 @@ import { VerifyForm } from "./VerifyForm";
 export default async function VerificarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ email?: string; next?: string }>;
+  searchParams: Promise<{ email?: string; next?: string; delivery?: string }>;
 }) {
-  const { email, next } = await searchParams;
+  const { email, next, delivery } = await searchParams;
 
   // Sin correo no hay nada que verificar; se llega aquí solo desde el registro.
   if (!email) {
@@ -36,7 +36,11 @@ export default async function VerificarPage({
         </Link>
       }
     >
-      <VerifyForm email={email} next={safeNextPath(next) ?? fallbackNext} />
+      <VerifyForm
+        email={email}
+        next={safeNextPath(next) ?? fallbackNext}
+        deliveryNeedsRetry={delivery === "retry"}
+      />
     </AuthShell>
   );
 }

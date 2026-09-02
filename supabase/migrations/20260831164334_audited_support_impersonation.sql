@@ -1,4 +1,4 @@
--- Short-lived, auditable support impersonation. The original super-admin
+-- Short-lived and auditable support impersonation. The original super-admin
 -- session is encrypted by the application before it is stored here.
 
 create table public.support_impersonation_sessions (

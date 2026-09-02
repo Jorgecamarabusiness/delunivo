@@ -7,6 +7,8 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { createCompanyAction, type CreateCompanyState } from "./actions";
 import { formatPlatformPrice } from "@/lib/billing/access";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/passwordPolicy";
+import Link from "next/link";
 
 const INITIAL: CreateCompanyState = { error: null };
 
@@ -78,7 +80,7 @@ export function CreateCompanyForm({
           type="password"
           placeholder="••••••••"
           required
-          minLength={6}
+          minLength={MIN_PASSWORD_LENGTH}
           autoComplete="new-password"
         />
       </Field>
@@ -90,10 +92,31 @@ export function CreateCompanyForm({
           type="password"
           placeholder="••••••••"
           required
-          minLength={6}
+          minLength={MIN_PASSWORD_LENGTH}
           autoComplete="new-password"
         />
       </Field>
+
+      <label className="flex items-start gap-3 text-xs leading-5 text-muted-foreground">
+        <input
+          type="checkbox"
+          name="acceptTerms"
+          value="yes"
+          required
+          className="mt-0.5 h-5 w-5 shrink-0"
+        />
+        <span>
+          He leído y acepto las{" "}
+          <Link href="/condiciones" className="font-medium text-foreground underline">
+            condiciones de contratación
+          </Link>{" "}
+          y la{" "}
+          <Link href="/privacidad" className="font-medium text-foreground underline">
+            política de privacidad
+          </Link>
+          .
+        </span>
+      </label>
 
       {state.error && <Alert variant="error">{state.error}</Alert>}
 

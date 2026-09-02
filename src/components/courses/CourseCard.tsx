@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
 import type { PublicCourse } from "@/lib/courses/publicCourses";
+import { CourseImage } from "@/components/media/PublicImages";
 
 /**
  * Tarjeta de curso del sitio público. Antes este marcado estaba escrito a mano
@@ -56,25 +57,5 @@ export function CourseThumbnail({
   thumbnailUrl: string | null;
   className?: string;
 }) {
-  if (!thumbnailUrl) {
-    return (
-      <div
-        className={`flex items-center justify-center bg-muted ${className}`.trim()}
-      >
-        <span className="px-4 text-center text-sm font-medium text-muted-foreground">
-          {title}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={thumbnailUrl}
-      alt={title}
-      className={`w-full bg-muted object-cover ${className}`.trim()}
-      loading="lazy"
-    />
-  );
+  return <CourseImage src={thumbnailUrl} title={title} className={className} />;
 }

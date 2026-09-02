@@ -1,4 +1,4 @@
--- Protect purchase history, enforce lesson/course consistency and make Mux
+-- Protect purchase history, enforce lesson/course consistency, and make Mux
 -- cleanup durable when courses, sections or lessons are deleted.
 
 alter table public.purchases

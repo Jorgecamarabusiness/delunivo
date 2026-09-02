@@ -1,4 +1,4 @@
--- Manual rollback for 20260831002328_protect_course_history_and_queue_mux_deletions.sql.
+-- Manual rollback for protect_course_history_and_queue_mux_deletions.
 -- WARNING: restoring ON DELETE CASCADE allows course deletion to erase purchases.
 
 drop trigger if exists queue_mux_video_deletion_before_delete on public.video_assets;

@@ -16,8 +16,15 @@ type ActionResult = {
 };
 
 export async function createStripeCheckoutAction(
-  courseId: string
+  courseId: string,
+  acceptedDigitalContent: boolean
 ): Promise<ActionResult> {
+  if (acceptedDigitalContent !== true) {
+    return {
+      error:
+        "Debes aceptar el inicio inmediato del contenido digital antes de continuar.",
+    };
+  }
   const supabase = await createClient();
   const {
     data: { user },
@@ -99,6 +106,8 @@ export async function createStripeCheckoutAction(
       course_id: courseId,
       user_id: user.id,
       organization_id: course.organization_id,
+      digital_content_consent: "true",
+      terms_version: "2026-09-02",
     },
   };
 

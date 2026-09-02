@@ -49,7 +49,7 @@ export async function OrganizationLanding({
     <div className="flex flex-1 flex-col bg-background text-foreground">
       <Header />
 
-      <main className="flex-1">
+      <main id="contenido-principal" className="flex-1">
         <section className="border-b border-border">
           <Container className="py-12 sm:py-20">
             <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">

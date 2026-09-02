@@ -119,7 +119,10 @@ test("un admin de otra organización no puede abrir el editor profundo por ID", 
 
   // En App Router el status puede haberse enviado ya como 200 cuando
   // notFound() corta un Server Component en streaming. La pantalla 404 y la
-  // ausencia de datos privados son la garantia observable relevante.
-  await expect(page).toHaveTitle(/404/);
+  // ausencia de datos privados son la garantia observable relevante; el title
+  // puede llegar ya emitido por el layout raíz durante el streaming.
+  await expect(
+    page.getByRole("heading", { name: "Esta página no existe" })
+  ).toBeVisible();
   await expect(page.locator("body")).not.toContainText(courseTitle);
 });
