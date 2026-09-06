@@ -1,0 +1,41 @@
+name: Isolated Supabase
+
+on:
+  push:
+    branches: [codex/audit-close-20260906]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_CLI: supabase
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+      - name: Start an isolated Postgres 17, Auth, REST and Storage stack
+        run: supabase start
+      - name: Reconstruct the database baseline from versioned migrations
+        run: supabase db reset --local --yes
+      - name: Restore the synthetic CI fixture
+        run: supabase db query --local --file supabase/fixtures/isolated-synthetic-backup.sql
+      - name: Run real PostgreSQL, RLS and Mux transaction assertions
+        run: supabase test db --local supabase/tests
+      - name: Exercise atomic OTP limits over local PostgREST
+        run: node scripts/isolated-otp-concurrency.mjs
+      - name: Exercise Auth refresh-token revocation baseline
+        run: node scripts/isolated-auth-revocation-baseline.mjs
+      - name: Exercise Storage authorization with synthetic users
+        run: node scripts/isolated-storage-ab.mjs
+      - name: Remove isolated containers and volumes
+        if: ${{ always() }}
+        run: supabase stop --project-id delunivo-audit --no-backup
