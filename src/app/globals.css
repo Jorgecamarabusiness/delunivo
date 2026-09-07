@@ -72,8 +72,8 @@ textarea:disabled {
 }
 
 /* dnd-kit no usa draggable="true": identifica el handle mediante listeners.
-   Esta regla va despuÃ©s del cursor genÃ©rico de los botones para que el ratÃ³n
-   comunique correctamente que aquÃ­ se arrastra, no que se hace clic. */
+   Esta regla va después del cursor genérico de los botones para que el ratón
+   comunique correctamente que aquí se arrastra, no que se hace clic. */
 button[data-drag-handle] {
   cursor: grab;
 }
@@ -87,4 +87,13 @@ mux-uploader::part(drop) {
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
   background: var(--background);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
