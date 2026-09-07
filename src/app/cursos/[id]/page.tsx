@@ -168,7 +168,7 @@ export default async function CursoDetallePage({
           href={isFree ? `${loginHref}?next=${encodeURIComponent(freeAccessHref)}` : loginHref}
           className={buttonClassName("primary", "md", "mt-6 w-full")}
         >
-          {isFree ? "Inicia sesión para acceder gratis" : "Inicia sesión para comprar"}
+          {isFree ? "Accede gratis" : "Inicia sesión para comprar"}
         </Link>
       )}
     </>

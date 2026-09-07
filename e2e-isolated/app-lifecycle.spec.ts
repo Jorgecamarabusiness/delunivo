@@ -27,10 +27,15 @@ test("el alumno obtiene un curso gratuito sin Stripe Connect y solo entra a su a
   await expect(page.getByRole("heading", { name: "Curso E2E gratuito", exact: true })).toBeVisible();
   await page.goto(`${base}/cursos/${appFixture.paidCourse}/aprender`);
   await expect(page).toHaveURL(new RegExp(`${base}/cursos/${appFixture.paidCourse}$|${base}/login`));
+  const confirmation = await page.request.get(`/api/purchases/${appFixture.receipt}/confirmation`);
+  expect(confirmation.status()).toBe(200);
+  expect(confirmation.headers()["content-disposition"]).toContain("attachment");
+  expect(await confirmation.text()).toContain("No se conserva una copia de la oferta original");
 });
 
 test("los cursos de pago, borrador y alumnos retirados no conceden acceso gratuito", async ({ page }) => {
   await login(page, appFixture.removed);
+  expect((await page.request.get(`/api/purchases/${appFixture.receipt}/confirmation`)).status()).toBe(404);
   await page.goto(`${base}/cursos/${appFixture.freeCourse}`);
   await page.getByRole("button", { name: "Accede gratis" }).click();
   await expect(page.getByText("Tu acceso a esta organización está desactivado.", { exact: true })).toBeVisible();
@@ -46,6 +51,7 @@ test("los cursos de pago, borrador y alumnos retirados no conceden acceso gratui
 });
 
 test("registro y verificación reales conservan la intención del curso gratuito", async ({ page }) => {
+  expect((await page.request.get(`/api/purchases/${appFixture.receipt}/confirmation`)).status()).toBe(401);
   await page.goto(`${base}/cursos/${appFixture.freeCourse}`);
   await page.getByRole("link", { name: "Accede gratis", exact: true }).click();
   await page.getByRole("link", { name: "Regístrate", exact: true }).click();

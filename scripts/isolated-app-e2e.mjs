@@ -51,6 +51,8 @@ async function seed() {
   }
   await service("organization_students", "POST", { organization_id: fixture.org, user_id: removedId, status: "removed", joined_via: "free" });
   await service("organization_students", "POST", { organization_id: fixture.org, user_id: learnerId, status: "active", joined_via: "free" });
+  await service("courses", "POST", { id: "70000000-0000-4000-8000-000000000004", organization_id: fixture.org, title: "Compra histórica sintética", description: "Fixture de justificante", price: 10, status: "published" });
+  await service("purchases", "POST", { id: "70000000-0000-4000-8000-000000000005", organization_id: fixture.org, user_id: learnerId, course_id: "70000000-0000-4000-8000-000000000004", amount_paid: 10, payment_method: "stripe", external_reference: "cs_synthetic_historical_receipt" });
   return { learnerId, deletingId, adminDeleteId };
 }
 

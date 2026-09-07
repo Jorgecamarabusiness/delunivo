@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getConnectedStripeAccountId } from "@/lib/organizations/integrations";
 import { orgPath } from "@/lib/organizations/orgPath";
+import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
 import {
   claimCheckoutAttempt,
   getCheckoutUrlForAttempt,
@@ -52,10 +53,14 @@ export async function grantFreeCourseAccessAction(
     return { granted: false, error: "Debes iniciar sesión para acceder al curso." };
   }
 
+  const organization = await getCurrentOrganization();
+  if (!organization) return { granted: false, error: "Curso no encontrado." };
+
   const { data: course } = await supabase
     .from("courses")
     .select("id, price, organization_id")
     .eq("id", courseId)
+    .eq("organization_id", organization.id)
     .maybeSingle();
 
   if (!course) {
@@ -108,10 +113,14 @@ export async function createStripeCheckoutAction(
     return { error: "Debes iniciar sesión para comprar el curso." };
   }
 
+  const organization = await getCurrentOrganization();
+  if (!organization) return { error: "Curso no encontrado." };
+
   const { data: course } = await supabase
     .from("courses")
     .select("id, title, price, organization_id, status")
     .eq("id", courseId)
+    .eq("organization_id", organization.id)
     .single();
 
   if (!course || course.status !== "published") {
