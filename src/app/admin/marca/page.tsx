@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMembership";
 import { buttonClassName } from "@/components/ui/Button";
 import { BrandingForm } from "./BrandingForm";
+import { SellerLegalForm } from "./SellerLegalForm";
 
 export default async function MarcaPage() {
   const supabase = await createClient();
@@ -29,7 +30,7 @@ export default async function MarcaPage() {
     supabase
       .from("organizations")
       .select(
-        "name, slug, owner_id, tagline_template, hero_subtitle, featured_course_id, logo_url, primary_color"
+        "name, slug, owner_id, tagline_template, hero_subtitle, featured_course_id, logo_url, primary_color, seller_legal_name, seller_tax_id, seller_address, seller_contact_email, seller_country"
       )
       .eq("id", membership.organizationId)
       .single(),
@@ -89,6 +90,15 @@ export default async function MarcaPage() {
         courses={courses ?? []}
         ownerName={ownerName}
         siteOrigin={siteOrigin}
+      />
+      <SellerLegalForm
+        seller={{
+          seller_legal_name: organization.seller_legal_name,
+          seller_tax_id: organization.seller_tax_id,
+          seller_address: organization.seller_address,
+          seller_contact_email: organization.seller_contact_email,
+          seller_country: organization.seller_country,
+        }}
       />
     </div>
   );

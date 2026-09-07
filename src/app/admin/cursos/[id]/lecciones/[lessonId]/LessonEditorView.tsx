@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import {
   DndContext,
   closestCenter,
@@ -62,6 +62,8 @@ function BlockRow({
   onSaved,
   onDelete,
   isDeleting,
+  onEditorOpenChange,
+  onRequestDiscard,
 }: {
   lessonId: string;
   blocks: ContentBlock[];
@@ -70,6 +72,8 @@ function BlockRow({
   onSaved: (blocks: ContentBlock[]) => void;
   onDelete: () => Promise<string | null>;
   isDeleting: boolean;
+  onEditorOpenChange: (blockId: string, open: boolean) => void;
+  onRequestDiscard: () => boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: block.id });
@@ -84,6 +88,11 @@ function BlockRow({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  useEffect(() => {
+    onEditorOpenChange(block.id, isEditing);
+    return () => onEditorOpenChange(block.id, false);
+  }, [block.id, isEditing, onEditorOpenChange]);
 
   async function saveBlock(updatedBlock: ContentBlock) {
     setIsSaving(true);
@@ -113,7 +122,9 @@ function BlockRow({
             lessonId={lessonId}
             initialTitle={block.title ?? ""}
             initialContent={block.content}
-            onCancel={() => setIsEditing(false)}
+            onCancel={() => {
+              if (onRequestDiscard()) setIsEditing(false);
+            }}
             isSaving={isSaving}
             error={error}
             submitLabel="Guardar sustitución"
@@ -125,7 +136,9 @@ function BlockRow({
           <EmbedMediaForm
             initialTitle={block.title ?? ""}
             initialUrl={block.video_url}
-            onCancel={() => setIsEditing(false)}
+            onCancel={() => {
+              if (onRequestDiscard()) setIsEditing(false);
+            }}
             isSaving={isSaving}
             error={error}
             submitLabel="Guardar cambios"
@@ -140,7 +153,9 @@ function BlockRow({
             initialTitle={block.title ?? ""}
             initialUrl={block.video_url ?? ""}
             initialMuxVideoAssetId={block.mux_video_asset_id}
-            onCancel={() => setIsEditing(false)}
+            onCancel={() => {
+              if (onRequestDiscard()) setIsEditing(false);
+            }}
             isSaving={isSaving}
             error={error}
             submitLabel="Guardar cambios"
@@ -171,7 +186,7 @@ function BlockRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-3 rounded-md border border-border p-4"
+      className="flex flex-wrap items-center gap-3 rounded-md border border-border p-4 sm:flex-nowrap"
     >
       <button
         type="button"
@@ -197,16 +212,18 @@ function BlockRow({
         ) : null}
       </span>
 
-      <RowMenu
-        onEdit={() => setIsEditing(true)}
-        onDelete={() => {
-          setError(null);
-          setDeleteDialogOpen(true);
-        }}
-        editLabel="Editar"
-        deleteLabel="Eliminar"
-        isDeleting={isDeleting}
-      />
+      <div className="flex w-full justify-end sm:w-auto">
+        <RowMenu
+          onEdit={() => setIsEditing(true)}
+          onDelete={() => {
+            setError(null);
+            setDeleteDialogOpen(true);
+          }}
+          editLabel="Editar"
+          deleteLabel="Eliminar"
+          isDeleting={isDeleting}
+        />
+      </div>
       <ConfirmDialog
         open={deleteDialogOpen}
         title="Eliminar bloque"
@@ -257,6 +274,32 @@ export function LessonEditorView({
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingBlockIds, setEditingBlockIds] = useState<Set<string>>(new Set());
+
+  const hasUnsavedDraft = isAddPanelOpen || isEditingTitle || editingBlockIds.size > 0;
+
+  useEffect(() => {
+    if (!hasUnsavedDraft) return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [hasUnsavedDraft]);
+
+  function requestDiscardDraft(): boolean {
+    return !hasUnsavedDraft || window.confirm("Tienes cambios sin guardar. ¿Quieres descartarlos?");
+  }
+
+  const handleEditorOpenChange = useCallback((blockId: string, open: boolean) => {
+    setEditingBlockIds((current) => {
+      const next = new Set(current);
+      if (open) next.add(blockId);
+      else next.delete(blockId);
+      return next;
+    });
+  }, []);
 
   function handleBlocksSaved(newBlocks: ContentBlock[]) {
     setBlocks(newBlocks);
@@ -350,6 +393,10 @@ export function LessonEditorView({
       <p className="text-sm text-muted-foreground">
         <Link
           href={`/admin/cursos/${course.id}`}
+          onClick={(event) => {
+            if (requestDiscardDraft()) return;
+            event.preventDefault();
+          }}
           className="hover:underline"
         >
           {course.title}
@@ -464,6 +511,8 @@ export function LessonEditorView({
                     onSaved={handleBlocksSaved}
                     onDelete={() => handleDeleteBlock(block.id)}
                     isDeleting={isSaving}
+                    onEditorOpenChange={handleEditorOpenChange}
+                    onRequestDiscard={requestDiscardDraft}
                   />
                 ))}
               </SortableContext>
@@ -492,7 +541,9 @@ export function LessonEditorView({
         <AddContentPanel
           lessonId={lesson.id}
           blocks={blocks}
-          onClose={() => setAddPanelOpen(false)}
+          onClose={() => {
+            if (requestDiscardDraft()) setAddPanelOpen(false);
+          }}
           onBlocksSaved={handleBlocksSaved}
         />
       )}

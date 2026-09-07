@@ -7,6 +7,13 @@ import { AdminActions } from "./AdminActions";
 import { RevokeInvitationButton } from "./RevokeInvitationButton";
 
 type ProfileInfo = { name: string; email: string };
+type CourseAccessSource = "purchase" | "invite" | "free";
+
+function courseAccessSourceLabel(sources: Set<CourseAccessSource>): string {
+  if (sources.has("purchase")) return "Comprado";
+  if (sources.has("free")) return "Gratuito";
+  return "Invitado";
+}
 
 export default async function UsuariosPage() {
   const supabase = await createClient();
@@ -66,13 +73,16 @@ export default async function UsuariosPage() {
   const courseIds = (courses ?? []).map((course) => course.id);
   const invitationIds = (invitations ?? []).map((invitation) => invitation.id);
 
-  const [{ data: invitedAccess }, { data: invitationCourses }] = await Promise.all([
+  const [{ data: grantedAccess }, { data: invitationCourses }] = await Promise.all([
     courseIds.length > 0
       ? supabase
           .from("student_course_access")
-          .select("user_id, course_id")
+          .select("user_id, course_id, grant_source")
           .in("course_id", courseIds)
-      : Promise.resolve({ data: [] as { user_id: string; course_id: string }[] }),
+          .is("revoked_at", null)
+      : Promise.resolve({
+          data: [] as { user_id: string; course_id: string; grant_source: string }[],
+        }),
     invitationIds.length > 0
       ? supabase
           .from("invitation_courses")
@@ -103,18 +113,18 @@ export default async function UsuariosPage() {
   }
 
   const totalSpentByUser = new Map<string, number>();
-  const accessByUser = new Map<string, Map<string, Set<"purchase" | "invite">>>();
+  const accessByUser = new Map<string, Map<string, Set<CourseAccessSource>>>();
 
   function addCourseAccess(
     userId: string,
     courseId: string,
-    source: "purchase" | "invite"
+    source: CourseAccessSource
   ) {
     const userAccess =
       accessByUser.get(userId) ??
-      new Map<string, Set<"purchase" | "invite">>();
+      new Map<string, Set<CourseAccessSource>>();
     const sources =
-      userAccess.get(courseId) ?? new Set<"purchase" | "invite">();
+      userAccess.get(courseId) ?? new Set<CourseAccessSource>();
     sources.add(source);
     userAccess.set(courseId, sources);
     accessByUser.set(userId, userAccess);
@@ -128,8 +138,12 @@ export default async function UsuariosPage() {
     addCourseAccess(purchase.user_id, purchase.course_id, "purchase");
   }
 
-  for (const access of invitedAccess ?? []) {
-    addCourseAccess(access.user_id, access.course_id, "invite");
+  for (const access of grantedAccess ?? []) {
+    addCourseAccess(
+      access.user_id,
+      access.course_id,
+      access.grant_source === "free" ? "free" : "invite"
+    );
   }
 
   const courseById = new Map((courses ?? []).map((course) => [course.id, course]));
@@ -215,11 +229,11 @@ export default async function UsuariosPage() {
                               <span
                                 key={courseId}
                                 className="rounded-full border border-border px-2 py-1 text-xs"
-                                title={sources.has("purchase") ? "Comprado" : "Invitado"}
+                                title={courseAccessSourceLabel(sources)}
                               >
                                 {courseById.get(courseId)?.title ?? "Curso eliminado"}
                                 <span className="ml-1 text-muted-foreground">
-                                  · {sources.has("purchase") ? "comprado" : "invitado"}
+                                  · {courseAccessSourceLabel(sources).toLowerCase()}
                                 </span>
                               </span>
                             )

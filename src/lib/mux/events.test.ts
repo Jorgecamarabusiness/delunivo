@@ -38,6 +38,7 @@ describe("Mux webhook normalization", () => {
         passthrough: videoAssetId,
         status: "ready",
         duration: 3_601.25,
+        tracks: [{ type: "video" }],
         aspect_ratio: "16:9",
         playback_ids: [
           { id: "public-id", policy: "public" },
@@ -88,6 +89,28 @@ describe("Mux webhook normalization", () => {
       })?.status,
       "deleted"
     );
+  });
+
+  test("a signed ready event enables only a provider-verified duration up to 12 hours", () => {
+    for (const duration of [43_200, 43_200.001, 0, undefined, Infinity, -1]) {
+      const result = normalizeMuxVideoEvent({
+        id: "evt-duration", type: "video.asset.ready", created_at: "2026-09-06T12:00:00Z",
+        data: { id: "asset-new", passthrough: videoAssetId, duration, tracks: [{ type: "video" }], playback_ids: [{ id: "signed", policy: "signed" }] },
+      });
+      assert.equal(result?.status, duration === 43_200 ? "ready" : "errored");
+      if (duration !== 43_200) {
+        assert.equal(result?.playbackId, null);
+        assert.equal(result?.errorType, "invalid_duration");
+      }
+    }
+  });
+
+  test("a signed audio-only asset cannot become a lesson video", () => {
+    const result = normalizeMuxVideoEvent({ id: "evt-audio", type: "video.asset.ready", created_at: "2026-09-07T08:00:00Z",
+      data: { id: "audio-only", duration: 90, tracks: [{ type: "audio" }], playback_ids: [{ id: "signed", policy: "signed" }] } });
+    assert.equal(result?.status, "errored");
+    assert.equal(result?.playbackId, null);
+    assert.equal(result?.errorType, "video_track_missing");
   });
 
   test("ignores unrelated event types", () => {

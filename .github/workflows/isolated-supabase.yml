@@ -78,6 +78,12 @@ jobs:
           supabase db reset --local --yes
           supabase db query --local --file supabase/fixtures/isolated-synthetic-backup.sql
           node scripts/isolated-account-lifecycle.mjs
+      - name: Install application and isolated browser
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Exercise the real application against isolated Supabase
+        run: npx playwright test --config=playwright.isolated.config.ts
       - name: Remove isolated containers and volumes
         if: ${{ always() }}
         run: supabase stop --project-id delunivo-audit --no-backup

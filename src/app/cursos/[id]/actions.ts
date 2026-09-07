@@ -10,10 +10,84 @@ import {
   getCheckoutUrlForAttempt,
 } from "@/lib/stripe/checkoutAttempts";
 import { describeStripeError } from "@/lib/stripe/errors";
+import { settleOpenCheckouts } from "@/lib/stripe/settleOpenCheckouts";
+import {
+  freeCourseGrantMessage,
+  isFreeCoursePrice,
+  type FreeCourseGrantStatus,
+} from "@/lib/courses/freeCourseAccess";
 
 type ActionResult = {
   error: string | null;
 };
+
+export type FreeCourseActionResult = ActionResult & {
+  granted: boolean;
+};
+
+const FREE_COURSE_GRANT_STATUSES = new Set<FreeCourseGrantStatus>([
+  "granted",
+  "already_has_access",
+  "price_changed",
+  "not_available",
+  "removed",
+  "revoked",
+  "account_inactive",
+  "checkout_pending",
+]);
+
+/**
+ * Concede el acceso con el RPC atómico. La acción vuelve a comprobar sesión y
+ * precio porque se puede invocar por POST sin pasar por la ficha del curso.
+ */
+export async function grantFreeCourseAccessAction(
+  courseId: string
+): Promise<FreeCourseActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { granted: false, error: "Debes iniciar sesión para acceder al curso." };
+  }
+
+  const { data: course } = await supabase
+    .from("courses")
+    .select("id, price, organization_id")
+    .eq("id", courseId)
+    .maybeSingle();
+
+  if (!course) {
+    return { granted: false, error: "Curso no encontrado." };
+  }
+  if (!isFreeCoursePrice(course.price)) {
+    return {
+      granted: false,
+      error: "Este curso ya no es gratuito. Vuelve a la ficha para ver las opciones disponibles.",
+    };
+  }
+
+  try { await settleOpenCheckouts(user.id, course.id); }
+  catch { return { granted: false, error: "Hay un pago anterior pendiente de conciliación. Inténtalo de nuevo; todavía no se ha concedido otro acceso." }; }
+  const { data, error } = await supabase.rpc("grant_free_course_access", {
+    p_course_id: course.id,
+    p_organization_id: course.organization_id,
+  });
+
+  if (error || typeof data !== "string" || !FREE_COURSE_GRANT_STATUSES.has(data as FreeCourseGrantStatus)) {
+    return {
+      granted: false,
+      error: "No se pudo activar el acceso gratuito. Inténtalo de nuevo en unos minutos.",
+    };
+  }
+
+  const status = data as FreeCourseGrantStatus;
+  return {
+    granted: status === "granted" || status === "already_has_access",
+    error: freeCourseGrantMessage(status) || null,
+  };
+}
 
 export async function createStripeCheckoutAction(
   courseId: string,
@@ -36,12 +110,22 @@ export async function createStripeCheckoutAction(
 
   const { data: course } = await supabase
     .from("courses")
-    .select("id, title, price, organization_id")
+    .select("id, title, price, organization_id, status")
     .eq("id", courseId)
     .single();
 
-  if (!course) {
+  if (!course || course.status !== "published") {
     return { error: "Curso no encontrado." };
+  }
+  const roster = await supabase.from("organization_students").select("status").eq("organization_id", course.organization_id).eq("user_id", user.id).maybeSingle();
+  if (roster.error || roster.data?.status === "removed") return { error: "No se puede abrir un pago para esta cuenta. Contacta con la escuela para revisar tu acceso." };
+
+  // Un curso gratuito nunca debe requerir una cuenta Connect ni crear un intento
+  // de checkout. El RPC de acceso gratuito vuelve a validar esta misma regla.
+  if (isFreeCoursePrice(course.price)) {
+    return {
+      error: "Este curso es gratuito. Usa el botón de acceso gratuito de la ficha.",
+    };
   }
 
   const [accessResult, purchaseResult] = await Promise.all([

@@ -20,7 +20,15 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+        return [{ source: "/(.*)", headers: securityHeaders }, {
+      source: "/api/:path*",
+      headers: [{ key: "Cache-Control", value: "private, no-store" }],
+    }, ...[
+      "/admin/:path*", "/perfil/:path*", "/login", "/register", "/forgot-password", "/reset-password", "/verificar", "/invitaciones/:path*",
+      "/cursos/:id/aprender/:path*", "/o/:slug/admin/:path*", "/o/:slug/perfil/:path*", "/o/:slug/cursos/:id/aprender/:path*",
+      "/o/:slug/login", "/o/:slug/register", "/o/:slug/forgot-password", "/o/:slug/reset-password", "/o/:slug/verificar", "/o/:slug/invitaciones/:path*",
+    ].map((source) => ({ source, headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }))];
+
   },
 };
 

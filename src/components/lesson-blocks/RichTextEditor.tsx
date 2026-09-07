@@ -32,22 +32,25 @@ function ToolbarButton({
   active,
   label,
   children,
+  disabled = false,
 }: {
   onClick: () => void;
   active?: boolean;
   label: string;
   children: React.ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-label={label}
       title={label}
       className={`flex h-8 min-w-8 items-center justify-center rounded px-2 text-sm font-semibold transition-colors ${
         active
           ? "bg-foreground text-background"
-          : "text-foreground hover:bg-muted"
+          : "text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
       }`}
     >
       {children}
@@ -59,14 +62,18 @@ export function RichTextEditor({
   value,
   onChange,
   onUploadImage,
+  ariaLabel = "Contenido enriquecido",
 }: {
   value: string;
   onChange: (html: string) => void;
   onUploadImage?: (file: File) => Promise<string | null>;
+  ariaLabel?: string;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
+  const [imageAlt, setImageAlt] = useState("");
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -83,6 +90,9 @@ export function RichTextEditor({
       attributes: {
         class:
           "min-h-[140px] overflow-hidden rounded-b-md break-words px-3 py-2 text-sm text-foreground outline-none [&_p]:my-1 [&_img]:my-2 [&_img]:max-w-full [&_img]:rounded-md [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5",
+        role: "textbox",
+        "aria-label": ariaLabel,
+        "aria-multiline": "true",
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -115,7 +125,12 @@ export function RichTextEditor({
     setIsUploadingImage(true);
     setUploadError(null);
 
-    const url = await onUploadImage(file);
+    let url: string | null = null;
+    try {
+      url = await onUploadImage(file);
+    } catch {
+      url = null;
+    }
 
     setIsUploadingImage(false);
 
@@ -124,7 +139,15 @@ export function RichTextEditor({
       return;
     }
 
-    editor?.chain().focus().setImage({ src: url }).run();
+    setPendingImageUrl(url);
+    setImageAlt("");
+  }
+
+  function insertImage() {
+    if (!pendingImageUrl || !imageAlt.trim()) return;
+    editor?.chain().focus().setImage({ src: pendingImageUrl, alt: imageAlt.trim() }).run();
+    setPendingImageUrl(null);
+    setImageAlt("");
   }
 
   return (
@@ -226,6 +249,37 @@ export function RichTextEditor({
       </div>
 
       <EditorContent editor={editor} />
+
+      {pendingImageUrl ? (
+        <div className="border-t border-border p-3">
+          <label htmlFor="rich-text-image-alt" className="text-xs font-medium text-foreground">
+            Texto alternativo de la imagen
+          </label>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              id="rich-text-image-alt"
+              value={imageAlt}
+              onChange={(event) => setImageAlt(event.target.value)}
+              className="min-h-10 flex-1 rounded-md border border-border bg-background px-3 text-sm"
+              placeholder="Describe la información que aporta la imagen"
+              autoFocus
+              required
+            />
+            <ToolbarButton label="Insertar imagen" onClick={insertImage} disabled={!imageAlt.trim()}>
+              Insertar
+            </ToolbarButton>
+            <ToolbarButton
+              label="Cancelar inserción de imagen"
+              onClick={() => {
+                setPendingImageUrl(null);
+                setImageAlt("");
+              }}
+            >
+              Cancelar
+            </ToolbarButton>
+          </div>
+        </div>
+      ) : null}
 
       {uploadError ? (
         <p className="border-t border-border px-3 py-2 text-xs font-medium text-muted-foreground">

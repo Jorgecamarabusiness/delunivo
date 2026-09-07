@@ -1,85 +1,77 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import MuxPlayer from "@mux/mux-player-react/lazy";
+import type MuxPlayerElement from "@mux/mux-player";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { startPlaybackSession, type PlaybackState } from "@/lib/mux/playbackSession";
 
-type PlaybackState =
-  | { kind: "loading"; message: string }
-  | { kind: "error"; message: string }
-  | { kind: "ready"; playbackId: string; token: string };
+type Props = { videoAssetId: string; title?: string };
 
-export function MuxVideoBlock({
-  videoAssetId,
-  title,
-}: {
-  videoAssetId: string;
-  title?: string;
-}) {
-  const [state, setState] = useState<PlaybackState>({
-    kind: "loading",
-    message: "Autorizando la reproducción…",
-  });
+export function MuxVideoBlock(props: Props) {
+  return <AuthorizedVideo key={props.videoAssetId} {...props} />;
+}
+
+function AuthorizedVideo({ videoAssetId, title }: Props) {
+  const [state, setState] = useState<PlaybackState>({ kind: "loading", message: "Autorizando la reproducción…" });
+  const player = useRef<MuxPlayerElement>(null);
+  const resume = useRef({ time: 0, paused: true, rate: 1 });
+  const refresh = useRef<() => void>(() => {});
+  const lastToken = useRef<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-
-    async function authorize() {
-      try {
-        const response = await fetch(`/api/video/${videoAssetId}/playback`, {
-          cache: "no-store",
-        });
-        const data = (await response.json()) as {
-          playbackId?: string;
-          token?: string;
-          error?: string;
-        };
-        if (cancelled) return;
-
-        if (response.status === 409) {
-          setState({ kind: "loading", message: "Mux todavía está procesando este vídeo…" });
-          timeout = setTimeout(authorize, 10_000);
-          return;
+    const session = startPlaybackSession({
+      request: (renew, signal) => fetch(`/api/video/${videoAssetId}/playback${renew ? "" : "?check=1"}`, { cache: "no-store", signal }),
+      onState(next) {
+        if (player.current && (next.kind !== "ready" || next.token !== lastToken.current)) {
+          resume.current = { time: player.current.currentTime, paused: player.current.paused, rate: player.current.playbackRate };
         }
-        if (!response.ok || !data.playbackId || !data.token) {
-          setState({ kind: "error", message: data.error ?? "No se pudo reproducir el vídeo." });
-          return;
-        }
-
-        setState({ kind: "ready", playbackId: data.playbackId, token: data.token });
-      } catch {
-        if (!cancelled) {
-          setState({ kind: "error", message: "No se pudo autorizar el vídeo. Revisa tu conexión." });
-        }
-      }
-    }
-
-    void authorize();
+        if (next.kind === "ready") lastToken.current = next.token;
+        setState(next);
+      },
+    });
+    const onOnline = () => void session.refresh();
+    refresh.current = onOnline;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void session.refresh();
+    };
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
-      cancelled = true;
-      if (timeout) clearTimeout(timeout);
+      session.dispose();
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [videoAssetId]);
 
   if (state.kind !== "ready") {
     return (
-      <Card className="flex aspect-video w-full items-center justify-center p-6 text-center">
-        <p className="text-sm text-muted-foreground">{state.message}</p>
+      <Card className="flex aspect-video w-full flex-col items-center justify-center gap-4 p-6 text-center">
+        <p role={state.kind === "error" ? "alert" : "status"} className="text-sm text-muted-foreground">{state.message}</p>
+        {state.kind === "error" ? <Button type="button" variant="secondary" onClick={() => refresh.current()}>Reintentar reproducción</Button> : null}
       </Card>
     );
   }
 
   return (
-    <Card className="aspect-video w-full overflow-hidden">
+    <Card className="w-full overflow-hidden">
       <MuxPlayer
-        className="h-full w-full"
+        ref={player}
+        className="aspect-video w-full"
         playbackId={state.playbackId}
         tokens={{ playback: state.token }}
         streamType="on-demand"
         videoTitle={title}
         metadata={{ video_id: videoAssetId, video_title: title ?? "Lección" }}
+        onLoadedMetadata={() => {
+          if (!player.current) return;
+          player.current.currentTime = resume.current.time;
+          player.current.playbackRate = resume.current.rate;
+          if (!resume.current.paused) void player.current.play().catch(() => {});
+        }}
       />
+      {state.warning ? <p role="status" className="px-4 py-2 text-sm text-muted-foreground">{state.warning}</p> : null}
     </Card>
   );
 }

@@ -26,9 +26,18 @@ describe("readableTextColor — texto legible sobre el color de marca", () => {
     assert.equal(readableTextColor("#4f46e5"), BLANCO);
   });
 
+  test("un verde o gris claro elige texto oscuro", () => {
+    assert.equal(readableTextColor("#16a34a"), NEGRO);
+    assert.equal(readableTextColor("#aaaaaa"), NEGRO);
+  });
+
   test("acepta el formato corto de 3 dígitos", () => {
     assert.equal(readableTextColor("#fff"), NEGRO);
     assert.equal(readableTextColor("#000"), BLANCO);
+  });
+
+  test("uses pure black in the narrow middle-gray gap where off-black and white fail AA", () => {
+    assert.equal(readableTextColor("#777777"), "#000000");
   });
 
   test("acepta el color sin la almohadilla", () => {

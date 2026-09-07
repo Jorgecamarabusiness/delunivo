@@ -27,6 +27,7 @@ export type CheckoutAttempt = {
   expected_currency: string;
   status: CheckoutAttemptStatus;
   expires_at: string | null;
+  created_at: string;
 };
 
 type ClaimCheckoutAttemptInput = {
@@ -54,6 +55,7 @@ const ATTEMPT_COLUMNS = [
   "expected_currency",
   "status",
   "expires_at",
+  "created_at",
 ].join(", ");
 
 async function findActiveAttempt(
@@ -144,6 +146,16 @@ export async function claimCheckoutAttempt(
 export async function getCheckoutUrlForAttempt(
   attempt: CheckoutAttempt
 ): Promise<string> {
+  // Even a reusable URL must pass today's account, roster and offer invariants.
+  // The database trigger serializes this validation with free grants and deletion.
+  const admin = createAdminClient();
+  const checked = await admin.from("stripe_checkout_attempts")
+    .update({ status: attempt.status })
+    .eq("id", attempt.id).eq("status", attempt.status)
+    .in("status", ["creating", "open"]).select("id").maybeSingle();
+  if (checked.error || !checked.data) {
+    throw new Error("La oferta o tu acceso han cambiado. Vuelve al curso para comprobarlos.");
+  }
   if (
     attempt.status === "open" &&
     attempt.stripe_session_url &&
@@ -159,18 +171,23 @@ export async function getCheckoutUrlForAttempt(
       : {}),
   };
 
-  try {
-    const session = await stripe.checkout.sessions.create(
-      attempt.stripe_params,
-      requestOptions
-    );
+  // Stripe may prune idempotency keys after 24 hours. An unknown old creation
+  // requires reconciliation, never a fresh chargeable Checkout on the same key.
+  if (!attempt.stripe_session_id && Date.now() - Date.parse(attempt.created_at) >= 23 * 60 * 60 * 1000) {
+    throw new Error("Hay un pago antiguo pendiente de conciliación. Contacta con soporte.");
+  }
 
-    if (!session.url) {
+  try {
+    const session = attempt.stripe_session_id
+      ? await stripe.checkout.sessions.retrieve(attempt.stripe_session_id, {}, requestOptions)
+      : await stripe.checkout.sessions.create(attempt.stripe_params, requestOptions);
+
+    if (!session.url || session.status !== "open") {
       throw new Error("Stripe no devolvió una URL de pago.");
     }
 
     const admin = createAdminClient();
-    const { error } = await admin
+    const { data: savedAttempt, error } = await admin
       .from("stripe_checkout_attempts")
       .update({
         stripe_session_id: session.id,
@@ -181,9 +198,14 @@ export async function getCheckoutUrlForAttempt(
         updated_at: new Date().toISOString(),
       })
       .eq("id", attempt.id)
-      .in("status", ["creating", "open"]);
+      .in("status", ["creating", "open"])
+      .select("id")
+      .maybeSingle();
 
-    if (error) {
+    if (error || !savedAttempt) {
+      if (session.status === "open") {
+        await stripe.checkout.sessions.expire(session.id, {}, attempt.stripe_account_id ? { stripeAccount: attempt.stripe_account_id } : {});
+      }
       throw new Error("No se pudo guardar la sesión de pago de forma segura.");
     }
 
@@ -195,8 +217,7 @@ export async function getCheckoutUrlForAttempt(
     await admin
       .from("stripe_checkout_attempts")
       .update({
-        error_message:
-          error instanceof Error ? error.message.slice(0, 1_000) : "Error de Stripe",
+        error_message: "checkout_provider_failed",
         updated_at: new Date().toISOString(),
       })
       .eq("id", attempt.id);

@@ -45,7 +45,7 @@ export async function loginAction(
       }
 
       redirect(
-        `${await orgPath("/verificar")}?email=${encodeURIComponent(email)}`
+        `${await orgPath("/verificar")}?email=${encodeURIComponent(email)}${next ? `&next=${encodeURIComponent(next)}` : ""}`
       );
     }
 

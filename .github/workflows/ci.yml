@@ -5,107 +5,34 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-
       - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
-
-      - run: npm ci
-
+      - run: npm ci --ignore-scripts
       - name: Lint
         run: npm run lint
-
-      # Los unit tests van ANTES del build: tardan 2 segundos y no necesitan
-      # ninguna variable de entorno, así que si algo básico está roto se ve al
-      # instante en vez de esperar al build y a los e2e.
-      - name: Tests unitarios
+      - name: Unit tests
         run: npm run test:unit
-
-      - name: Build
-        run: npm run build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy-anon-key' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'dummy-service-role-key' }}
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || 'sk_test_dummy' }}
-          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET || 'whsec_dummy' }}
-          WHOP_API_KEY: ${{ secrets.WHOP_API_KEY || 'dummy' }}
-          WHOP_PRODUCT_ID: ${{ secrets.WHOP_PRODUCT_ID || 'dummy' }}
-          WHOP_WEBHOOK_SECRET: ${{ secrets.WHOP_WEBHOOK_SECRET || 'dummy' }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 'dummy' }}
-          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
-          STRIPE_CONNECT_WEBHOOK_SECRET: ${{ secrets.STRIPE_CONNECT_WEBHOOK_SECRET || 'whsec_dummy' }}
-          # 32 bytes en base64. Solo hace falta para que compile/arranque.
-          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY || 'YXVsYXJpYS1jaS1kdW1teWF1bGFyaWEtY2ktZHVtbXk=' }}
-
-  e2e:
-    needs: test-and-build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: npm
-
-      - run: npm ci
-
-      - name: Validar entorno E2E aislado
-        id: e2e-environment
-        env:
-          E2E_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-        run: |
-          if [[ -z "$E2E_SUPABASE_URL" || "$E2E_SUPABASE_URL" == *"jgxqdzmmeveksseflyst"* ]]; then
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::E2E omitidos: configura un proyecto o rama Supabase exclusivo para pruebas. Producción nunca se usa."
-          else
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Instalar Chromium para E2E
-        if: steps.e2e-environment.outputs.enabled == 'true'
-        run: npx playwright install --with-deps chromium
-
-      - name: Tests E2E (Playwright)
-        if: steps.e2e-environment.outputs.enabled == 'true'
-        run: npx playwright test
-        env:
-          # Estas deben pertenecer al proyecto E2E, nunca al de producción.
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_SITE_URL: http://localhost:3100
-          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || 'sk_test_dummy' }}
-          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET || 'whsec_dummy' }}
-          WHOP_API_KEY: ${{ secrets.WHOP_API_KEY || 'dummy' }}
-          WHOP_PRODUCT_ID: ${{ secrets.WHOP_PRODUCT_ID || 'dummy' }}
-          WHOP_WEBHOOK_SECRET: ${{ secrets.WHOP_WEBHOOK_SECRET || 'dummy' }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 'dummy' }}
-          STRIPE_CONNECT_WEBHOOK_SECRET: ${{ secrets.STRIPE_CONNECT_WEBHOOK_SECRET || 'whsec_dummy' }}
-          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY || 'YXVsYXJpYS1jaS1kdW1teWF1bGFyaWEtY2ktZHVtbXk=' }}
-          # 'off' = no se manda ningún correo. Sin esto, cada corrida de CI llenaría
-          # de invitaciones de prueba la bandeja de los admin_emails. Los tests
-          # comprueban el estado en base de datos, no que Resend entregue.
-          EMAIL_DELIVERY_MODE: "off"
-          # Los tests crean organizaciones efímeras con la service role: si aquí
-          # cae el 'dummy', TODOS los specs con fixtures fallan en beforeAll.
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_STUDENT_EMAIL: ${{ secrets.E2E_STUDENT_EMAIL }}
-          E2E_STUDENT_PASSWORD: ${{ secrets.E2E_STUDENT_PASSWORD }}
-          E2E_NOACCESS_EMAIL: ${{ secrets.E2E_NOACCESS_EMAIL }}
-          E2E_NOACCESS_PASSWORD: ${{ secrets.E2E_NOACCESS_PASSWORD }}
-
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - run: npx playwright install --with-deps chromium
+      - name: Isolated build and browser regression
+        run: npm run test:e2e:audit
       - uses: actions/upload-artifact@v5
-        if: ${{ !cancelled() && steps.e2e-environment.outputs.enabled == 'true' }}
+        if: ${{ !cancelled() }}
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: playwright-audit-report
+          path: |
+            playwright-report/
+            test-results/
+            docs/evidencias/2026-09-06/
           retention-days: 7

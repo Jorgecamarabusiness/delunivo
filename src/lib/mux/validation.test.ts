@@ -5,6 +5,8 @@ import {
   isUuid,
   resolveAllowedUploadOrigin,
   validateMuxVideoFile,
+  validateMuxVideoDuration,
+  MAX_MUX_VIDEO_SECONDS,
 } from "./validation.ts";
 
 describe("Mux upload validation", () => {
@@ -47,8 +49,21 @@ describe("Mux upload validation", () => {
     );
     assert.equal(
       validateMuxVideoFile({ size: MAX_MUX_VIDEO_BYTES + 1, type: "video/mp4" }),
-      "El vídeo supera el límite de 20 GB."
+      "El vídeo supera el límite de 20 GiB."
     );
     assert.equal(validateMuxVideoFile({ size: 1_000, type: "video/mp4" }), null);
+  });
+
+  test("duration and bytes have independent inclusive limits", () => {
+    for (const duration of [0.1, MAX_MUX_VIDEO_SECONDS - 0.001, MAX_MUX_VIDEO_SECONDS]) {
+      assert.equal(validateMuxVideoDuration(duration), null);
+    }
+    for (const duration of [0, -1, NaN, Infinity, undefined, "43200", MAX_MUX_VIDEO_SECONDS + 0.001]) {
+      assert.ok(validateMuxVideoDuration(duration));
+    }
+    assert.equal(validateMuxVideoFile({ size: MAX_MUX_VIDEO_BYTES, type: "video/mp4" }), null);
+    for (const size of [MAX_MUX_VIDEO_BYTES + 1, 0.5, Infinity, NaN, -1]) {
+      assert.ok(validateMuxVideoFile({ size, type: "video/mp4" }));
+    }
   });
 });

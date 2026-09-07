@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Container } from "@/components/ui/Container";
@@ -9,23 +10,9 @@ import { createClient } from "@/lib/supabase/server";
 import { orgPath } from "@/lib/organizations/orgPath";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
 import { formatPrice } from "@/lib/format";
-
-async function NotFound() {
-  const homeHref = await orgPath("/");
-
-  return (
-    <div className="flex flex-1 flex-col bg-background text-foreground">
-      <Header />
-      <div className="mx-auto flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <p className="text-sm text-muted-foreground">Curso no encontrado.</p>
-        <Link href={homeHref} className="text-sm font-medium hover:underline">
-          ← Volver al inicio
-        </Link>
-      </div>
-      <Footer />
-    </div>
-  );
-}
+import { isFreeCoursePrice, parseFiniteCoursePrice } from "@/lib/courses/freeCourseAccess";
+import { FreeCourseAccessButton } from "./FreeCourseAccessButton";
+import { SellerLegalInfoCard } from "@/components/organizations/SellerLegalInfo";
 
 export default async function CursoDetallePage({
   params,
@@ -47,7 +34,7 @@ export default async function CursoDetallePage({
   ]);
 
   if (!course) {
-    return <NotFound />;
+    notFound();
   }
 
   // La policy RLS de `courses` deja leer cualquier fila publicada de cualquier
@@ -55,7 +42,7 @@ export default async function CursoDetallePage({
   // /o/empresaA/cursos/<id-de-empresaB> pintaba el curso de B con la marca de
   // A. La URL manda: si el curso no es de la empresa del portal, no existe aquí.
   if (!organization || course.organization_id !== organization.id) {
-    return <NotFound />;
+    notFound();
   }
 
   const {
@@ -76,7 +63,7 @@ export default async function CursoDetallePage({
   }
 
   if (course.status !== "published" && !isAdmin) {
-    return <NotFound />;
+    notFound();
   }
 
   const longDescription = (course.long_description ?? "")
@@ -85,8 +72,11 @@ export default async function CursoDetallePage({
     .filter((paragraph: string) => paragraph.length > 0);
   const learningPoints: string[] = course.learning_points ?? [];
   const aprenderHref = await orgPath(`/cursos/${course.id}/aprender`);
+  const freeAccessHref = await orgPath(`/cursos/${course.id}/acceder`);
   const loginHref = await orgPath("/login");
   const organizationHomeHref = await orgPath("/");
+  const isFree = isFreeCoursePrice(course.price);
+  const price = parseFiniteCoursePrice(course.price);
 
   const purchasePanel = hasAccess ? (
     <>
@@ -101,16 +91,22 @@ export default async function CursoDetallePage({
   ) : (
     <>
       <p className="text-sm text-muted-foreground">Precio</p>
-      <p className="mt-1 text-4xl font-bold">{formatPrice(Number(course.price))}</p>
+      <p className="mt-1 text-4xl font-bold">
+        {isFree ? "Gratis" : price === null ? "No disponible" : formatPrice(price)}
+      </p>
 
       {user ? (
-        <BuyCourseButton courseId={course.id} />
+        isFree ? (
+          <FreeCourseAccessButton courseId={course.id} aprenderHref={aprenderHref} />
+        ) : (
+          <BuyCourseButton courseId={course.id} />
+        )
       ) : (
         <Link
-          href={loginHref}
+          href={isFree ? `${loginHref}?next=${encodeURIComponent(freeAccessHref)}` : loginHref}
           className={buttonClassName("primary", "md", "mt-6 w-full")}
         >
-          Inicia sesión para comprar
+          {isFree ? "Inicia sesión para acceder gratis" : "Inicia sesión para comprar"}
         </Link>
       )}
     </>
@@ -170,6 +166,11 @@ export default async function CursoDetallePage({
                   </ul>
                 </div>
               ) : null}
+
+              <SellerLegalInfoCard
+                organizationName={organization.name}
+                seller={organization.sellerLegal}
+              />
             </div>
 
             <div className="hidden h-fit rounded-lg border border-border p-6 lg:sticky lg:top-8 lg:block">

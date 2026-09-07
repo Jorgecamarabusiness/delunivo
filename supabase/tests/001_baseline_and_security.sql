@@ -72,6 +72,7 @@ begin
   insert into auth.users (id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values (owner_id, 'authenticated', 'authenticated', 'mux-owner@synthetic.invalid', 'not-used', now(), '{"provider":"email","providers":["email"]}', '{}');
   insert into public.organizations (id, name, slug, owner_id) values (org_id, 'Synthetic Mux', 'synthetic-mux', owner_id);
+  insert into public.organization_admins(organization_id,user_id,role) values(org_id,owner_id,'owner');
   insert into public.courses (id, organization_id, title, description, price) values (course_id, org_id, 'Mux', 'Synthetic Mux course', 10);
   insert into public.sections (course_id, title) values (course_id, 'Section');
   insert into public.lessons (id, course_id, title, blocks) values (lesson_id, course_id, 'Lesson', previous_blocks);

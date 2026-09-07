@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import type { SellerLegalInfo } from "./sellerLegal";
 
 export type CurrentOrganization = {
   id: string;
@@ -12,6 +13,7 @@ export type CurrentOrganization = {
   logoUrl: string | null;
   primaryColor: string | null;
   ownerName: string | null;
+  sellerLegal: SellerLegalInfo;
 };
 
 /**
@@ -35,7 +37,7 @@ export const getCurrentOrganization = cache(
     const { data: org } = await supabase
       .from("organizations")
       .select(
-        "id, name, slug, tagline_template, hero_subtitle, featured_course_id, logo_url, primary_color, owner_id"
+        "id, name, slug, tagline_template, hero_subtitle, featured_course_id, logo_url, primary_color, owner_id, seller_legal_name, seller_tax_id, seller_address, seller_contact_email, seller_country"
       )
       .eq("slug", slug)
       .maybeSingle();
@@ -62,11 +64,18 @@ export const getCurrentOrganization = cache(
       logoUrl: org.logo_url,
       primaryColor: org.primary_color,
       ownerName,
+      sellerLegal: {
+        seller_legal_name: org.seller_legal_name,
+        seller_tax_id: org.seller_tax_id,
+        seller_address: org.seller_address,
+        seller_contact_email: org.seller_contact_email,
+        seller_country: org.seller_country,
+      },
     };
   }
 );
 
-/** "Aprende {tema} junto a cientos de usuarios con {admin}" -> sustituye {admin}. Con plantilla vacía, usa un genérico. */
+/** Sustituye {admin} sin inventar alumnos ni resultados en la plantilla por defecto. */
 export function renderTagline(organization: CurrentOrganization): string {
   const adminName = organization.ownerName ?? organization.name;
   if (organization.taglineTemplate) {
@@ -74,5 +83,5 @@ export function renderTagline(organization: CurrentOrganization): string {
       ? organization.taglineTemplate.replace("{admin}", adminName)
       : organization.taglineTemplate;
   }
-  return `Aprende junto a cientos de usuarios con ${adminName}`;
+  return `Aprende a tu ritmo con ${adminName}`;
 }

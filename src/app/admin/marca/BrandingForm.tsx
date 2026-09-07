@@ -52,7 +52,7 @@ export function BrandingForm({
   const [taglineTemplate, setTaglineTemplate] = useState(
     organization.tagline_template
       ? organization.tagline_template.replaceAll("{admin}", ownerName)
-      : `Aprende junto a cientos de alumnos con ${ownerName}`
+      : `Aprende a tu ritmo con ${ownerName}`
   );
   const [heroSubtitle, setHeroSubtitle] = useState(
     organization.hero_subtitle ?? ""
@@ -267,7 +267,7 @@ export function BrandingForm({
           id="tagline"
           value={taglineTemplate}
           onChange={(event) => setTaglineTemplate(event.target.value)}
-          placeholder={`Aprende junto a cientos de alumnos con ${ownerName}`}
+          placeholder={`Aprende a tu ritmo con ${ownerName}`}
         />
       </Field>
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatPrice } from "@/lib/format";
 import type { PublicCourse } from "@/lib/courses/publicCourses";
 import { CourseImage } from "@/components/media/PublicImages";
+import { isFreeCoursePrice, parseFiniteCoursePrice } from "@/lib/courses/freeCourseAccess";
 
 /**
  * Tarjeta de curso del sitio público. Antes este marcado estaba escrito a mano
@@ -36,7 +37,11 @@ export function CourseCard({
         )}
 
         <p className="mt-auto pt-2 text-sm font-semibold">
-          {formatPrice(course.price)}
+          {isFreeCoursePrice(course.price)
+            ? "Gratis"
+            : parseFiniteCoursePrice(course.price) === null
+              ? "No disponible"
+              : formatPrice(course.price)}
         </p>
       </div>
     </Link>

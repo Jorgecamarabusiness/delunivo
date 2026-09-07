@@ -6,6 +6,7 @@ import { orgPath } from "@/lib/organizations/orgPath";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
 import { LoginForm } from "./LoginForm";
 import { createClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/auth/safeNextPath";
 
 export default async function LoginPage({
   searchParams,
@@ -33,8 +34,12 @@ export default async function LoginPage({
   ]);
 
   if (user) {
-    redirect(basePath || "/");
+    redirect(safeNextPath(next) || basePath || "/");
   }
+
+  const registerWithNextHref = next
+    ? `${registerHref}?next=${encodeURIComponent(next)}`
+    : registerHref;
 
   return (
     <AuthShell
@@ -45,7 +50,7 @@ export default async function LoginPage({
         organization ? (
           <>
             ¿No tienes una cuenta?{" "}
-            <Link href={registerHref} className="font-medium underline">
+            <Link href={registerWithNextHref} className="font-medium underline">
               Regístrate
             </Link>
           </>

@@ -408,7 +408,7 @@ returns trigger language plpgsql security definer set search_path='' as $$
 declare c public.courses%rowtype;
 begin
   if tg_op='INSERT' then new.historical_user_id:=new.user_id; end if;
-  if tg_op='UPDATE' and new.status<>'open' then return new; end if;
+  if tg_op='UPDATE' and new.status not in ('creating','open') then return new; end if;
   if new.checkout_kind<>'course_purchase' then return new; end if;
   perform 1 from public.profiles where id=new.user_id and account_status='active' for update;
   if not found or not private.account_active(new.user_id) then raise exception 'account_inactive'; end if;

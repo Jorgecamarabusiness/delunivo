@@ -1,5 +1,7 @@
 import { Alert } from "@/components/ui/Alert";
 import { Badge } from "@/components/ui/Badge";
+import { buttonClassName } from "@/components/ui/Button";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AddAdminEmailForm } from "@/app/admin/emails/AddAdminEmailForm";
 import { AdminEmailRow } from "@/app/admin/emails/AdminEmailRow";
@@ -193,6 +195,9 @@ export default async function PlatformAdminPage({
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
         Zona exclusiva de superadministradores para precio, empresas, ofertas y correos de prueba.
       </p>
+      <Link href="/admin/plataforma/cuentas" className={buttonClassName("outline", "sm", "mt-5")}>
+        Gestionar cuentas
+      </Link>
 
       <section id="precio" className="mt-10 scroll-mt-6 rounded-lg border border-border p-5 sm:p-6">
         <h2 className="text-xl font-semibold">Precio de Delunivo</h2>

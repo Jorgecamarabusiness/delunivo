@@ -1,8 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { assertIsolatedE2EEnvironment } from "./scripts/e2e-safety.mjs";
 
 // En CI las variables llegan como Secrets de GitHub; en local se leen de
 // estos dos archivos (ambos ignorados por git, ver .gitignore: ".env*").
-for (const file of [".env.local", ".env.e2e.local"]) {
+for (const file of [".env.e2e.local"]) {
   try {
     process.loadEnvFile(file);
   } catch {
@@ -10,17 +11,7 @@ for (const file of [".env.local", ".env.e2e.local"]) {
   }
 }
 
-const productionProjectRef = "jgxqdzmmeveksseflyst";
-const e2eSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-if (e2eSupabaseUrl) {
-  const targetRef = new URL(e2eSupabaseUrl).hostname.split(".")[0];
-  if (targetRef === productionProjectRef) {
-    throw new Error(
-      "E2E bloqueado: NEXT_PUBLIC_SUPABASE_URL apunta al proyecto de producción. " +
-        "Configura un proyecto o rama Supabase exclusivo para pruebas."
-    );
-  }
-}
+assertIsolatedE2EEnvironment();
 
 const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
@@ -49,12 +40,22 @@ export default defineConfig({
   webServer: {
     command: `npm run build && npm run start -- -p ${PORT}`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     // `npm run build` completo entra justo en 180s en una máquina lenta o con
     // la caché fría; si expira, TODOS los tests fallan de golpe y parece un
     // problema del código.
     timeout: 300_000,
     env: {
+      // Next also loads .env.local; blank external keys to prevent fallback.
+      RESEND_API_KEY: "",
+      MUX_TOKEN_ID: "",
+      MUX_TOKEN_SECRET: "",
+      MUX_SIGNING_KEY: "",
+      MUX_PRIVATE_KEY: "",
+      MUX_WEBHOOK_SECRET: "",
+      WHOP_API_KEY: "",
+      WHOP_WEBHOOK_SECRET: "",
+      STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY ?? "sk_test_fixture",
       // Sin esto, cada corrida de la suite manda invitaciones de verdad a los
       // correos de `admin_emails`. Los tests comprueban el estado en base de
       // datos, no que Resend entregue.

@@ -53,6 +53,9 @@ async function organizationExists(slug: string): Promise<boolean> {
 }
 
 export async function proxy(request: NextRequest) {
+  // Tenant identity comes exclusively from the URL, never caller-supplied headers.
+  request.headers.delete("x-org-slug");
+  request.headers.delete("x-org-path-prefix");
   const pathMatch = request.nextUrl.pathname.match(ORG_PATH_PREFIX);
 
   if (!pathMatch) {

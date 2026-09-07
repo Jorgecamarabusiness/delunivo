@@ -1,4 +1,4 @@
-import { isUuid } from "./validation.ts";
+import { isUuid, validateMuxVideoDuration } from "./validation.ts";
 
 export type MuxVideoStatus =
   | "waiting_for_upload"
@@ -174,6 +174,27 @@ export function normalizeMuxVideoEvent(
     const playbackId = readSignedPlaybackId(data);
     if (status === "ready" && !playbackId) {
       throw new Error("El asset listo no contiene un playback ID firmado.");
+    }
+
+    // A provider-signed event, never the browser's MIME or duration, enables playback.
+    if (status === "ready") {
+      const durationError = validateMuxVideoDuration(data.duration);
+      if (durationError) {
+        return {
+          ...base,
+          uploadId,
+          assetId,
+          playbackId: null,
+          status: "errored",
+          errorType: "invalid_duration",
+          errorMessage: durationError,
+        };
+      }
+      if (!Array.isArray(data.tracks) || !data.tracks.some(track =>
+        track && typeof track === "object" && (track as Record<string, unknown>).type === "video")) {
+        return { ...base, uploadId, assetId, playbackId: null, status: "errored",
+          errorType: "video_track_missing", errorMessage: "El archivo procesado no contiene una pista de vídeo verificable." };
+      }
     }
 
     return {

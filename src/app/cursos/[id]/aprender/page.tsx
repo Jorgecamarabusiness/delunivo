@@ -80,12 +80,15 @@ export default async function AprenderPage({
         .select("id")
         .eq("user_id", user.id)
         .eq("course_id", id)
+        .eq("organization_id", course.organization_id)
+        .eq("access_status", "active")
         .maybeSingle(),
       supabase
         .from("student_course_access")
         .select("course_id")
         .eq("user_id", user.id)
         .eq("course_id", id)
+        .is("revoked_at", null)
         .maybeSingle(),
       supabase.rpc("is_org_student", { org_id: course.organization_id }),
     ]);

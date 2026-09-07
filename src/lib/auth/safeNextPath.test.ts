@@ -9,6 +9,9 @@ import { safeNextPath } from "./safeNextPath.ts";
  * al usuario a una copia del sitio que le pida la contraseña otra vez.
  */
 describe("safeNextPath — protección contra redirección abierta", () => {
+  test("rechaza barras invertidas, controles y destinos codificados ambiguos", () => {
+    for (const value of ["/\\evil.test", "/%5cevil.test", "/%2fevil.test", "/\nevil.test", "/%0aevil.test", "/%invalid"]) assert.equal(safeNextPath(value), null);
+  });
   test("acepta una ruta relativa normal", () => {
     assert.equal(safeNextPath("/cursos"), "/cursos");
   });

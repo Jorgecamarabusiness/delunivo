@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { getAllowedEmbed } from "@/lib/embedUrl";
 
 export function EmbedMediaForm({
   initialTitle = "",
@@ -22,6 +23,7 @@ export function EmbedMediaForm({
 }) {
   const [title, setTitle] = useState(initialTitle);
   const [url, setUrl] = useState(initialUrl);
+  const allowedEmbed = getAllowedEmbed(url.trim());
 
   return (
     <form
@@ -43,15 +45,22 @@ export function EmbedMediaForm({
       </label>
 
       <label className="mt-4 block text-xs font-medium text-muted-foreground">
-        URL para insertar (YouTube, Vimeo, Loom...)
+        URL de vídeo (YouTube o Vimeo)
         <input
           type="url"
           value={url}
           onChange={(event) => setUrl(event.target.value)}
           className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm text-foreground"
-          placeholder="https://..."
+          placeholder="https://www.youtube.com/watch?v=..."
         />
       </label>
+
+      {url.trim() && !allowedEmbed ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Solo YouTube y Vimeo se cargan dentro del aula. Esta URL se conservará
+          como enlace externo seguro si la guardas.
+        </p>
+      ) : null}
 
       {error ? (
         <p className="mt-4 text-xs font-medium text-muted-foreground">

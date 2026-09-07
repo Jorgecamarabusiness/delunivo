@@ -14,6 +14,8 @@ import {
   type CurrentOrganization,
 } from "@/lib/organizations/getCurrentOrganization";
 import { orgPath } from "@/lib/organizations/orgPath";
+import { isFreeCoursePrice, parseFiniteCoursePrice } from "@/lib/courses/freeCourseAccess";
+import { SellerLegalInfoCard } from "@/components/organizations/SellerLegalInfo";
 
 /**
  * Portal público de una empresa (/o/<slug>). El hero lo protagoniza el curso
@@ -93,7 +95,11 @@ export async function OrganizationLanding({
                     </div>
 
                     <p className="mt-4 text-sm text-muted-foreground">
-                      Desde {formatPrice(featured.price)}
+                      {isFreeCoursePrice(featured.price)
+                        ? "Curso gratuito"
+                        : parseFiniteCoursePrice(featured.price) === null
+                          ? "Precio no disponible"
+                          : `Desde ${formatPrice(featured.price)}`}
                     </p>
                   </>
                 ) : (
@@ -163,6 +169,16 @@ export async function OrganizationLanding({
             </Container>
           </section>
         )}
+
+        <section className="border-t border-border">
+          <Container width="md" className="py-10 sm:py-12">
+            <SellerLegalInfoCard
+              organizationName={organization.name}
+              seller={organization.sellerLegal}
+              compact
+            />
+          </Container>
+        </section>
       </main>
 
       <Footer />

@@ -9,7 +9,7 @@ import { Container } from "@/components/ui/Container";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-type AccessSource = "purchase" | "invite";
+type AccessSource = "purchase" | "invite" | "free" | "inactive_purchase";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -19,14 +19,15 @@ export default async function ProfilePage() {
 
   if (!user) redirect("/login?next=/perfil");
 
-  const [{ data: profile }, { data: purchases }, { data: invitedAccess }, { data: memberships }] =
+  const [{ data: profile }, { data: purchases }, { data: grantedAccess }, { data: memberships }] =
     await Promise.all([
       supabase.from("profiles").select("name, email").eq("id", user.id).maybeSingle(),
-      supabase.from("purchases").select("course_id").eq("user_id", user.id),
+      supabase.from("purchases").select("course_id, access_status").eq("user_id", user.id),
       supabase
         .from("student_course_access")
-        .select("course_id")
-        .eq("user_id", user.id),
+        .select("course_id, grant_source")
+        .eq("user_id", user.id)
+        .is("revoked_at", null),
       supabase
         .from("organization_students")
         .select("organization_id, status")
@@ -37,13 +38,14 @@ export default async function ProfilePage() {
   for (const purchase of purchases ?? []) {
     sourceByCourse.set(
       purchase.course_id,
-      new Set([...(sourceByCourse.get(purchase.course_id) ?? []), "purchase"])
+      new Set([...(sourceByCourse.get(purchase.course_id) ?? []), purchase.access_status === "active" ? "purchase" : "inactive_purchase"])
     );
   }
-  for (const access of invitedAccess ?? []) {
+  for (const access of grantedAccess ?? []) {
+    const source: AccessSource = access.grant_source === "free" ? "free" : "invite";
     sourceByCourse.set(
       access.course_id,
-      new Set([...(sourceByCourse.get(access.course_id) ?? []), "invite"])
+      new Set([...(sourceByCourse.get(access.course_id) ?? []), source])
     );
   }
 
@@ -92,8 +94,8 @@ export default async function ProfilePage() {
               Mis cursos
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Aquí aparecen juntos tus cursos comprados e invitados, aunque sean
-              de empresas diferentes.
+              Aquí aparecen tus cursos comprados, invitados y gratuitos, aunque
+              sean de empresas diferentes.
             </p>
 
             {!courses?.length ? (
@@ -111,7 +113,7 @@ export default async function ProfilePage() {
                     membershipByOrganization.get(course.organization_id) === "active";
                   const canOpen =
                     Boolean(organization) &&
-                    membershipActive &&
+                    membershipActive && (sources.has("purchase") || sources.has("invite") || sources.has("free")) &&
                     course.status === "published";
 
                   return (
@@ -126,11 +128,15 @@ export default async function ProfilePage() {
                       />
                       <div className="p-5">
                         <div className="flex flex-wrap gap-2">
+                          {sources.has("inactive_purchase") ? <Badge variant="outline">Compra sin acceso vigente</Badge> : null}
                           {sources.has("purchase") ? (
                             <Badge variant="solid">Comprado</Badge>
                           ) : null}
                           {sources.has("invite") ? (
                             <Badge variant="outline">Invitado</Badge>
+                          ) : null}
+                          {sources.has("free") ? (
+                            <Badge variant="outline">Gratuito</Badge>
                           ) : null}
                         </div>
                         <h3 className="mt-3 text-lg font-semibold">{course.title}</h3>
@@ -153,7 +159,7 @@ export default async function ProfilePage() {
                         ) : (
                           <p className="mt-5 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
                             {membershipActive
-                              ? "Este curso no está publicado ahora mismo."
+                              ? sources.has("inactive_purchase") ? "El acceso de esta compra ya no está vigente. Contacta con la escuela para revisar el pago." : "Este curso no está publicado ahora mismo."
                               : "Tu acceso a esta empresa está desactivado. Contacta con su administrador."}
                           </p>
                         )}
@@ -163,6 +169,21 @@ export default async function ProfilePage() {
                 })}
               </div>
             )}
+          </section>
+
+          <section className="mt-12 border-t border-border pt-10" aria-labelledby="account-danger-title">
+            <h2 id="account-danger-title" className="text-xl font-semibold">Cuenta</h2>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+              Puedes solicitar el borrado de tu perfil, sesiones y progreso. Tus
+              escuelas y cursos no se eliminan; si eres propietario, tendrás que
+              asignar una persona sucesora antes de confirmar.
+            </p>
+            <Link
+              href="/cuenta/eliminar"
+              className={buttonClassName("danger", "sm", "mt-5")}
+            >
+              Eliminar mi cuenta
+            </Link>
           </section>
         </Container>
       </main>

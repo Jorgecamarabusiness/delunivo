@@ -28,6 +28,7 @@ revoke all on function public.purge_expired_operational_data() from public,anon,
 grant execute on function public.purge_expired_operational_data() to service_role;
 
 -- Reserve capacity before asking Mux for a URL. Locks prevent ID-hopping races.
+alter table public.video_assets alter column mux_upload_id drop not null;
 alter table public.video_assets add column declared_size_bytes bigint
   check (declared_size_bytes between 1 and 21474836480);
 create or replace function private.guard_mux_upload_reservation()
