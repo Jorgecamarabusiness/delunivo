@@ -34,6 +34,16 @@ try {
   const expectedNames = Object.entries(expected).flatMap(([schema,names]) => names.split(" ").map(name => `${schema}.${name}`)).sort();
   if (JSON.stringify(snapshot.tables.map(t => `${t.schema}.${t.name}`).sort()) !== JSON.stringify(expectedNames)) throw new Error();
   const tables = snapshot.tables.filter(t => !((t.schema === "auth" && t.name === "schema_migrations") || (t.schema === "storage" && t.name === "migrations")));
+  phase = "schema_compatibility";
+  const catalog = JSON.parse(execFileSync("docker", ["exec", "supabase_db_delunivo-audit", "psql", "-U", "postgres", "-d", "postgres", "-At", "-c",
+    "select json_agg(json_build_object('schema',table_schema,'name',table_name,'column',column_name)) from information_schema.columns where table_schema in ('public','auth','storage')"],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+  const missing = tables.flatMap(t => t.columns.filter(c => !catalog.some(a => a.schema === t.schema && a.name === t.name && a.column === c)).map(c => `${t.schema}.${t.name}.${c}`));
+  if (missing.length) {
+    // Schema identifiers from the allowlisted manifest are safe; never print rows.
+    console.error(JSON.stringify({ missingSchemaColumns: missing }));
+    throw new Error();
+  }
   const ident = x => { if (!/^[a-z_][a-z0-9_]*$/.test(x)) throw new Error(); return `"${x}"`; };
   const qualified = t => `${ident(t.schema)}.${ident(t.name)}`;
   const statements = ["begin; set local session_replication_role=replica;", `truncate ${tables.map(qualified).join(",")} restart identity cascade;`];
@@ -71,7 +81,14 @@ try {
   const file = join(temporary, "restore.sql");
   writeFileSync(file, statements.join("\n"), { mode: 0o600 });
   phase = "restore_and_constraints";
-  execFileSync(process.env.SUPABASE_CLI || "supabase", ["db", "query", "--local", "--file", file], { maxBuffer: 4 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
+  try {
+    execFileSync(process.env.SUPABASE_CLI || "supabase", ["db", "query", "--local", "--file", file], { maxBuffer: 4 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
+  } catch (error) {
+    const diagnostic = Buffer.isBuffer(error.stderr) ? error.stderr.toString() : "";
+    const sqlstate = diagnostic.match(/SQLSTATE[ :]+([0-9A-Z]{5})/)?.[1];
+    console.error(JSON.stringify({ sqlstate: sqlstate ?? "unavailable" }));
+    throw new Error();
+  }
   console.log(JSON.stringify({ restored: "database_and_metadata", tables: tables.length, rows: tables.reduce((n,t) => n + t.rows.length, 0), snapshotSha256: secrets.DELUNIVO_RESTORE_SHA256, foreignKeys: "verified", sequences: "advanced", externalMutations: 0 }));
 } catch {
   // Never log a caught command error: it may embed SQL, passwords or user rows.
