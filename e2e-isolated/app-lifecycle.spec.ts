@@ -93,7 +93,7 @@ test("superadmin controla Run as y elimina otra identidad sintetica con reautent
   await page.getByRole("button", { name: /iniciar run as/i }).click();
   await expect(page.getByText(/motivo de soporte de entre 5 y 500/i)).toBeVisible();
   await page.goto("/admin/plataforma/cuentas");
-  await expect(page.getByText(appFixture.learner.email)).toBeVisible();
+  await expect(page.getByRole("row", { name: new RegExp(appFixture.learner.email) })).toBeVisible();
   await page.getByRole("row", { name: new RegExp(appFixture.adminDelete.email) }).getByRole("link", { name: /revisar eliminaci/i }).click();
   await expect(page.getByRole("heading", { name: "Eliminar cuenta" })).toBeVisible();
   await page.getByLabel(/motivo de la eliminaci.n administrativa/i).fill("Solicitud de prueba sintetica");
