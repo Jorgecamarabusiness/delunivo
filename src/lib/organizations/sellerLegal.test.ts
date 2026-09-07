@@ -13,6 +13,8 @@ const complete = {
   seller_address: "Calle Ejemplo 1",
   seller_contact_email: "contacto@ejemplo.test",
   seller_country: "Colombia",
+  seller_access_terms: null,
+  seller_refund_terms: null,
 };
 
 describe("información pública del vendedor", () => {
@@ -23,6 +25,8 @@ describe("información pública del vendedor", () => {
       address: " Bogotá ",
       contactEmail: "contacto@ejemplo.test",
       country: "Colombia",
+      accessTerms: " Acceso durante 12 meses. ",
+      refundTerms: " Consulta las condiciones antes de comprar. ",
     });
 
     assert.deepEqual(result, {
@@ -33,6 +37,8 @@ describe("información pública del vendedor", () => {
         seller_address: "Bogotá",
         seller_contact_email: "contacto@ejemplo.test",
         seller_country: "Colombia",
+        seller_access_terms: "Acceso durante 12 meses.",
+        seller_refund_terms: "Consulta las condiciones antes de comprar.",
       },
     });
   });
@@ -51,9 +57,28 @@ describe("información pública del vendedor", () => {
         address: "",
         contactEmail: "correo-invalido",
         country: "",
+        accessTerms: "",
+        refundTerms: "",
       }),
       { ok: false, error: "Introduce un correo de contacto válido." }
     );
     assert.equal(sellerDisplayName({ ...complete, seller_legal_name: null }, "Mi escuela"), "Mi escuela");
+  });
+
+  test("conserva textos opcionales y limita cada política sin inventar condiciones", () => {
+    const result = validateSellerLegalInput({
+      legalName: "",
+      taxId: "",
+      address: "",
+      contactEmail: "",
+      country: "",
+      accessTerms: "",
+      refundTerms: "x".repeat(4001),
+    });
+
+    assert.deepEqual(result, {
+      ok: false,
+      error: "La información sobre cambios o reembolsos no puede superar 4000 caracteres.",
+    });
   });
 });

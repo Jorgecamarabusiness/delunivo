@@ -84,16 +84,16 @@ export default async function CursoDetallePage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: course }, organization] = await Promise.all([
-    supabase
+  const organization = await getCurrentOrganization();
+  if (!organization) notFound();
+  const { data: course } = await supabase
       .from("courses")
       .select(
         "id, title, price, long_description, learning_points, status, organization_id, thumbnail_url"
       )
       .eq("id", id)
-      .maybeSingle(),
-    getCurrentOrganization(),
-  ]);
+      .eq("organization_id", organization.id)
+      .maybeSingle();
 
   if (!course) {
     notFound();

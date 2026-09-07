@@ -15,7 +15,9 @@ export function SellerLegalInfoCard({
       seller.seller_tax_id ||
       seller.seller_address ||
       seller.seller_contact_email ||
-      seller.seller_country
+      seller.seller_country ||
+      seller.seller_access_terms ||
+      seller.seller_refund_terms
   );
 
   return (
@@ -61,6 +63,18 @@ export function SellerLegalInfoCard({
                   {seller.seller_contact_email}
                 </a>
               </dd>
+            </div>
+          ) : null}
+          {seller.seller_access_terms ? (
+            <div>
+              <dt className="font-medium text-foreground">Información de acceso</dt>
+              <dd className="mt-1 whitespace-pre-line">{seller.seller_access_terms}</dd>
+            </div>
+          ) : null}
+          {seller.seller_refund_terms ? (
+            <div>
+              <dt className="font-medium text-foreground">Información sobre cambios o reembolsos</dt>
+              <dd className="mt-1 whitespace-pre-line">{seller.seller_refund_terms}</dd>
             </div>
           ) : null}
         </dl>

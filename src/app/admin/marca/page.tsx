@@ -30,7 +30,7 @@ export default async function MarcaPage() {
     supabase
       .from("organizations")
       .select(
-        "name, slug, owner_id, tagline_template, hero_subtitle, featured_course_id, logo_url, primary_color, seller_legal_name, seller_tax_id, seller_address, seller_contact_email, seller_country"
+        "name, slug, owner_id, tagline_template, hero_subtitle, featured_course_id, logo_url, primary_color, seller_legal_name, seller_tax_id, seller_address, seller_contact_email, seller_country, seller_access_terms, seller_refund_terms"
       )
       .eq("id", membership.organizationId)
       .single(),
@@ -98,6 +98,8 @@ export default async function MarcaPage() {
           seller_address: organization.seller_address,
           seller_contact_email: organization.seller_contact_email,
           seller_country: organization.seller_country,
+          seller_access_terms: organization.seller_access_terms,
+          seller_refund_terms: organization.seller_refund_terms,
         }}
       />
     </div>

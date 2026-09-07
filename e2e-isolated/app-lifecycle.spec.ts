@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { appFixture } from "./fixtures";
+import { execFileSync } from "node:child_process";
 
 const base = `/o/${appFixture.orgSlug}`;
 test.beforeEach(async ({ context }) => {
@@ -36,7 +37,30 @@ test("los cursos de pago, borrador y alumnos retirados no conceden acceso gratui
   await page.goto(`${base}/cursos/${appFixture.paidCourse}`);
   await expect(page.getByRole("button", { name: "Accede gratis" })).toHaveCount(0);
   const draftResponse = await page.goto(`${base}/cursos/${appFixture.draftCourse}`);
-  expect(draftResponse?.status()).toBe(404);
+  // Next's streamed notFound can retain HTTP 200 after headers were sent.
+  // In both forms, verify actual denial, noindex and no draft title leakage.
+  expect([200, 404]).toContain(draftResponse?.status());
+  await expect(page.getByRole("heading", { name: "Esta página no existe" })).toBeVisible();
+  await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute("content", /noindex/);
+  await expect(page.getByText("Curso E2E borrador", { exact: true })).toHaveCount(0);
+});
+
+test("registro y verificación reales conservan la intención del curso gratuito", async ({ page }) => {
+  await page.goto(`${base}/cursos/${appFixture.freeCourse}`);
+  await page.getByRole("link", { name: "Accede gratis", exact: true }).click();
+  await page.getByRole("link", { name: "Regístrate", exact: true }).click();
+  await page.getByLabel("Nombre completo", { exact: true }).fill("Registro sintético");
+  await page.getByLabel("Correo electrónico", { exact: true }).fill("app-e2e-register@synthetic.invalid");
+  await page.getByLabel("Contraseña", { exact: true }).fill("Synthetic-register-123!");
+  await page.getByLabel("Confirmar contraseña", { exact: true }).fill("Synthetic-register-123!");
+  await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
+  await page.waitForURL(/\/verificar\?/);
+  expect(new URL(page.url()).searchParams.get("next")).toBe(`${base}/cursos/${appFixture.freeCourse}/acceder`);
+  execFileSync(process.execPath, ["scripts/isolated-signup-code.mjs", "app-e2e-register@synthetic.invalid"], { stdio: "pipe" });
+  await page.getByLabel("Código de verificación", { exact: true }).fill("729184");
+  await page.getByRole("button", { name: "Confirmar", exact: true }).click();
+  await page.waitForURL(new RegExp(`${base}/cursos/${appFixture.freeCourse}/aprender`));
+  await expect(page.getByRole("heading", { name: "Curso E2E gratuito", exact: true })).toBeVisible();
 });
 
 test("la eliminacion propia exige reautenticacion y revoca la sesion sintetica", async ({ page }) => {

@@ -158,6 +158,8 @@ export async function updateSellerLegalAction(
     address: String(formData.get("address") ?? ""),
     contactEmail: String(formData.get("contactEmail") ?? ""),
     country: String(formData.get("country") ?? ""),
+    accessTerms: String(formData.get("accessTerms") ?? ""),
+    refundTerms: String(formData.get("refundTerms") ?? ""),
   });
   if (!validation.ok) return { error: validation.error };
 

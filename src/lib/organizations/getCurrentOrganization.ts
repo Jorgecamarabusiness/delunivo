@@ -37,7 +37,7 @@ export const getCurrentOrganization = cache(
     const { data: org } = await supabase
       .from("organizations")
       .select(
-        "id, name, slug, tagline_template, hero_subtitle, featured_course_id, logo_url, primary_color, owner_id, seller_legal_name, seller_tax_id, seller_address, seller_contact_email, seller_country"
+        "id, name, slug, tagline_template, hero_subtitle, featured_course_id, logo_url, primary_color, owner_id, seller_legal_name, seller_tax_id, seller_address, seller_contact_email, seller_country, seller_access_terms, seller_refund_terms"
       )
       .eq("slug", slug)
       .maybeSingle();
@@ -70,6 +70,8 @@ export const getCurrentOrganization = cache(
         seller_address: org.seller_address,
         seller_contact_email: org.seller_contact_email,
         seller_country: org.seller_country,
+        seller_access_terms: org.seller_access_terms,
+        seller_refund_terms: org.seller_refund_terms,
       },
     };
   }

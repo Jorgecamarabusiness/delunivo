@@ -107,6 +107,36 @@ export function SellerLegalForm({ seller }: { seller: SellerLegalInfo }) {
           />
         </Field>
 
+        <Field
+          label="Información de acceso al curso"
+          htmlFor="seller-access-terms"
+          hint="Describe solo las condiciones que apliquen. Debes respetar los derechos obligatorios de tus compradores."
+        >
+          <textarea
+            id="seller-access-terms"
+            name="accessTerms"
+            defaultValue={seller.seller_access_terms ?? ""}
+            maxLength={4000}
+            rows={5}
+            className={`${inputClassName} min-h-32 resize-y`}
+          />
+        </Field>
+
+        <Field
+          label="Información sobre cambios o reembolsos"
+          htmlFor="seller-refund-terms"
+          hint="Indica solo lo que ofreces. Estos textos no pueden limitar los derechos obligatorios de tus compradores."
+        >
+          <textarea
+            id="seller-refund-terms"
+            name="refundTerms"
+            defaultValue={seller.seller_refund_terms ?? ""}
+            maxLength={4000}
+            rows={5}
+            className={`${inputClassName} min-h-32 resize-y`}
+          />
+        </Field>
+
         {state.error ? <Alert variant="error">{state.error}</Alert> : null}
         {state.saved ? <Alert variant="success">Datos del vendedor guardados.</Alert> : null}
 

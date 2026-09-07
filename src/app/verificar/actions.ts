@@ -64,7 +64,7 @@ export async function verifyCodeAction(
   redirect(
     started
       ? (next ?? (await orgPath("/cursos")))
-      : `${await orgPath("/login")}?verificado=1`
+      : `${await orgPath("/login")}?verificado=1${next ? `&next=${encodeURIComponent(next)}` : ""}`
   );
 }
 

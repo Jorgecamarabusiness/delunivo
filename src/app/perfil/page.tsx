@@ -22,7 +22,7 @@ export default async function ProfilePage() {
   const [{ data: profile }, { data: purchases }, { data: grantedAccess }, { data: memberships }] =
     await Promise.all([
       supabase.from("profiles").select("name, email").eq("id", user.id).maybeSingle(),
-      supabase.from("purchases").select("course_id, access_status").eq("user_id", user.id),
+      supabase.from("purchases").select("id, course_id, access_status").eq("user_id", user.id),
       supabase
         .from("student_course_access")
         .select("course_id, grant_source")
@@ -140,6 +140,12 @@ export default async function ProfilePage() {
                           ) : null}
                         </div>
                         <h3 className="mt-3 text-lg font-semibold">{course.title}</h3>
+                        {(purchases ?? []).filter(purchase => purchase.course_id === course.id).map(purchase => (
+                          <a key={purchase.id} href={`/api/purchases/${purchase.id}/confirmation`}
+                            className="mt-2 inline-flex min-h-11 items-center text-sm underline underline-offset-4">
+                            Descargar justificante de compra
+                          </a>
+                        ))}
                         {organization ? (
                           <Link
                             href={`/o/${organization.slug}`}
@@ -177,6 +183,7 @@ export default async function ProfilePage() {
               Puedes solicitar el borrado de tu perfil, sesiones y progreso. Tus
               escuelas y cursos no se eliminan; si eres propietario, tendrás que
               asignar una persona sucesora antes de confirmar.
+              Descarga antes los justificantes de compra que necesites conservar.
             </p>
             <Link
               href="/cuenta/eliminar"

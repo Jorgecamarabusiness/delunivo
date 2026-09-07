@@ -4,6 +4,8 @@ export const SELLER_LEGAL_LIMITS = {
   address: 500,
   contactEmail: 254,
   country: 100,
+  accessTerms: 4000,
+  refundTerms: 4000,
 } as const;
 
 export type SellerLegalInfo = {
@@ -12,6 +14,8 @@ export type SellerLegalInfo = {
   seller_address: string | null;
   seller_contact_email: string | null;
   seller_country: string | null;
+  seller_access_terms: string | null;
+  seller_refund_terms: string | null;
 };
 
 export type SellerLegalInput = {
@@ -20,6 +24,8 @@ export type SellerLegalInput = {
   address: string;
   contactEmail: string;
   country: string;
+  accessTerms: string;
+  refundTerms: string;
 };
 
 export type SellerLegalValidation =
@@ -50,6 +56,8 @@ export function validateSellerLegalInput(
     seller_address: optionalValue(input.address),
     seller_contact_email: optionalValue(input.contactEmail),
     seller_country: optionalValue(input.country),
+    seller_access_terms: optionalValue(input.accessTerms),
+    seller_refund_terms: optionalValue(input.refundTerms),
   };
 
   if (exceeds(value.seller_legal_name, SELLER_LEGAL_LIMITS.legalName)) {
@@ -66,6 +74,12 @@ export function validateSellerLegalInput(
   }
   if (exceeds(value.seller_country, SELLER_LEGAL_LIMITS.country)) {
     return { ok: false, error: "El país o territorio no puede superar 100 caracteres." };
+  }
+  if (exceeds(value.seller_access_terms, SELLER_LEGAL_LIMITS.accessTerms)) {
+    return { ok: false, error: "La información sobre el acceso no puede superar 4000 caracteres." };
+  }
+  if (exceeds(value.seller_refund_terms, SELLER_LEGAL_LIMITS.refundTerms)) {
+    return { ok: false, error: "La información sobre cambios o reembolsos no puede superar 4000 caracteres." };
   }
   if (
     value.seller_contact_email !== null &&
