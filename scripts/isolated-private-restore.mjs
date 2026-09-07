@@ -82,7 +82,7 @@ try {
   writeFileSync(file, statements.join("\n"), { mode: 0o600 });
   phase = "restore_and_constraints";
   try {
-    execFileSync("docker", ["exec", "-i", "supabase_db_delunivo-audit", "psql", "-X", "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=sqlstate", "-U", "postgres", "-d", "postgres"], { input: statements.join("\n"), maxBuffer: 4 * 1024 * 1024, stdio: ["pipe", "pipe", "pipe"] });
+    execFileSync("docker", ["exec", "-i", "supabase_db_delunivo-audit", "psql", "-X", "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=sqlstate", "-U", "supabase_admin", "-d", "postgres"], { input: statements.join("\n"), maxBuffer: 4 * 1024 * 1024, stdio: ["pipe", "pipe", "pipe"] });
   } catch (error) {
     const diagnostic = Buffer.isBuffer(error.stderr) ? error.stderr.toString() : "";
     const sqlstate = diagnostic.match(/(?:SQLSTATE[ :]+|ERROR:\s+)([0-9A-Z]{5})/)?.[1];
