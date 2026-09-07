@@ -10,19 +10,22 @@ El trabajo de cierre continúa en `codex/audit-close-20260906`; las pruebas de b
 El registro vigente de commits, CI y próximos pasos es
 [`cierre-auditoria-2026-09.md`](cierre-auditoria-2026-09.md). La CI `c2fd6ce` ya
 reconstruyó y probó Supabase aislado; `4305ca3` añade el nuevo contrato de cuentas
-y gratuidad, todavía sin aplicar a producción.
+y gratuidad, aplicado después dentro del bundle verificado de siete migraciones.
 
-`33a0687` pasa las CI `34104247692` y `34104244104`: siete migraciones nuevas,
-SQL/RLS/Auth/PostgREST/Storage/concurrencia, cinco E2E reales, 114 unitarios,
-lint, build/TypeScript y nueve E2E de auditoría. El restore privado del esquema
-final pasó en el job `101683493178`; sus ocho secretos temporales ya se retiraron.
-Falta cobertura del backup Mux (secreto no recuperable). Stripe LIVE ya tiene
-sesión y endpoints activos verificados; quedan sus eventos adicionales coordinados
-con el nuevo handler. No falta autorización de despliegue; no se ha hecho rollout.
+`9134d25` pasó CI general `34105591595`, CI Supabase `34105586964` y ensayo
+privado `34105664809`: SQL/RLS/Auth/PostgREST/Storage/concurrencia, cinco E2E
+reales, 114 unitarios, lint, build/TypeScript y nueve E2E de auditoría. El
+restore final pasó en el job `101689975903`; sus ocho secretos temporales ya se
+retiraron y no quedan remanentes detectados. El backup Mux cubrió 30 assets,
+cifrado, SHA-256, descifrado y seek aislado. Stripe LIVE tiene sesión y endpoints
+Connect activos; 11 eventos están preparados pero no se guardan hasta que el
+handler esté listo. No falta autorización de despliegue; todavía no se hizo rollout.
 
 El lote local inicial de auditoría está detallado en `docs/auditoria-profesional.md` y sus
-57 controles. Ningún cambio de este lote se ha desplegado ni aplicado a datos reales.
-Los estados de producción indicados más abajo conservan su fecha y evidencia anteriores.
+57 controles. El SQL de cierre sí se aplicó en producción el 2026-09-07 a las
+09:34 UTC; el código de este lote no se ha desplegado. Los estados de producción
+indicados más abajo conservan su fecha y evidencia anteriores cuando no se cite
+la aplicación de este bundle.
 
 - Las pruebas automatizadas deben demostrar aislamiento por URL y contenido del entorno.
   La configuración local apuntaba al único Supabase real; el E2E heredado queda bloqueado
@@ -33,25 +36,28 @@ Los estados de producción indicados más abajo conservan su fecha y evidencia a
   confirmadas en el catálogo real. No se conserva el fallback de lecturas/escrituras no atómicas.
 - Objetivo de vídeo: máximo inclusivo de 43.200 segundos, independiente de 20 GiB y 1080p.
   La aplicación valida duración de proveedor y espera `ready` antes de guardar. El cierre
-  atómico se prepara en `20260906213000_require_ready_mux_assets.sql`, todavía sin aplicar.
+  atómico de `20260906213000_require_ready_mux_assets.sql` ya está aplicado y ensayado.
   Los bytes declarados por el navegador no constituyen un límite autoritativo de costes.
 - Playback usa duración verificada + 15 minutos y verifica acceso cada 5 minutos sin
   sustituir innecesariamente el token. Un bearer emitido continúa válido hasta caducar;
   no hay revocación individual instantánea en Mux. Subida real de 12 horas sigue pendiente.
 - Se elimina copy ficticio por defecto, mejora contraste dinámico y estados accesibles,
   y se añaden cabeceras defensivas/noindex privado. No cambian precios ni derechos.
-- La actualización de `origin/main` recupera la baseline y las 21 migraciones del ledger.
-  La reconstrucción y el SQL nuevo de borrado/gratuidad, último owner/superadmin,
-  invitaciones, retención y reservas de vídeo pasan en CI. Los dos E2E de borrado
-  completan Auth real; gratuidad entra al aula sin Connect.
+- La actualización de `origin/main` recupera la baseline de 21 migraciones. El
+  ledger actual suma 29 entradas tras aplicar siete migraciones y el recibo de API.
+  Borrado/gratuidad, último owner/superadmin, invitaciones, retención y reservas de
+  vídeo pasan en CI y SQL aplicado. Los dos E2E de borrado completan Auth real;
+  gratuidad entra al aula sin Connect.
 - Tiptap 3.31.3 y Browserslist 4.28.9: audit limpio, lock actual conservado.
-- Backup privado de BD restaurado en runner efímero: 54 tablas/1446 filas, FK y
-  secuencias verificadas (job 101669740041). Ocho secretos temporales retirados.
-  Storage: 11 objetos cifrados con recuperación/hash comprobados. Mux: falta
-  credencial utilizable para respaldar los vídeos; la pregunta específica está pendiente.
+- Backup privado final restaurado en runner efímero: baseline 21, snapshot de 54
+  tablas/1446 filas y siete migraciones atómicas, FK y secuencias externas verificadas
+  (job 101689975903). Ocho secretos temporales retirados, cero remanentes detectados.
+  Storage: 11 objetos/43.360.601 bytes con recuperación/hash comprobados. Mux: 30
+  assets/658.886.185 bytes cifrados, SHA-256 y descifrado verificados; muestra de
+  90,773 s reproducida con seek aislado.
 - El lote `be37b3b` añade confirmación inmutable de oferta, descarga por comprador,
   condiciones configurables por escuela y test de registro/verificación con retorno.
-  Las migraciones siguen **sin aplicar a producción**, y no se ha desplegado este lote.
+  Sus migraciones forman parte del bundle de siete ya aplicado; el código sigue sin desplegar.
 - Se verificó la configuración legal de Production con los datos ya facilitados.
   La ficha real del vendedor y condiciones de cada escuela deben ser aportadas por
   ella; conectar Stripe no las sustituye. No se certifica conformidad jurídica.
@@ -153,10 +159,9 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 - `test2` quedó en borrador tras verificar cero ventas. Otros cursos pueden ser
   demostraciones y no se ocultan ni eliminan sin una decisión del propietario
   y una comprobación previa de ventas.
-- El historial local y remoto coincide en 21 migraciones. Incluye una baseline
-  reproducible, la eliminación de un índice único duplicado y la optimización
-  de RLS/FKs. Antes de eliminar la rama de prueba se comprobó que coincidía con
-  producción en tablas, columnas, restricciones e índices.
+- La baseline reproducible conserva 21 migraciones históricas; el ledger de
+  producción suma 29 tras el bundle de siete y su recibo de API. El ensayo privado
+  reconstruyó baseline, snapshot y lote nuevo antes de aplicarlo.
 - Los asesores de Supabase ya no muestran funciones `security definer`
   anónimas, FKs sin índice ni avisos de rendimiento RLS. Permanecen como
   hallazgos informativos las tablas privadas con RLS sin policies y las RPC

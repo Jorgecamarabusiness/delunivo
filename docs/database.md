@@ -44,6 +44,8 @@ Añadida el 2026-08-07. Una fila por cliente ("empresa"). Solo branding público
 | logo_url | nullable |
 | primary_color | nullable. Se inyecta como `--accent` en `<html>` desde `src/app/layout.tsx`, junto con un `--accent-foreground` calculado (negro o blanco según la luminancia WCAG del color, ver `src/lib/organizations/brandColor.ts`) para que el texto de los botones siempre se lea. |
 | owner_id | uuid, FK -> auth.users.id — quien creó la organización |
+| seller_legal_name / seller_tax_id / seller_address / seller_contact_email / seller_country | Datos públicos opcionales del vendedor; el identificador no impone formato español. |
+| seller_access_terms / seller_refund_terms | Textos públicos opcionales, máximo 4.000 caracteres cada uno. Se capturan en el snapshot de una compra nueva; no sustituyen derechos legales. |
 | created_at | |
 
 RLS: lectura pública (`anon`+`authenticated`, `using (true)`) porque es branding de una web pública; solo `is_org_admin(id)` puede actualizar. Sin policy de insert/delete — la creación de una organización (más adelante, Fase 6) siempre pasa por service role en una server action, nunca por RLS directa.
@@ -179,7 +181,7 @@ Añadida el 2026-08-07. Roster de alumnos por organización — incluye a quien 
 | organization_id | uuid, FK -> organizations.id |
 | user_id | uuid, FK -> auth.users.id |
 | status | 'active' \| 'removed', default 'active' |
-| joined_via | 'self_register' \| 'invite' \| 'purchase' |
+| joined_via | 'self_register' \| 'invite' \| 'purchase' \| 'free' |
 | invited_by | uuid, FK -> auth.users.id, nullable |
 | removed_at / removed_by / removed_reason | nullable — auditoría de expulsión |
 | created_at | |
@@ -230,12 +232,24 @@ solo admins de la organización de la invitación pueden leer filas; la creació
 ocurre dentro de la RPC validada.
 
 ### student_course_access
-Accesos concedidos fuera del checkout, normalmente al aceptar una invitación.
-La clave primaria `(user_id, course_id)` garantiza un único acceso por alumno y
-curso; conserva `invitation_id`, `granted_by` y `created_at` como auditoría. El
-alumno ve sus filas y los admins solo las de cursos de su organización. No se
-mezcla con `purchases`, por lo que la lista de cursos distingue comprado de
-invitado.
+Accesos concedidos fuera del checkout, normalmente al aceptar una invitación o
+un curso publicado gratuito. La clave primaria `(user_id, course_id)` garantiza
+un único acceso por alumno y curso; conserva `invitation_id`, `granted_by`,
+`grant_source` (`invite` o `free`), `revoked_at` y `created_at` como auditoría.
+El alumno ve sus filas y los admins solo las de cursos de su organización. No se
+mezcla con `purchases`, por lo que la lista de cursos distingue comprado,
+invitado y gratuito; una expulsión o revocación no se reactiva automáticamente.
+
+### account_deletion_jobs
+
+Cola privada y persistente para el borrado solicitado por una persona o por un
+superadministrador. Guarda el objetivo, actor, motivo administrativo cuando
+aplica, estado, etapa, intentos, lease, hash de seguimiento y tombstone. Solo
+`service_role` tiene privilegios directos: las rutas de producto validan la
+contraseña del actor, sucesión de ownership y el último superadministrador antes
+de iniciar el trabajo. La purga operacional anonimiza detalles caducados y solo
+retira un tombstone cuando no pueda romper referencias históricas de pagos o
+auditoría.
 
 ### admin_emails
 Añadida el 2026-08-11. Lista de correos de prueba de la PLATAFORMA (no de ninguna empresa). Mientras el envío real está desactivado, todo email de la aplicación se redirige a las filas `is_active = true` en vez de ir a su destinatario real — ver "Emails" más abajo.
@@ -578,16 +592,17 @@ El inventario de `docs/auditoria-inventario.md` enumera las 25 tablas públicas 
 RLS y las funciones/RPC; no se encontraron vistas públicas. Esto no sustituye
 pruebas de roles sobre una base aislada ni certifica todos los grants.
 
-El ledger remoto tiene 21 entradas. Estas tres no tienen archivo correspondiente
-en `supabase/migrations/`; además hay nombres/versiones históricas no alineados:
+La lectura de 2026-09-06 registró 21 entradas históricas. Las tres siguientes
+ya fueron recuperadas en la baseline y el ledger actual suma 29 entradas tras el
+bundle aplicado; esta lista se conserva solo como contexto histórico:
 
 - `20260902092019_harden_signup_media_and_progress`
 - `20260902124433_remove_redundant_purchase_unique`
 - `20260902124822_optimize_rls_and_foreign_keys`
 
-No se han reconstruido ni aplicado esas migraciones. Recuperar el SQL original,
-compararlo con DDL/grants/triggers reales y construir baseline reproducible es el
-siguiente lote de datos. No usar datos reales para rellenar la baseline.
+El SQL se recuperó y se incluyó en la baseline reproducible. Las comprobaciones
+de DDL/grants/triggers y la aplicación del bundle se documentan en el cierre de
+septiembre; no se usaron datos reales para completar la baseline.
 
 RPC de verificación confirmadas con `SECURITY DEFINER`, search_path `public, pg_temp`
 y ejecución exclusiva de `service_role`:
@@ -619,13 +634,13 @@ Rollback versionado restaura la definición remota leída; es una protección m�
 no debe ejecutarse como prueba en producción. Validación SQL y concurrencia requieren
 baseline aislada antes de cualquier rollout de este cambio.
 
-### Cierre de septiembre: esquema preparado frente a esquema aplicado
+### Cierre de septiembre: esquema aplicado y restauración ensayada
 
 Actualización 2026-09-07. Las limitaciones de reconstrucción/restore descritas
 en el inventario inicial anterior quedan sustituidas por las ejecuciones de
-[`cierre-auditoria-2026-09.md`](cierre-auditoria-2026-09.md). Producción conserva
-21 migraciones hasta `20260902124822`; las siguientes están versionadas y aún
-no aplicadas allí:
+[`cierre-auditoria-2026-09.md`](cierre-auditoria-2026-09.md). Las siete
+migraciones siguientes se aplicaron en `jgxqdzmmeveksseflyst` a las 09:34 UTC
+mediante el bundle exacto ensayado en CI:
 
 | Migración | Contrato |
 |---|---|
@@ -637,10 +652,12 @@ no aplicadas allí:
 | `20260907100000` | Condiciones opcionales de escuela ≤4000 caracteres; snapshots inmutables de oferta/consentimiento en intento y compra. No se reconstruyen contratos históricos ficticios. |
 | `20260907101500` | Referencias exactas de Storage con bucket/ruta, URL codificada y rich text; conserva medios de escuela y deja objetos sin asociación para revisión explícita. |
 
-Las siete migraciones y sus pruebas pasan juntas en la CI final de `33a0687`
-(`34104244104`), además del pase anterior de `d3e837b` (`34102906720`).
-SQL probado, migración aplicada y código desplegado son estados
-distintos: los dos últimos siguen pendientes en producción.
+El ledger de producción tiene 29 entradas: las 21 históricas, estas siete y el
+recibo de API `20260907093414_audit_close_verified_bundle.sql` (no-op local,
+commit `09fb064`). El bundle se ensayó antes de aplicar; CI `9134d25`
+(`34105591595` general y `34105586964` Supabase) y el ensayo privado
+`34105664809` pasaron. SQL aplicado y código desplegado siguen siendo estados
+distintos: el despliegue de aplicación continúa pendiente.
 
 Los detalles de auditoría de borrado caducan al año y el tombstone mínimo a
 seis años; las referencias históricas se desacoplan antes de retirar el tombstone.
@@ -648,13 +665,22 @@ La cola y las RPC de limpieza/conciliación son exclusivas del servidor. La
 identidad Auth se elimina al final, tras pagos y propiedad Storage; los medios,
 ownership sucesor, suscripción SaaS y Connect de la escuela se conservan.
 
-El restore privado del esquema final, job `101683493178` de `34103612710`,
-recuperó 54 tablas/1446 filas con FK y secuencias verificadas. Los ocho secretos
-temporales se retiraron y el inventario remoto confirmó cero restantes.
+El restore privado final, job `101689975903` de `34105664809`, restauró baseline
+21, snapshot de 54 tablas/1.446 filas y el lote de siete migraciones de forma
+atómica; verificó FK y secuencias externas. Los ocho secretos temporales se
+retiraron y el inventario remoto confirmó cero restantes.
 Los dos ledgers de proveedor excluidos de importación se reconstruyen con Auth y
 Storage de la versión fijada. Una restauración futura de producción exige aplicar
 primero los tombstones posteriores al snapshot antes de habilitar sesiones/tráfico.
-No se ha restaurado ni borrado producción durante estas pruebas.
+No se ha restaurado ni borrado producción durante estas pruebas. Tras aplicar
+SQL, el catálogo agregado confirmó 16 perfiles activos, 4 escuelas, 9 cursos, 3
+compras, 11 objetos Storage y cero trabajos de borrado o checkouts de curso.
+
+El backup de Storage verificó 11 objetos y 43.360.601 bytes. El backup de Mux
+verificó 30 assets y 658.886.185 bytes cifrados con SHA-256, descifrado completo,
+reproducción y seek aislados de una muestra de 90,773 s. Cubre 27 assets con fila
+de base y 3 sin fila. Las master URLs se desactivaron, el token temporal quedó
+revocado (API 401) y el archivo temporal de entorno fue retirado.
 
 ### Dominio vigente (sin cambios)
 
