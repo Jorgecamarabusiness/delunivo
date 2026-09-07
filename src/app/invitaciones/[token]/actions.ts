@@ -108,7 +108,7 @@ export async function acceptInvitationWithNewAccountAction(
   });
 
   if (createError || !created.user) {
-    return { error: createError?.message ?? "No se pudo crear la cuenta." };
+    return { error: "No se pudo crear la cuenta. Revisa los datos e inténtalo de nuevo." };
   }
 
   const membershipError = await completeMembership(admin, invitation, created.user.id);

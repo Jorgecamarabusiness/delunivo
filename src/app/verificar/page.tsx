@@ -20,6 +20,10 @@ export default async function VerificarPage({
 
   const loginHref = await orgPath("/login");
   const fallbackNext = await orgPath("/cursos");
+  const safeNext = safeNextPath(next);
+  const loginWithNextHref = safeNext
+    ? `${loginHref}?next=${encodeURIComponent(safeNext)}`
+    : loginHref;
 
   return (
     <AuthShell
@@ -31,14 +35,14 @@ export default async function VerificarPage({
         </>
       }
       footer={
-        <Link href={loginHref} className="font-medium underline">
+        <Link href={loginWithNextHref} className="font-medium underline">
           Volver a iniciar sesión
         </Link>
       }
     >
       <VerifyForm
         email={email}
-        next={safeNextPath(next) ?? fallbackNext}
+        next={safeNext ?? fallbackNext}
         deliveryNeedsRetry={delivery === "retry"}
       />
     </AuthShell>

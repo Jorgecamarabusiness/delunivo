@@ -1,13 +1,16 @@
 // Crea (o resetea) el tenant, curso y las 3 cuentas fijas de Playwright.
 // Es idempotente y está bloqueado contra el proyecto real de producción.
 //
-// Uso: node --env-file=.env.local scripts/seed-e2e-users.mjs
+// Uso: node --env-file=.env.e2e.local scripts/seed-e2e-users.mjs
 //
-// Requiere en .env.local: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+// Requiere en .env.e2e.local: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY y E2E_DATA_POLICY.
 
 import { createClient } from "@supabase/supabase-js";
 import crypto from "node:crypto";
 import { writeFile } from "node:fs/promises";
+import { assertIsolatedE2EEnvironment } from "./e2e-safety.mjs";
+
+assertIsolatedE2EEnvironment();
 
 const PRODUCTION_PROJECT_REF = "jgxqdzmmeveksseflyst";
 const MAIN_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";

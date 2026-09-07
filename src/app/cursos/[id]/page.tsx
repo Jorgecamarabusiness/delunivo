@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Container } from "@/components/ui/Container";
@@ -9,22 +11,69 @@ import { createClient } from "@/lib/supabase/server";
 import { orgPath } from "@/lib/organizations/orgPath";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
 import { formatPrice } from "@/lib/format";
+import { isFreeCoursePrice, parseFiniteCoursePrice } from "@/lib/courses/freeCourseAccess";
+import { FreeCourseAccessButton } from "./FreeCourseAccessButton";
+import { SellerLegalInfoCard } from "@/components/organizations/SellerLegalInfo";
+import { coursePath, metadataDescription } from "@/lib/seo/publicUrls";
 
-async function NotFound() {
-  const homeHref = await orgPath("/");
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const organization = await getCurrentOrganization();
 
-  return (
-    <div className="flex flex-1 flex-col bg-background text-foreground">
-      <Header />
-      <div className="mx-auto flex flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center">
-        <p className="text-sm text-muted-foreground">Curso no encontrado.</p>
-        <Link href={homeHref} className="text-sm font-medium hover:underline">
-          ← Volver al inicio
-        </Link>
-      </div>
-      <Footer />
-    </div>
-  );
+  if (!organization) {
+    return {
+      title: "Contenido no disponible",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: course } = await supabase
+    .from("courses")
+    .select("id, title, long_description, thumbnail_url")
+    .eq("id", id)
+    .eq("organization_id", organization.id)
+    .eq("status", "published")
+    .maybeSingle();
+
+  // Los borradores pueden mostrarse a administradores en la página, pero nunca
+  // se convierten en título, descripción ni URL canónica públicos.
+  if (!course) {
+    return {
+      title: "Contenido no disponible",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const canonical = coursePath(organization.slug, course.id);
+  const description =
+    metadataDescription(course.long_description) ?? `Curso de ${organization.name}.`;
+
+  return {
+    title: `${course.title} | ${organization.name}`,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "website",
+      url: canonical,
+      title: course.title,
+      description,
+      siteName: organization.name,
+      ...(course.thumbnail_url
+        ? { images: [{ url: course.thumbnail_url, alt: course.title }] }
+        : {}),
+    },
+    twitter: {
+      card: course.thumbnail_url ? "summary_large_image" : "summary",
+      title: course.title,
+      description,
+      ...(course.thumbnail_url ? { images: [course.thumbnail_url] } : {}),
+    },
+  };
 }
 
 export default async function CursoDetallePage({
@@ -35,19 +84,19 @@ export default async function CursoDetallePage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: course }, organization] = await Promise.all([
-    supabase
+  const organization = await getCurrentOrganization();
+  if (!organization) notFound();
+  const { data: course } = await supabase
       .from("courses")
       .select(
         "id, title, price, long_description, learning_points, status, organization_id, thumbnail_url"
       )
       .eq("id", id)
-      .maybeSingle(),
-    getCurrentOrganization(),
-  ]);
+      .eq("organization_id", organization.id)
+      .maybeSingle();
 
   if (!course) {
-    return <NotFound />;
+    notFound();
   }
 
   // La policy RLS de `courses` deja leer cualquier fila publicada de cualquier
@@ -55,7 +104,7 @@ export default async function CursoDetallePage({
   // /o/empresaA/cursos/<id-de-empresaB> pintaba el curso de B con la marca de
   // A. La URL manda: si el curso no es de la empresa del portal, no existe aquí.
   if (!organization || course.organization_id !== organization.id) {
-    return <NotFound />;
+    notFound();
   }
 
   const {
@@ -76,7 +125,7 @@ export default async function CursoDetallePage({
   }
 
   if (course.status !== "published" && !isAdmin) {
-    return <NotFound />;
+    notFound();
   }
 
   const longDescription = (course.long_description ?? "")
@@ -85,8 +134,11 @@ export default async function CursoDetallePage({
     .filter((paragraph: string) => paragraph.length > 0);
   const learningPoints: string[] = course.learning_points ?? [];
   const aprenderHref = await orgPath(`/cursos/${course.id}/aprender`);
+  const freeAccessHref = await orgPath(`/cursos/${course.id}/acceder`);
   const loginHref = await orgPath("/login");
   const organizationHomeHref = await orgPath("/");
+  const isFree = isFreeCoursePrice(course.price);
+  const price = parseFiniteCoursePrice(course.price);
 
   const purchasePanel = hasAccess ? (
     <>
@@ -101,16 +153,22 @@ export default async function CursoDetallePage({
   ) : (
     <>
       <p className="text-sm text-muted-foreground">Precio</p>
-      <p className="mt-1 text-4xl font-bold">{formatPrice(Number(course.price))}</p>
+      <p className="mt-1 text-4xl font-bold">
+        {isFree ? "Gratis" : price === null ? "No disponible" : formatPrice(price)}
+      </p>
 
       {user ? (
-        <BuyCourseButton courseId={course.id} />
+        isFree ? (
+          <FreeCourseAccessButton courseId={course.id} aprenderHref={aprenderHref} />
+        ) : (
+          <BuyCourseButton courseId={course.id} />
+        )
       ) : (
         <Link
-          href={loginHref}
+          href={isFree ? `${loginHref}?next=${encodeURIComponent(freeAccessHref)}` : loginHref}
           className={buttonClassName("primary", "md", "mt-6 w-full")}
         >
-          Inicia sesión para comprar
+          {isFree ? "Accede gratis" : "Inicia sesión para comprar"}
         </Link>
       )}
     </>
@@ -170,6 +228,11 @@ export default async function CursoDetallePage({
                   </ul>
                 </div>
               ) : null}
+
+              <SellerLegalInfoCard
+                organizationName={organization.name}
+                seller={organization.sellerLegal}
+              />
             </div>
 
             <div className="hidden h-fit rounded-lg border border-border p-6 lg:sticky lg:top-8 lg:block">

@@ -93,7 +93,7 @@ export async function connectStripeAction(
       // Stripe y el siguiente intento crearía otra. Se borra y se avisa.
       if (saveError) {
         await stripe.accounts.del(accountId).catch(() => {});
-        return { error: saveError.message };
+        return { error: "No se pudieron guardar los cambios. Inténtalo de nuevo." };
       }
     }
 

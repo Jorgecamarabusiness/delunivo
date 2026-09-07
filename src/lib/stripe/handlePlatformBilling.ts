@@ -21,7 +21,7 @@ export async function handlePlatformSubscriptionCheckout(
   const { data: attempt, error: attemptError } = await supabase
     .from("stripe_checkout_attempts")
     .select(
-      "id, checkout_kind, organization_id, user_id, expected_currency, stripe_account_id"
+      "id, checkout_kind, organization_id, user_id, historical_user_id, expected_currency, stripe_account_id"
     )
     .eq("stripe_session_id", session.id)
     .maybeSingle();
@@ -29,7 +29,7 @@ export async function handlePlatformSubscriptionCheckout(
     throw new Error("No existe un intento de suscripción válido para esta sesión.");
   }
 
-  const validationError = validatePlatformCheckoutSession({ session, attempt });
+  const validationError = validatePlatformCheckoutSession({ session, attempt: { ...attempt, user_id: attempt.user_id ?? attempt.historical_user_id } });
   if (validationError) throw new Error(validationError);
 
   const organizationId = attempt.organization_id;

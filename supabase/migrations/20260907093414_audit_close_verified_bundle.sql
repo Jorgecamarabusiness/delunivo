@@ -1,0 +1,4 @@
+-- Migration API receipt for the atomic Production rollout on 2026-09-07.
+-- The seven constituent migrations are independently versioned in this folder
+-- and were recorded atomically by scripts/audit-migration-bundle.mjs.
+-- This marker contains no additional DDL and must not replay those migrations.

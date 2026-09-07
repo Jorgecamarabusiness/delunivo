@@ -2,13 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createMuxSigningClient } from "@/lib/mux/config";
-import { isUuid } from "@/lib/mux/validation";
+import { isUuid, validateMuxVideoDuration } from "@/lib/mux/validation";
+import { playbackTokenLifetimeSeconds } from "@/lib/mux/playbackSession";
 import type { ContentBlock } from "@/types";
 
-const PLAYBACK_TOKEN_TTL = "4h";
-
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -28,19 +27,13 @@ export async function GET(
   const { data: asset, error: assetError } = await admin
     .from("video_assets")
     .select(
-      "id, organization_id, course_id, lesson_id, block_id, mux_playback_id, status, is_current"
+      "id, organization_id, course_id, lesson_id, block_id, mux_playback_id, status, is_current, duration_seconds"
     )
     .eq("id", id)
     .maybeSingle();
 
   if (assetError || !asset || !asset.is_current) {
     return NextResponse.json({ error: "Vídeo no encontrado." }, { status: 404 });
-  }
-  if (asset.status !== "ready" || !asset.mux_playback_id) {
-    return NextResponse.json(
-      { error: "El vídeo todavía no está listo.", status: asset.status },
-      { status: 409, headers: { "Cache-Control": "no-store" } }
-    );
   }
 
   const [{ data: lesson }, { data: course }] = await Promise.all([
@@ -75,45 +68,35 @@ export async function GET(
     return NextResponse.json({ error: "El vídeo ya no está asociado a la lección." }, { status: 404 });
   }
 
-  const [
-    { data: isAdmin },
-    { data: purchase },
-    { data: invitedAccess },
-    { data: isActiveStudent },
-  ] =
-    await Promise.all([
-      supabase.rpc("is_org_admin", { org_id: asset.organization_id }),
-      supabase
-        .from("purchases")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("course_id", asset.course_id)
-        .maybeSingle(),
-      supabase
-        .from("student_course_access")
-        .select("course_id")
-        .eq("user_id", user.id)
-        .eq("course_id", asset.course_id)
-        .maybeSingle(),
-      supabase.rpc("is_org_student", { org_id: asset.organization_id }),
-    ]);
-
-  const studentCanWatch =
-    Boolean(purchase || invitedAccess) &&
-    Boolean(isActiveStudent) &&
-    lesson.status === "published" &&
-    course.status === "published";
+  const [{ data: isAdmin }, { data: hasAccess }] = await Promise.all([
+    supabase.rpc("is_org_admin", { org_id: asset.organization_id }),
+    supabase.rpc("has_course_access", { target_course_id: asset.course_id }),
+  ]);
+  const studentCanWatch = Boolean(hasAccess) && lesson.status === "published" && course.status === "published";
 
   if (!isAdmin && !studentCanWatch) {
     return NextResponse.json({ error: "No tienes acceso a este vídeo." }, { status: 403 });
   }
 
+  if (asset.status !== "ready" || !asset.mux_playback_id || validateMuxVideoDuration(asset.duration_seconds)) {
+    return NextResponse.json(
+      { error: "El vídeo todavía no está listo o no tiene una duración válida.", status: asset.status },
+      { status: 409, headers: { "Cache-Control": "private, no-store" } }
+    );
+  }
+
+  if (new URL(request.url).searchParams.get("check") === "1") {
+    return NextResponse.json({ authorized: true }, { headers: { "Cache-Control": "private, no-store" } });
+  }
+
   let token: string;
+  const lifetimeSeconds = playbackTokenLifetimeSeconds(asset.duration_seconds);
+  const expiresAt = Math.floor(Date.now() / 1_000) * 1_000 + lifetimeSeconds * 1_000;
   try {
     const mux = createMuxSigningClient();
     token = await mux.jwt.signPlaybackId(asset.mux_playback_id, {
       type: "video",
-      expiration: PLAYBACK_TOKEN_TTL,
+      expiration: `${lifetimeSeconds}s`,
     });
   } catch {
     return NextResponse.json(
@@ -123,7 +106,7 @@ export async function GET(
   }
 
   return NextResponse.json(
-    { playbackId: asset.mux_playback_id, token, expiresIn: PLAYBACK_TOKEN_TTL },
+    { playbackId: asset.mux_playback_id, token, expiresAt },
     { headers: { "Cache-Control": "private, no-store" } }
   );
 }

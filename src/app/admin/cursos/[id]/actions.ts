@@ -89,7 +89,7 @@ export async function createSectionAction(
     .single();
 
   if (error || !newSection) {
-    return { ok: false, error: error?.message ?? "No se pudo crear la sección." };
+    return { ok: false, error: "No se pudo crear la sección. Inténtalo de nuevo." };
   }
 
   revalidatePath(`/admin/cursos/${courseId}`);
@@ -122,7 +122,7 @@ export async function updateCourseTitleAction(
     .eq("id", courseId);
 
   if (error) {
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   revalidatePath(`/admin/cursos/${courseId}`);
@@ -143,7 +143,7 @@ export async function updateCourseStatusAction(
     .eq("id", courseId);
 
   if (error) {
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   revalidatePath(`/admin/cursos/${courseId}`);
@@ -172,7 +172,7 @@ export async function updateSectionTitleAction(
     .eq("id", sectionId);
 
   if (error) {
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   return { error: null };
@@ -194,7 +194,7 @@ export async function updateSectionStatusAction(
     .single();
 
   if (error || !section) {
-    return { error: error?.message ?? "No se pudo actualizar la sección." };
+    return { error: "No se pudo guardar los cambios. Inténtalo de nuevo." };
   }
 
   revalidatePath(`/admin/cursos/${section.course_id}`);
@@ -218,7 +218,7 @@ export async function updateLessonStatusAction(
     .single();
 
   if (error || !lesson) {
-    return { error: error?.message ?? "No se pudo actualizar la lección." };
+    return { error: "No se pudo guardar los cambios. Inténtalo de nuevo." };
   }
 
   revalidatePath(`/admin/cursos/${lesson.course_id}`);
@@ -241,7 +241,7 @@ export async function deleteSectionAction(
     .eq("course_id", courseId);
 
   if (error) {
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   revalidatePath(`/admin/cursos/${courseId}`);
@@ -271,7 +271,7 @@ export async function deleteLessonAction(
     .eq("course_id", courseId);
 
   if (error) {
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   revalidatePath(`/admin/cursos/${courseId}`);
@@ -306,7 +306,7 @@ export async function reorderSectionsAction(
 
   const failed = results.find((result) => result.error);
   if (failed?.error) {
-    return { error: failed.error.message };
+    return { error: "No se pudo guardar el contenido. Inténtalo de nuevo." };
   }
 
   return { error: null };
@@ -332,7 +332,7 @@ export async function reorderLessonsAction(
 
   const failed = results.find((result) => result.error);
   if (failed?.error) {
-    return { error: failed.error.message };
+    return { error: "No se pudo guardar el contenido. Inténtalo de nuevo." };
   }
 
   return { error: null };

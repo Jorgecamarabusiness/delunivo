@@ -1,0 +1,8 @@
+### Result
+14. [GET] http://localhost:3217/login?_rsc=5CB68i4pnAekjehf => [200] OK
+15. [GET] http://localhost:3217/crear-empresa?_rsc=5CB68i4pnAekjehf => [200] OK
+16. [GET] http://localhost:3217/?_rsc=tXyZJ52UQVBCVsD3 => [200] OK
+17. [GET] http://localhost:3217/login?_rsc=tXyZJ52UQVBCVsD3 => [200] OK
+18. [GET] http://localhost:3217/crear-empresa?_rsc=tXyZJ52UQVBCVsD3 => [200] OK
+
+Note: 13 static requests not shown, run with --static option to see them.

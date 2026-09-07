@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/verificationCodes";
 import { sendSignupCodeEmail } from "@/lib/email/templates";
 import { passwordPolicyError } from "@/lib/auth/passwordPolicy";
+import { safeNextPath } from "@/lib/auth/safeNextPath";
 
 export type RegisterState = {
   error: string | null;
@@ -31,6 +32,7 @@ export async function registerAction(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const next = safeNextPath(formData.get("next"));
 
   if (!name || !email || !password) {
     return { error: "Completa todos los campos." };
@@ -70,12 +72,12 @@ export async function registerAction(
 
   if (membershipError) {
     await admin.auth.admin.deleteUser(userId).catch(() => {});
-    return { error: membershipError.message };
+    return { error: "No se pudo crear la cuenta. Inténtalo de nuevo." };
   }
 
   const { code, error: codeError } = await issueVerificationCode(email, "signup");
   if (codeError) {
-    const nextPath = await orgPath("/cursos");
+    const nextPath = next ?? (await orgPath("/cursos"));
     redirect(
       `${await orgPath("/verificar")}?email=${encodeURIComponent(email)}&next=${encodeURIComponent(nextPath)}&delivery=retry`
     );
@@ -87,13 +89,13 @@ export async function registerAction(
     minutes: CODE_TTL_MINUTES,
   });
   if (emailError) {
-    const nextPath = await orgPath("/cursos");
+    const nextPath = next ?? (await orgPath("/cursos"));
     redirect(
       `${await orgPath("/verificar")}?email=${encodeURIComponent(email)}&next=${encodeURIComponent(nextPath)}&delivery=retry`
     );
   }
 
-  const nextPath = await orgPath("/cursos");
+  const nextPath = next ?? (await orgPath("/cursos"));
   redirect(
     `${await orgPath("/verificar")}?email=${encodeURIComponent(email)}&next=${encodeURIComponent(nextPath)}`
   );

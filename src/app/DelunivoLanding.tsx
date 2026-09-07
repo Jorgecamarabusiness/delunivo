@@ -18,7 +18,7 @@ const FEATURES = [
   },
   {
     title: "Vídeo protegido",
-    body: "Reproducción protegida con enlaces firmados que caducan y se entregan solo a quien tiene acceso al curso.",
+    body: "La reproducción usa enlaces firmados que caducan y exige un acceso vigente al curso. Esta protección no impide todas las formas de copia.",
   },
 ];
 

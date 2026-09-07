@@ -58,7 +58,7 @@ export async function resetPasswordAction(
     email_confirm: true,
   });
   if (updateError) {
-    return { error: updateError.message };
+    return { error: "No se pudo actualizar la contraseña. Inténtalo de nuevo." };
   }
 
   const started = await startSessionForVerifiedEmail(email);

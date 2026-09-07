@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOrgAdmin } from "@/lib/auth/requireOrgAdmin";
 import { validateContentBlocks } from "@/lib/lessons/contentBlocks";
 import { processMuxDeletionJobs } from "@/lib/mux/deletionJobs";
+import { validateMuxVideoDuration } from "@/lib/mux/validation";
 import type { ContentBlock } from "@/types";
 
 type ActionResult = {
@@ -29,13 +30,31 @@ export async function updateLessonBlocksAction(
   }
 
   const admin = createAdminClient();
+  const muxBlocks = validated.blocks.filter(
+    (block): block is Extract<ContentBlock, { type: "video_file" }> =>
+      block.type === "video_file" && Boolean(block.mux_video_asset_id)
+  );
+  if (muxBlocks.length) {
+    const { data: assets, error: assetsError } = await admin
+      .from("video_assets")
+      .select("id, block_id, status, duration_seconds")
+      .eq("lesson_id", lessonId)
+      .in("id", muxBlocks.map((block) => block.mux_video_asset_id!));
+    if (assetsError) return { error: "No se pudo verificar el estado de los vídeos." };
+    for (const block of muxBlocks) {
+      const asset = assets?.find((item) => item.id === block.mux_video_asset_id && item.block_id === block.id);
+      if (!asset || asset.status !== "ready" || validateMuxVideoDuration(asset.duration_seconds)) {
+        return { error: "Espera a que todos los vídeos estén listos y tengan una duración válida. El contenido anterior se conserva." };
+      }
+    }
+  }
   const { error } = await admin.rpc("update_lesson_blocks_with_mux_assets", {
     p_lesson_id: lessonId,
     p_blocks: validated.blocks,
   });
 
   if (error) {
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   return { error: null };
@@ -61,7 +80,7 @@ export async function updateLessonTitleAction(
     .eq("id", lessonId);
 
   if (error) {
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   return { error: null };
@@ -83,7 +102,7 @@ export async function deleteLessonAction(
     .eq("course_id", courseId);
 
   if (error) {
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   revalidatePath(`/admin/cursos/${courseId}`);

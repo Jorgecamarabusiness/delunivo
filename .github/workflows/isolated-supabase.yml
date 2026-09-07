@@ -1,0 +1,91 @@
+name: Isolated Supabase
+
+on:
+  push:
+    branches: [codex/audit-close-20260906]
+  workflow_dispatch:
+    inputs:
+      private_restore:
+        description: Restore the encrypted private snapshot in an ephemeral runner
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  private_restore:
+    if: github.event_name == 'workflow_dispatch' && inputs.private_restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_CLI: supabase
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+      - name: Start an isolated stack for private recovery verification
+        run: supabase start
+      - name: Reconstruct the current production baseline before importing records
+        run: supabase db reset --local --version 20260902124822 --yes
+      - name: Restore encrypted snapshot without emitting private data
+        env:
+          DELUNIVO_RESTORE_PART_1: ${{ secrets.DELUNIVO_RESTORE_PART_1 }}
+          DELUNIVO_RESTORE_PART_2: ${{ secrets.DELUNIVO_RESTORE_PART_2 }}
+          DELUNIVO_RESTORE_PART_3: ${{ secrets.DELUNIVO_RESTORE_PART_3 }}
+          DELUNIVO_RESTORE_PART_4: ${{ secrets.DELUNIVO_RESTORE_PART_4 }}
+          DELUNIVO_RESTORE_PART_5: ${{ secrets.DELUNIVO_RESTORE_PART_5 }}
+          DELUNIVO_RESTORE_PART_6: ${{ secrets.DELUNIVO_RESTORE_PART_6 }}
+          DELUNIVO_RESTORE_KEY: ${{ secrets.DELUNIVO_RESTORE_KEY }}
+          DELUNIVO_RESTORE_SHA256: ${{ secrets.DELUNIVO_RESTORE_SHA256 }}
+        run: node scripts/isolated-private-restore.mjs
+      - name: Rehearse the atomic rollout against the restored private snapshot
+        run: node scripts/isolated-private-migration.mjs
+      - name: Remove private recovery stack and volumes
+        if: always()
+        run: supabase stop --project-id delunivo-audit --no-backup
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_CLI: supabase
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+      - name: Start an isolated Postgres 17, Auth, REST and Storage stack
+        run: supabase start
+      - name: Reconstruct the database baseline from versioned migrations
+        run: supabase db reset --local --yes
+      - name: Restore the synthetic CI fixture
+        run: supabase db query --local --file supabase/fixtures/isolated-synthetic-backup.sql
+      - name: Run real PostgreSQL, RLS and Mux transaction assertions
+        run: supabase test db --local supabase/tests
+      - name: Exercise atomic OTP limits over local PostgREST
+        run: node scripts/isolated-otp-concurrency.mjs
+      - name: Exercise Auth refresh-token revocation baseline
+        run: node scripts/isolated-auth-revocation-baseline.mjs
+      - name: Exercise Storage authorization with synthetic users
+        run: node scripts/isolated-storage-ab.mjs
+      - name: Exercise free access and account lifecycle with synthetic identities
+        run: |
+          supabase db reset --local --yes
+          supabase db query --local --file supabase/fixtures/isolated-synthetic-backup.sql
+          node scripts/isolated-account-lifecycle.mjs
+      - name: Install application and isolated browser
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Exercise the real application against isolated Supabase
+        run: npx playwright test --config=playwright.isolated.config.ts
+      - name: Remove isolated containers and volumes
+        if: ${{ always() }}
+        run: supabase stop --project-id delunivo-audit --no-backup

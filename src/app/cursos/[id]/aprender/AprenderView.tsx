@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Lesson, Section } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { VideoBlock } from "@/components/lesson-blocks/VideoBlock";
@@ -65,11 +65,46 @@ export function AprenderView({
   // En móvil el índice es un cajón que se abre por encima del contenido. En
   // escritorio (lg+) siempre está visible y este estado no se usa.
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const openIndexButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileIndexRef = useRef<HTMLElement>(null);
+  const closeIndexButtonRef = useRef<HTMLButtonElement>(null);
+  const wasSidebarOpenRef = useRef(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const activeIndex = flatLessons.findIndex((l) => l.id === activeLessonId);
   const activeLesson = activeIndex >= 0 ? flatLessons[activeIndex] : null;
   const isLastLesson = activeIndex === flatLessons.length - 1;
+
+  useEffect(() => {
+    if (sidebarOpen) {
+      wasSidebarOpenRef.current = true;
+      closeIndexButtonRef.current?.focus();
+      const keepFocusInIndex = (event: KeyboardEvent) => {
+        if (event.key === "Escape") setSidebarOpen(false);
+        if (event.key !== "Tab") return;
+        const focusable = mobileIndexRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusable?.length) {
+          event.preventDefault();
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      };
+      window.addEventListener("keydown", keepFocusInIndex);
+      return () => window.removeEventListener("keydown", keepFocusInIndex);
+    } else if (wasSidebarOpenRef.current) {
+      openIndexButtonRef.current?.focus();
+    }
+  }, [sidebarOpen]);
 
   const progress =
     flatLessons.length > 0
@@ -197,7 +232,7 @@ export function AprenderView({
                             ? "Marcar lección como pendiente"
                             : "Marcar lección como completada"
                         }
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs disabled:opacity-60 ${
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-xs disabled:opacity-60 ${
                           isCompleted
                             ? "border-foreground bg-foreground text-background"
                             : isActive
@@ -258,6 +293,9 @@ export function AprenderView({
           type="button"
           onClick={() => setSidebarOpen(true)}
           aria-label="Abrir índice del curso"
+          aria-expanded={sidebarOpen}
+          aria-controls="mobile-course-index"
+          ref={openIndexButtonRef}
           className="rounded-md border border-border p-2 lg:hidden"
         >
           <svg
@@ -288,28 +326,37 @@ export function AprenderView({
       </div>
 
       <div className="relative flex flex-1 overflow-hidden">
-        {sidebarOpen && (
-          <button
-            type="button"
-            aria-label="Cerrar índice"
-            onClick={() => setSidebarOpen(false)}
-            className="absolute inset-0 z-10 bg-foreground/40 lg:hidden"
-          />
-        )}
+        {sidebarOpen ? (
+          <>
+            <button
+              type="button"
+              aria-label="Cerrar índice"
+              onClick={() => setSidebarOpen(false)}
+              className="absolute inset-0 z-10 bg-foreground/40 lg:hidden"
+            />
+            <aside
+              id="mobile-course-index"
+              ref={mobileIndexRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Índice del curso"
+              className="absolute inset-y-0 left-0 z-20 w-[85%] max-w-xs overflow-y-auto border-r border-border bg-background p-6 lg:hidden"
+            >
+              <button
+                ref={closeIndexButtonRef}
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="mb-4 min-h-11 px-2 text-sm text-muted-foreground underline"
+              >
+                Cerrar índice
+              </button>
+              {lessonIndex}
+            </aside>
+          </>
+        ) : null}
 
-        <aside
-          className={`absolute inset-y-0 left-0 z-20 w-[85%] max-w-xs overflow-y-auto border-r border-border bg-background p-6 transition-transform lg:static lg:w-80 lg:max-w-none lg:translate-x-0 ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } lg:shrink-0`}
-        >
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(false)}
-            className="mb-4 text-sm text-muted-foreground underline lg:hidden"
-          >
-            Cerrar
-          </button>
-
+        <aside className="hidden w-80 shrink-0 overflow-y-auto border-r border-border bg-background p-6 lg:block">
           {lessonIndex}
         </aside>
 

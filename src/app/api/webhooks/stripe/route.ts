@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (claimed) await failPlatformWebhookEvent(event.id, error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Error desconocido." },
+      { error: "No se pudo procesar el webhook." },
       { status: 500 }
     );
   }

@@ -25,7 +25,7 @@ export function Field({
         {label}
       </label>
       {children}
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      {hint && <p id={`${htmlFor}-hint`} className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }

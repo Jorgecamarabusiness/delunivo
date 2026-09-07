@@ -15,6 +15,7 @@ export function createMuxApiClient(): Mux {
     tokenId: requireServerEnv("MUX_TOKEN_ID"),
     tokenSecret: requireServerEnv("MUX_TOKEN_SECRET"),
     maxRetries: 2,
+    timeout: 20_000,
   });
 }
 

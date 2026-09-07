@@ -31,11 +31,28 @@ npx tsc --noEmit
 npm run build
 ```
 
-Los E2E crean y eliminan usuarios, organizaciones, cursos y accesos. Deben usar
-un proyecto o rama de Supabase exclusivo para pruebas: **nunca el proyecto de
-producción**. El seed se niega a ejecutar contra el project ref real, prepara
-el tenant, el curso, las cuentas y un vídeo privado sintético, y escribe el
-archivo ignorado `.env.e2e.local` sin pedir que se copien credenciales a mano.
+La regresión de auditoría usa Next y Chromium reales con Supabase simulado en
+loopback. Durante las pruebas se bloquean las solicitudes externas del navegador
+y del `fetch` de servidor. El build permite descargar las fuentes de Next;
+las variables de integraciones se sustituyen por valores sintéticos o vacíos.
+Este control no es un cortafuegos del sistema operativo:
+
+```bash
+npx playwright install chromium
+npm run test:e2e:audit
+```
+
+Usa `http://localhost:3217` y el mock en el puerto 55473, datos ficticios y claves efímeras. El build de esa
+suite contiene configuración local: **no usarlo para desplegar**. No prueba RLS,
+Stripe ni Mux reales.
+
+`npm run test:e2e` conserva la suite de integración con base de datos. Exige
+Supabase en loopback, contenido sintético previamente comprobado,
+`E2E_DATA_POLICY=synthetic-only` y las variables de `.env.e2e.local`. Rechaza
+cloud, claves live y credenciales Mux/Resend. El workflow aislado reconstruye el esquema desde las migraciones versionadas;
+no utiliza secretos ni datos de producción.
+
+La cobertura y el siguiente lote están en `docs/auditoria-profesional.md`.
 
 ```bash
 node scripts/seed-e2e-users.mjs

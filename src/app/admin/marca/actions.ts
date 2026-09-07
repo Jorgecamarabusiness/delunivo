@@ -6,6 +6,9 @@ import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMember
 import { requireOrgAdmin } from "@/lib/auth/requireOrgAdmin";
 import { validateOrganizationSlug } from "@/lib/organizations/slug";
 import type { ActionResult } from "@/types";
+import { validateSellerLegalInput } from "@/lib/organizations/sellerLegal";
+
+export type SellerLegalActionState = ActionResult & { saved?: boolean };
 
 export type SlugAvailabilityResult = {
   status: "available" | "current" | "taken" | "invalid" | "error";
@@ -137,9 +140,49 @@ export async function updateBrandingAction(
     if (error.code === "23505") {
       return { error: "Ese enlace acaba de ser ocupado. Elige otro nombre." };
     }
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   revalidatePath("/", "layout");
   return { error: null, slug: slugValidation.slug };
+}
+
+/** Actualiza datos públicos del vendedor, separados de Stripe y facturación. */
+export async function updateSellerLegalAction(
+  _previous: SellerLegalActionState,
+  formData: FormData
+): Promise<SellerLegalActionState> {
+  const validation = validateSellerLegalInput({
+    legalName: String(formData.get("legalName") ?? ""),
+    taxId: String(formData.get("taxId") ?? ""),
+    address: String(formData.get("address") ?? ""),
+    contactEmail: String(formData.get("contactEmail") ?? ""),
+    country: String(formData.get("country") ?? ""),
+    accessTerms: String(formData.get("accessTerms") ?? ""),
+    refundTerms: String(formData.get("refundTerms") ?? ""),
+  });
+  if (!validation.ok) return { error: validation.error };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Debes iniciar sesión para hacer esto." };
+
+  const membership = await getCurrentOrgMembership(supabase, user.id);
+  if (!membership) return { error: "No perteneces a ninguna empresa." };
+
+  const adminCheck = await requireOrgAdmin(supabase, {
+    organizationId: membership.organizationId,
+  });
+  if (adminCheck.error) return adminCheck;
+
+  const { error } = await supabase
+    .from("organizations")
+    .update(validation.value)
+    .eq("id", membership.organizationId);
+  if (error) return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
+
+  revalidatePath("/", "layout");
+  return { error: null, saved: true };
 }

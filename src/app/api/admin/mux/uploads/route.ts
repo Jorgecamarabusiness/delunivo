@@ -25,6 +25,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "La solicitud no contiene JSON válido." }, { status: 400 });
   }
 
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "La solicitud debe ser un objeto JSON." }, { status: 400 });
+  }
+
   if (!isUuid(body.lessonId) || !isUuid(body.blockId)) {
     return NextResponse.json(
       { error: "La lección o el bloque no tienen un identificador válido." },
@@ -106,8 +110,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let mux: ReturnType<typeof createMuxApiClient>;
+  try {
+    mux = createMuxApiClient();
+  } catch {
+    return NextResponse.json({ error: "La carga de vídeo no está disponible temporalmente." }, { status: 503 });
+  }
   const videoAssetId = randomUUID();
-  const mux = createMuxApiClient();
+  // Reserve in Postgres before creating a provider URL. The trigger serializes
+  // quotas by actor and school, regardless of the supplied lesson/block IDs.
+  const reserved = await admin.from("video_assets").insert({
+    id: videoAssetId, organization_id: course.organization_id, course_id: course.id,
+    lesson_id: lesson.id, block_id: body.blockId, created_by: user.id,
+    status: "waiting_for_upload", is_current: false, declared_size_bytes: body.fileSize,
+  });
+  if (reserved.error) {
+    return NextResponse.json({ error: "No se pudo reservar otra carga. Espera a que terminen las cargas abiertas e inténtalo de nuevo." }, { status: 429 });
+  }
 
   let upload: Awaited<ReturnType<typeof mux.video.uploads.create>>;
   try {
@@ -122,6 +141,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch {
+    await admin.from("video_assets").update({ status: "errored", error_type: "upload_creation_failed" }).eq("id", videoAssetId);
     return NextResponse.json(
       { error: "Mux no pudo preparar la carga. Inténtalo de nuevo." },
       { status: 502 }
@@ -129,6 +149,8 @@ export async function POST(request: NextRequest) {
   }
 
   if (!upload.url) {
+    try { await mux.video.uploads.cancel(upload.id); } catch { /* The persisted ID permits later reconciliation. */ }
+    await admin.from("video_assets").update({ status: "errored", error_type: "upload_url_missing", mux_upload_id: upload.id }).eq("id", videoAssetId);
     return NextResponse.json(
       { error: "Mux no devolvió una URL de carga." },
       { status: 502 }
@@ -151,6 +173,7 @@ export async function POST(request: NextRequest) {
     } catch {
       // La cancelación es best-effort: el upload todavía no contiene bytes.
     }
+    await admin.from("video_assets").update({ status: "errored", error_type: "upload_registration_failed" }).eq("id", videoAssetId);
     return NextResponse.json(
       { error: "No se pudo asociar la carga con la lección." },
       { status: 500 }

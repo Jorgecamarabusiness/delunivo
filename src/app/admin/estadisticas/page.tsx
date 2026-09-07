@@ -63,14 +63,22 @@ export default async function EstadisticasPage() {
 
   const courseIds = (courses ?? []).map((course) => course.id);
 
-  const [{ data: purchases }, { data: lessons }] = await Promise.all([
+  const [{ data: purchases }, { data: lessons }, { data: freeAccess }] = await Promise.all([
     supabase
       .from("purchases")
-      .select("course_id, amount_paid, purchased_at")
+      .select("course_id, amount_paid, purchased_at, refunded_amount_cents, dispute_status")
       .eq("organization_id", membership.organizationId),
     courseIds.length > 0
       ? supabase.from("lessons").select("id, course_id").in("course_id", courseIds)
       : Promise.resolve({ data: [] as { id: string; course_id: string }[] }),
+    courseIds.length > 0
+      ? supabase
+          .from("student_course_access")
+          .select("course_id")
+          .in("course_id", courseIds)
+          .eq("grant_source", "free")
+          .is("revoked_at", null)
+      : Promise.resolve({ data: [] as { course_id: string }[] }),
   ]);
 
   const lessonIds = (lessons ?? []).map((lesson) => lesson.id);
@@ -115,12 +123,13 @@ export default async function EstadisticasPage() {
   const months = lastSixMonths();
   const ingresosByCourse = new Map<string, number>();
   const comprasCountByCourse = new Map<string, number>();
+  const freeAccessCountByCourse = new Map<string, number>();
   const comprasByCourseAndMonth = new Map<string, Map<string, number>>();
 
   for (const purchase of purchases ?? []) {
     ingresosByCourse.set(
       purchase.course_id,
-      (ingresosByCourse.get(purchase.course_id) ?? 0) + purchase.amount_paid
+      (ingresosByCourse.get(purchase.course_id) ?? 0) + Math.max(0, Number(purchase.amount_paid) - (purchase.dispute_status === "lost" ? Number(purchase.amount_paid) : Number(purchase.refunded_amount_cents ?? 0) / 100))
     );
     comprasCountByCourse.set(
       purchase.course_id,
@@ -137,6 +146,13 @@ export default async function EstadisticasPage() {
     courseMonths.set(monthKey, (courseMonths.get(monthKey) ?? 0) + 1);
   }
 
+  for (const access of freeAccess ?? []) {
+    freeAccessCountByCourse.set(
+      access.course_id,
+      (freeAccessCountByCourse.get(access.course_id) ?? 0) + 1
+    );
+  }
+
   const estadisticas = (courses ?? []).map((course) => {
     const courseMonths = comprasByCourseAndMonth.get(course.id);
     const data = months.map(({ key, label }) => ({
@@ -150,6 +166,7 @@ export default async function EstadisticasPage() {
       visualizaciones: visualizacionesByCourse.get(course.id) ?? 0,
       rewatches: rewatchesByCourse.get(course.id) ?? 0,
       ingresos: ingresosByCourse.get(course.id) ?? 0,
+      accesosGratuitos: freeAccessCountByCourse.get(course.id) ?? 0,
       totalComprasHistorico: comprasCountByCourse.get(course.id) ?? 0,
       totalComprasUltimosSeisMeses: data.reduce((a, c) => a + c.compras, 0),
       data,
@@ -234,6 +251,10 @@ export default async function EstadisticasPage() {
                     <p className="font-semibold">
                       {item.totalComprasUltimosSeisMeses}
                     </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Accesos gratuitos</p>
+                    <p className="font-semibold">{item.accesosGratuitos}</p>
                   </div>
                 </div>
 

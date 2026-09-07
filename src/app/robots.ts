@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
-
-const SITE_URL = "https://www.delunivo.com";
+import { PLATFORM_URL } from "@/lib/brand";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -11,15 +10,27 @@ export default function robots(): MetadataRoute.Robots {
         "/admin/",
         "/api/",
         "/perfil",
+        "/cuenta/",
         "/login",
         "/register",
         "/verificar",
         "/forgot-password",
         "/reset-password",
         "/invitaciones/",
+        "/cursos/*/aprender",
+        "/o/*/admin/",
+        "/o/*/perfil",
+        "/o/*/cuenta/",
+        "/o/*/login",
+        "/o/*/register",
+        "/o/*/verificar",
+        "/o/*/forgot-password",
+        "/o/*/reset-password",
+        "/o/*/invitaciones/",
+        "/o/*/cursos/*/aprender",
       ],
     },
-    sitemap: `${SITE_URL}/sitemap.xml`,
-    host: SITE_URL,
+    sitemap: `${PLATFORM_URL}/sitemap.xml`,
+    host: PLATFORM_URL,
   };
 }

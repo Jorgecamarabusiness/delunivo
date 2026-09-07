@@ -64,6 +64,7 @@ export function TextBlockForm({
             value={content}
             onChange={setContent}
             onUploadImage={handleUploadImage}
+            ariaLabel="Contenido del bloque de texto"
           />
         </div>
       </div>

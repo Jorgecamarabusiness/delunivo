@@ -39,7 +39,7 @@ export async function setLessonCompletedAction(
         { onConflict: "user_id,lesson_id", ignoreDuplicates: true }
       );
 
-    if (error) return { error: error.message };
+    if (error) return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
     return { error: null };
   }
 
@@ -49,6 +49,6 @@ export async function setLessonCompletedAction(
     .eq("user_id", user.id)
     .eq("lesson_id", lessonId);
 
-  if (error) return { error: error.message };
+  if (error) return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   return { error: null };
 }

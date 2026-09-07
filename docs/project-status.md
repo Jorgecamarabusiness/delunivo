@@ -1,6 +1,66 @@
 # Delunivo: estado y decisiones vigentes
 
-Ultima actualizacion: 2026-09-02.
+Ultima actualizacion: 2026-09-07.
+
+## Cierre de auditoría y funciones: en ejecución
+
+El encargo actual autoriza migraciones compatibles y despliegue tras verificación. Se integra
+`origin/main` en `675705c`, que ya incluye la baseline y el endurecimiento desplegado el 2 de septiembre.
+El trabajo de cierre continúa en `codex/audit-close-20260906`; las pruebas de borrado usan solo datos sintéticos.
+El registro vigente de commits, CI y próximos pasos es
+[`cierre-auditoria-2026-09.md`](cierre-auditoria-2026-09.md). La CI `c2fd6ce` ya
+reconstruyó y probó Supabase aislado; `4305ca3` añade el nuevo contrato de cuentas
+y gratuidad, aplicado después dentro del bundle verificado de siete migraciones.
+
+`9134d25` pasó CI general `34105591595`, CI Supabase `34105586964` y ensayo
+privado `34105664809`: SQL/RLS/Auth/PostgREST/Storage/concurrencia, cinco E2E
+reales, 114 unitarios, lint, build/TypeScript y nueve E2E de auditoría. El
+restore final pasó en el job `101689975903`; sus ocho secretos temporales ya se
+retiraron y no quedan remanentes detectados. El backup Mux cubrió 30 assets,
+cifrado, SHA-256, descifrado y seek aislado. Stripe LIVE tiene sesión y endpoints
+Connect activos; 11 eventos están preparados pero no se guardan hasta que el
+handler esté listo. No falta autorización de despliegue; todavía no se hizo rollout.
+
+El lote local inicial de auditoría está detallado en `docs/auditoria-profesional.md` y sus
+57 controles. El SQL de cierre sí se aplicó en producción el 2026-09-07 a las
+09:34 UTC; el código de este lote no se ha desplegado. Los estados de producción
+indicados más abajo conservan su fecha y evidencia anteriores cuando no se cite
+la aplicación de este bundle.
+
+- Las pruebas automatizadas deben demostrar aislamiento por URL y contenido del entorno.
+  La configuración local apuntaba al único Supabase real; el E2E heredado queda bloqueado
+  para producción. GitHub CI ya ejecuta Supabase PG17/Auth/PostgREST/Storage reales,
+  SQL/RLS/concurrencia y Next/Chromium con identidades sintéticas. La suite rápida
+  con mock se conserva como evidencia distinta.
+- Emisión y consumo de códigos de verificación pasan a las RPC atómicas ya existentes,
+  confirmadas en el catálogo real. No se conserva el fallback de lecturas/escrituras no atómicas.
+- Objetivo de vídeo: máximo inclusivo de 43.200 segundos, independiente de 20 GiB y 1080p.
+  La aplicación valida duración de proveedor y espera `ready` antes de guardar. El cierre
+  atómico de `20260906213000_require_ready_mux_assets.sql` ya está aplicado y ensayado.
+  Los bytes declarados por el navegador no constituyen un límite autoritativo de costes.
+- Playback usa duración verificada + 15 minutos y verifica acceso cada 5 minutos sin
+  sustituir innecesariamente el token. Un bearer emitido continúa válido hasta caducar;
+  no hay revocación individual instantánea en Mux. Subida real de 12 horas sigue pendiente.
+- Se elimina copy ficticio por defecto, mejora contraste dinámico y estados accesibles,
+  y se añaden cabeceras defensivas/noindex privado. No cambian precios ni derechos.
+- La actualización de `origin/main` recupera la baseline de 21 migraciones. El
+  ledger actual suma 29 entradas tras aplicar siete migraciones y el recibo de API.
+  Borrado/gratuidad, último owner/superadmin, invitaciones, retención y reservas de
+  vídeo pasan en CI y SQL aplicado. Los dos E2E de borrado completan Auth real;
+  gratuidad entra al aula sin Connect.
+- Tiptap 3.31.3 y Browserslist 4.28.9: audit limpio, lock actual conservado.
+- Backup privado final restaurado en runner efímero: baseline 21, snapshot de 54
+  tablas/1446 filas y siete migraciones atómicas, FK y secuencias externas verificadas
+  (job 101689975903). Ocho secretos temporales retirados, cero remanentes detectados.
+  Storage: 11 objetos/43.360.601 bytes con recuperación/hash comprobados. Mux: 30
+  assets/658.886.185 bytes cifrados, SHA-256 y descifrado verificados; muestra de
+  90,773 s reproducida con seek aislado.
+- El lote `be37b3b` añade confirmación inmutable de oferta, descarga por comprador,
+  condiciones configurables por escuela y test de registro/verificación con retorno.
+  Sus migraciones forman parte del bundle de siete ya aplicado; el código sigue sin desplegar.
+- Se verificó la configuración legal de Production con los datos ya facilitados.
+  La ficha real del vendedor y condiciones de cada escuela deben ser aportadas por
+  ella; conectar Stripe no las sustituye. No se certifica conformidad jurídica.
 
 ## Producto
 
@@ -51,7 +111,7 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 - La organizacion de Supabase esta en Pro con Spend Cap activo y un unico proyecto, `Delunivo` (`jgxqdzmmeveksseflyst`). El proyecto inicial vacio fue verificado sin tablas, usuarios ni archivos y eliminado el 2026-08-31; el coste proyectado quedo en 25 USD/mes.
 - Resend entrega desde `Delunivo <hola@mail.delunivo.com>` con el dominio `mail.delunivo.com` verificado (DKIM, SPF y DMARC). Un restablecimiento real de contrasena llego correctamente en produccion.
 - Stripe live esta activo para la suscripcion de plataforma y Stripe Connect. Produccion usa clave live y Preview clave de prueba; los webhooks de plataforma y Connect apuntan a `www.delunivo.com`. La cuenta bancaria de Jorge recibe la suscripcion de Delunivo; cada profesor debe conectar su propia cuenta para recibir ventas de cursos.
-- La politica fiscal provisional no bloquea la auditoria: los precios publicados se consideran finales con IVA incluido y, para operaciones espanolas, se reserva el 21 % general. La suscripcion de Delunivo se clasifica como SaaS y los cursos grabados bajo demanda como servicios electronicos; no se presume exencion educativa. Stripe Tax y OSS se automatizaran antes de escalar ventas internacionales o superar el umbral B2C intracomunitario aplicable. Mientras no exista esa automatizacion, cualquier cobro real debe facturarse y contabilizarse con su desglose fiscal.
+- Los precios publicados se conservan como finales. La hipótesis fiscal previa de reservar el 21 % general en operaciones españolas no es una regla universal: tipo, localización, B2B/B2C y exención deben justificarse por operación. No se presume exención educativa. Stripe Tax y OSS requieren validar clasificación y obligaciones antes de automatizar ventas internacionales; la auditoría local no cambia impuestos ni condiciones comerciales. Véase el borrador legal con fuentes oficiales.
 - Mux usa el entorno `Production`, plan Pay as you go, reproduccion firmada y webhook `https://www.delunivo.com/api/webhooks/mux`. El webhook real respondio 200 y aplico un video de 53:12 a 720p; tambien hay evidencia separada de subida y reproduccion a 1080p.
 - Los identificadores internos estables, referencias de proyecto, buckets, tablas, claves y URLs de API no se renombran cuando el cambio no es cosmetico: preservarlos evita roturas y no expone una marca distinta al usuario.
 - El esquema real vive en Supabase. `docs/database.md` mantiene el inventario confirmado y `20260830000000_initial_platform_baseline.sql` permite reconstruirlo desde cero sin copiar datos reales. El historial local y remoto está alineado y cada migración nueva se verifica primero en una rama vacía.
@@ -99,10 +159,9 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 - `test2` quedó en borrador tras verificar cero ventas. Otros cursos pueden ser
   demostraciones y no se ocultan ni eliminan sin una decisión del propietario
   y una comprobación previa de ventas.
-- El historial local y remoto coincide en 21 migraciones. Incluye una baseline
-  reproducible, la eliminación de un índice único duplicado y la optimización
-  de RLS/FKs. Antes de eliminar la rama de prueba se comprobó que coincidía con
-  producción en tablas, columnas, restricciones e índices.
+- La baseline reproducible conserva 21 migraciones históricas; el ledger de
+  producción suma 29 tras el bundle de siete y su recibo de API. El ensayo privado
+  reconstruyó baseline, snapshot y lote nuevo antes de aplicarlo.
 - Los asesores de Supabase ya no muestran funciones `security definer`
   anónimas, FKs sin índice ni avisos de rendimiento RLS. Permanecen como
   hallazgos informativos las tablas privadas con RLS sin policies y las RPC

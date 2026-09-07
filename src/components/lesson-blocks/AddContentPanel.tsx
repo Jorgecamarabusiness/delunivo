@@ -67,7 +67,7 @@ export function AddContentPanel({
               type="button"
               onClick={onClose}
               aria-label="Cerrar"
-              className="text-lg leading-none text-muted-foreground transition-colors hover:text-foreground"
+              className="flex min-h-11 min-w-11 items-center justify-center text-lg leading-none text-muted-foreground transition-colors hover:text-foreground"
             >
               ✕
             </button>
@@ -119,7 +119,7 @@ export function AddContentPanel({
               type="button"
               onClick={onClose}
               aria-label="Cerrar"
-              className="text-lg leading-none text-muted-foreground transition-colors hover:text-foreground"
+              className="flex min-h-11 min-w-11 items-center justify-center text-lg leading-none text-muted-foreground transition-colors hover:text-foreground"
             >
               ✕
             </button>
@@ -150,7 +150,7 @@ export function AddContentPanel({
               type="button"
               onClick={onClose}
               aria-label="Cerrar"
-              className="text-lg leading-none text-muted-foreground transition-colors hover:text-foreground"
+              className="flex min-h-11 min-w-11 items-center justify-center text-lg leading-none text-muted-foreground transition-colors hover:text-foreground"
             >
               ✕
             </button>

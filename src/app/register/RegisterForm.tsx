@@ -11,11 +11,12 @@ import Link from "next/link";
 
 const INITIAL: RegisterState = { error: null };
 
-export function RegisterForm() {
+export function RegisterForm({ next }: { next?: string }) {
   const [state, formAction, pending] = useActionState(registerAction, INITIAL);
 
   return (
     <form action={formAction} className="mt-8 flex flex-col gap-5">
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <Field label="Nombre completo" htmlFor="name">
         <Input
           id="name"

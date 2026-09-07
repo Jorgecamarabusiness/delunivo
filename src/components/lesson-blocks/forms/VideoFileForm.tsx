@@ -11,7 +11,9 @@ import {
 import {
   MAX_MUX_VIDEO_KILOBYTES,
   validateMuxVideoFile,
+  validateMuxVideoDuration,
 } from "@/lib/mux/validation";
+import { readVideoDuration } from "@/lib/mux/readVideoDuration";
 import { getVideoPreviewUrlAction } from "@/lib/storage/actions";
 
 export type VideoFileSelection =
@@ -79,6 +81,8 @@ export function VideoFileForm({
       if (!file) throw new Error("No se ha seleccionado ningún archivo.");
       const validationError = validateMuxVideoFile(file);
       if (validationError) throw new Error(validationError);
+      const durationError = validateMuxVideoDuration(await readVideoDuration(file));
+      if (durationError) throw new Error(durationError);
 
       if (localPreviewRef.current) URL.revokeObjectURL(localPreviewRef.current);
       const previewUrl = URL.createObjectURL(file);
@@ -125,7 +129,7 @@ export function VideoFileForm({
     muxAsset?.status === "deleted";
   const canSubmit = Boolean(
     title.trim() &&
-      ((muxVideoAssetId && uploadFinished && !muxUploadFailed) ||
+      ((muxVideoAssetId && uploadFinished && muxAsset?.status === "ready") ||
         (initialMuxVideoAssetId &&
           muxVideoAssetId === initialMuxVideoAssetId &&
           !localPreviewUrl) ||
@@ -189,7 +193,11 @@ export function VideoFileForm({
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             {isReplacing
               ? "Arrastra aquí el nuevo archivo o selecciónalo. El vídeo actual no cambiará hasta que guardes."
-              : "Arrastra aquí el archivo o selecciónalo. Cuando llegue al 100%, guarda el bloque antes de salir."}
+              : "Arrastra aquí el archivo o selecciónalo. Espera a que el vídeo esté listo y guarda el bloque antes de salir."}
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            Máximo 20 GiB por archivo y 43.200 segundos de duración (12 horas), como límites independientes.
+            Reproducción hasta 1080p. La duración se verifica de nuevo al procesar el vídeo.
           </p>
           <MuxUploader
             className="mt-3 block w-full"
@@ -222,12 +230,15 @@ export function VideoFileForm({
           <p className="mt-3 text-sm font-medium" role="status">
             {uploadProgress < 100
               ? `Subiendo vídeo: ${Math.floor(uploadProgress)}%. No cierres esta página.`
-              : "Subida completada al 100%. Falta guardar el vídeo en la lección."}
+              : muxAsset?.status === "ready"
+                ? "Vídeo listo. Falta guardarlo en la lección."
+                : "Subida completada al 100%. Esperando la verificación y el procesamiento del vídeo."}
           </p>
         ) : null}
 
         {muxVideoAssetId ? (
           <p
+            role={muxStatusError || muxUploadFailed ? "alert" : "status"}
             className={`mt-1 text-xs ${
               muxStatusError || muxUploadFailed
                 ? "font-medium text-red-700"
@@ -243,24 +254,24 @@ export function VideoFileForm({
         ) : null}
 
         {muxAsset?.status === "errored" && muxAsset.errorMessage ? (
-          <p className="mt-1 text-xs font-medium text-red-700">
+          <p role="alert" className="mt-1 text-xs font-medium text-red-700">
             {muxAsset.errorMessage}
           </p>
         ) : null}
 
-        {uploadFinished && !muxUploadFailed ? (
+        {uploadFinished && muxAsset?.status === "ready" ? (
           <p className="mt-3 rounded-md border border-border bg-background p-3 text-sm">
-            <strong>Último paso:</strong> pulsa “{submitLabel}”. Después sí puedes salir; Mux seguirá procesando el vídeo en segundo plano.
+            <strong>Último paso:</strong> pulsa “{submitLabel}” para usar este vídeo en la lección.
           </p>
         ) : null}
 
         {uploadError ? (
-          <p className="mt-2 text-xs font-medium text-red-700">{uploadError}</p>
+          <p role="alert" className="mt-2 text-xs font-medium text-red-700">{uploadError}</p>
         ) : null}
       </div>
 
       {error ? (
-        <p className="mt-4 text-xs font-medium text-muted-foreground">
+        <p role="alert" className="mt-4 text-xs font-medium text-muted-foreground">
           Error: {error}
         </p>
       ) : null}

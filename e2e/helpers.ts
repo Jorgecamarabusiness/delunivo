@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { assertIsolatedE2EEnvironment } from "../scripts/e2e-safety.mjs";
 
 export const MAIN_COURSE_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -57,6 +58,7 @@ export async function login(
 
 /** Cliente admin (service role) para arreglar/leer datos directamente desde los tests. */
 export function adminClient(): SupabaseClient {
+  assertIsolatedE2EEnvironment();
   return createClient(
     requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requiredEnv("SUPABASE_SERVICE_ROLE_KEY")

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganization";
 import { readableTextColor } from "@/lib/organizations/brandColor";
-import { PLATFORM_DESCRIPTION, PLATFORM_NAME } from "@/lib/brand";
+import { PLATFORM_DESCRIPTION, PLATFORM_NAME, PLATFORM_URL } from "@/lib/brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -43,7 +43,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   if (!organization) {
     return {
-      metadataBase: new URL("https://www.delunivo.com"),
+      metadataBase: new URL(PLATFORM_URL),
       applicationName: PLATFORM_NAME,
       title: PLATFORM_NAME,
       description: PLATFORM_DESCRIPTION,
@@ -73,7 +73,7 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 
   return {
-    metadataBase: new URL("https://www.delunivo.com"),
+    metadataBase: new URL(PLATFORM_URL),
     applicationName: PLATFORM_NAME,
     title: `${organization.name} — ${PLATFORM_NAME}`,
     description: `Cursos online de ${organization.name}.`,
