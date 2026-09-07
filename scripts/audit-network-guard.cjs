@@ -13,10 +13,10 @@ globalThis.fetch = async function auditLocalFetch(input, init) {
 
 // Stripe and other SDKs can use node:http directly instead of fetch.
 for (const protocol of ["http", "https"]) {
-  const module = require(`node:${protocol}`);
+  const transport = process.getBuiltinModule(protocol);
   for (const method of ["request", "get"]) {
-    const original = module[method];
-    module[method] = function (...args) {
+    const original = transport[method];
+    transport[method] = function (...args) {
       const first = args[0];
       const hostname = typeof first === "string" || first instanceof URL
         ? new URL(first).hostname
