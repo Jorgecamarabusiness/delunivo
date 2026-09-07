@@ -67,6 +67,7 @@ export function AprenderView({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const openIndexButtonRef = useRef<HTMLButtonElement>(null);
   const mobileIndexRef = useRef<HTMLElement>(null);
+  const closeIndexButtonRef = useRef<HTMLButtonElement>(null);
   const wasSidebarOpenRef = useRef(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -77,12 +78,29 @@ export function AprenderView({
   useEffect(() => {
     if (sidebarOpen) {
       wasSidebarOpenRef.current = true;
-      mobileIndexRef.current?.focus();
-      const closeOnEscape = (event: KeyboardEvent) => {
+      closeIndexButtonRef.current?.focus();
+      const keepFocusInIndex = (event: KeyboardEvent) => {
         if (event.key === "Escape") setSidebarOpen(false);
+        if (event.key !== "Tab") return;
+        const focusable = mobileIndexRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusable?.length) {
+          event.preventDefault();
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
       };
-      window.addEventListener("keydown", closeOnEscape);
-      return () => window.removeEventListener("keydown", closeOnEscape);
+      window.addEventListener("keydown", keepFocusInIndex);
+      return () => window.removeEventListener("keydown", keepFocusInIndex);
     } else if (wasSidebarOpenRef.current) {
       openIndexButtonRef.current?.focus();
     }
@@ -214,7 +232,7 @@ export function AprenderView({
                             ? "Marcar lección como pendiente"
                             : "Marcar lección como completada"
                         }
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs disabled:opacity-60 ${
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border text-xs disabled:opacity-60 ${
                           isCompleted
                             ? "border-foreground bg-foreground text-background"
                             : isActive
@@ -326,9 +344,10 @@ export function AprenderView({
               className="absolute inset-y-0 left-0 z-20 w-[85%] max-w-xs overflow-y-auto border-r border-border bg-background p-6 lg:hidden"
             >
               <button
+                ref={closeIndexButtonRef}
                 type="button"
                 onClick={() => setSidebarOpen(false)}
-                className="mb-4 text-sm text-muted-foreground underline"
+                className="mb-4 min-h-11 px-2 text-sm text-muted-foreground underline"
               >
                 Cerrar índice
               </button>

@@ -194,7 +194,7 @@ function BlockRow({
         {...attributes}
         {...listeners}
         aria-label="Reordenar bloque"
-        className="cursor-grab touch-none px-1 text-muted-foreground active:cursor-grabbing"
+        className="flex min-h-11 min-w-11 cursor-grab touch-none items-center justify-center text-muted-foreground active:cursor-grabbing"
       >
         ⠿
       </button>
@@ -416,11 +416,14 @@ export function LessonEditorView({
               className="w-full border-b-2 border-foreground bg-transparent text-2xl font-bold tracking-tight outline-none"
             />
           ) : (
-            <h1
-              onClick={() => setIsEditingTitle(true)}
-              className="-mx-1 cursor-text rounded px-1 text-2xl font-bold tracking-tight transition-colors hover:bg-muted"
-            >
-              {lessonTitle}
+            <h1 className="text-2xl font-bold tracking-tight">
+              <button
+                type="button"
+                onClick={() => setIsEditingTitle(true)}
+                className="-mx-1 min-h-11 rounded px-1 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                {lessonTitle}
+              </button>
             </h1>
           )}
           {titleError ? (

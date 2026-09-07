@@ -118,7 +118,7 @@ export async function createCompanyAction(
     // Sin empresa, la cuenta recién creada no sirve para nada y además
     // bloquearía reintentar con el mismo correo. Se deshace.
     await admin.auth.admin.deleteUser(userId).catch(() => {});
-    return { error: orgError?.message ?? "No se pudo crear la empresa." };
+    return { error: "No se pudo crear la empresa. Inténtalo de nuevo." };
   }
 
   const [{ error: billingError }, { error: adminError }] = await Promise.all([
@@ -146,7 +146,7 @@ export async function createCompanyAction(
     await admin.from("organizations").delete().eq("id", organization.id);
     await admin.auth.admin.deleteUser(userId).catch(() => {});
     return {
-      error: (billingError ?? adminError)?.message ?? "No se pudo terminar de crear la empresa.",
+      error: "No se pudo terminar de crear la empresa. Inténtalo de nuevo.",
     };
   }
 

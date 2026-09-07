@@ -2,8 +2,9 @@ begin;
 select plan(1);
 do $$ declare actor uuid:='91000000-0000-4000-8000-000000000001'; org uuid:='91000000-0000-4000-8000-000000000002'; course uuid:='91000000-0000-4000-8000-000000000003'; attempt uuid:='91000000-0000-4000-8000-000000000004'; begin
   insert into auth.users(id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data)
-    values(actor,'authenticated','authenticated','checkout-retry@synthetic.invalid','x',now(),'{}','{}');
-  insert into public.organizations(id,name,slug,owner_id) values(org,'Checkout retry','checkout-retry-synthetic',actor);
+    values(actor,'authenticated','authenticated','checkout-retry@synthetic.invalid','x',now(),'{}','{}'),
+      ('91000000-0000-4000-8000-000000000005','authenticated','authenticated','checkout-owner@synthetic.invalid','x',now(),'{}','{}');
+  insert into public.organizations(id,name,slug,owner_id) values(org,'Checkout retry','checkout-retry-synthetic','91000000-0000-4000-8000-000000000005');
   insert into public.organization_billing(organization_id,platform_subscription_status) values(org,'active');
   insert into public.organization_integrations(organization_id,stripe_account_id,stripe_connect_status) values(org,'acct_synthetic','connected');
   insert into public.courses(id,organization_id,title,description,price,status) values(course,org,'Checkout','Synthetic',10,'published');

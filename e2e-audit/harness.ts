@@ -36,6 +36,9 @@ export async function login(page: Page, role: keyof typeof accounts & string) {
   await page.getByLabel("Contraseña").fill(account.password);
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
   await expect(page).not.toHaveURL(/\/login$/);
+  // A URL change alone can precede completion of the streamed RSC response.
+  // Wait for that navigation before the caller immediately starts another one.
+  await page.waitForLoadState("networkidle");
 }
 
 /** Falla ante consola o red no local, para que una fixture no oculte tráfico real. */

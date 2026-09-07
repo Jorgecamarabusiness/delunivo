@@ -45,6 +45,7 @@ export function SellerLegalForm({ seller }: { seller: SellerLegalInfo }) {
         >
           <Input
             id="seller-legal-name"
+            aria-describedby="seller-legal-name-hint"
             name="legalName"
             defaultValue={seller.seller_legal_name ?? ""}
             maxLength={160}
@@ -59,6 +60,7 @@ export function SellerLegalForm({ seller }: { seller: SellerLegalInfo }) {
         >
           <Input
             id="seller-tax-id"
+            aria-describedby="seller-tax-id-hint"
             name="taxId"
             defaultValue={seller.seller_tax_id ?? ""}
             maxLength={80}
@@ -81,6 +83,7 @@ export function SellerLegalForm({ seller }: { seller: SellerLegalInfo }) {
         <Field label="País o territorio" htmlFor="seller-country" hint="Recomendado para que el comprador interprete el identificador fiscal.">
           <Input
             id="seller-country"
+            aria-describedby="seller-country-hint"
             name="country"
             defaultValue={seller.seller_country ?? ""}
             maxLength={100}
@@ -95,6 +98,7 @@ export function SellerLegalForm({ seller }: { seller: SellerLegalInfo }) {
         >
           <Input
             id="seller-contact-email"
+            aria-describedby="seller-contact-email-hint"
             name="contactEmail"
             type="email"
             defaultValue={seller.seller_contact_email ?? ""}

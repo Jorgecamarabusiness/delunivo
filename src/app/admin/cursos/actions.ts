@@ -65,7 +65,7 @@ export async function createCourseAction(
     .single();
 
   if (error || !course) {
-    return { error: error?.message ?? "No se pudo crear el curso." };
+    return { error: "No se pudo crear el curso. Inténtalo de nuevo." };
   }
 
   revalidatePath("/admin/cursos");
@@ -109,7 +109,7 @@ export async function deleteCourseAction(
           "Este curso acaba de recibir una venta y ya no se puede eliminar. Déjalo privado si no quieres seguir vendiéndolo.",
       };
     }
-    return { error: error?.message ?? "No se pudo eliminar el curso." };
+    return { error: "No se pudo eliminar el curso. Inténtalo de nuevo." };
   }
 
   after(async () => {

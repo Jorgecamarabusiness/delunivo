@@ -89,7 +89,7 @@ async function createInvitation(
     if (error.code === "23505") {
       return { error: "Ya hay una invitación pendiente para ese correo." };
     }
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   const { error: emailError } = await sendInvitationEmail({
@@ -204,7 +204,7 @@ export async function removeStudentAction(
     .eq("organization_id", ctx.membership.organizationId)
     .eq("user_id", studentUserId);
 
-  if (error) return { error: error.message };
+  if (error) return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
 
   revalidatePath("/admin/usuarios");
   return { error: null };
@@ -227,7 +227,7 @@ export async function reactivateStudentAction(
     .eq("organization_id", ctx.membership.organizationId)
     .eq("user_id", studentUserId);
 
-  if (error) return { error: error.message };
+  if (error) return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
 
   revalidatePath("/admin/usuarios");
   return { error: null };
@@ -251,7 +251,7 @@ export async function removeAdminAction(adminUserId: string): Promise<ActionResu
     .eq("organization_id", ctx.membership.organizationId)
     .eq("user_id", adminUserId);
 
-  if (error) return { error: error.message };
+  if (error) return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
 
   revalidatePath("/admin/usuarios");
   return { error: null };
@@ -267,8 +267,8 @@ export async function revokeInvitationAction(
     p_invitation_id: invitationId,
   });
 
-  if (error) return { error: error.message };
-  if (!revoked) return { error: "La invitaciÃ³n ya no estÃ¡ pendiente." };
+  if (error) return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
+  if (!revoked) return { error: "La invitación ya no está pendiente." };
 
   revalidatePath("/admin/usuarios");
   return { error: null };

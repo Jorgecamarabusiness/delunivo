@@ -32,7 +32,7 @@ function rowsFor(table, query, account) {
   };
   switch (table) {
     case "organizations": return eq("slug") === organizations.orgA.slug ? [organizations.orgA] : eq("slug") === organizations.orgB.slug ? [organizations.orgB] : eq("id") === ids.orgA ? [organizations.orgA] : eq("id") === ids.orgB ? [organizations.orgB] : [];
-    case "profiles": return [{ id: ids.ownerA, name: "Owner A", email: accounts.ownerA.email }, { id: ids.ownerB, name: "Owner B", email: accounts.ownerB.email }].filter((row) => !eq("id") || row.id === eq("id"));
+    case "profiles": return Object.values(accounts).filter(Boolean).map(a => ({ id: a.id, name: a.email.split("@")[0], email: a.email, is_super_admin: a.id === ids.superadmin, account_status: "active" })).filter(row => !eq("id") || row.id === eq("id"));
     case "courses": return (!eq("id") || eq("id") === ids.courseA) ? [courseA] : [];
     case "sections": return (!eq("course_id") || eq("course_id") === ids.courseA) ? [sectionA] : [];
     case "lessons": return (!eq("id") || eq("id") === ids.lessonA) && (!eq("course_id") || eq("course_id") === ids.courseA) ? [lessonA] : [];

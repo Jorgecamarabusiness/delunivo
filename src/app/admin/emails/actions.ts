@@ -41,7 +41,7 @@ export async function addAdminEmailAction(
     if (error.code === "23505") {
       return { error: "Ese correo ya está en la lista." };
     }
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   revalidatePath("/admin/emails");
@@ -61,7 +61,7 @@ export async function toggleAdminEmailAction(
     .update({ is_active: isActive })
     .eq("id", id);
 
-  if (error) return { error: error.message };
+  if (error) return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
 
   revalidatePath("/admin/emails");
   revalidatePath("/admin/plataforma");
@@ -77,7 +77,7 @@ export async function deleteAdminEmailAction(id: string): Promise<ActionResult> 
     .delete()
     .eq("id", id);
 
-  if (error) return { error: error.message };
+  if (error) return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
 
   revalidatePath("/admin/emails");
   revalidatePath("/admin/plataforma");

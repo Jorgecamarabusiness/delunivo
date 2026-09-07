@@ -18,8 +18,9 @@ export default function CondicionesPage() {
       </LegalSection>
       <LegalSection title="Precios, pago y cancelación">
         <p>
-          Los precios mostrados al consumidor son finales e incluyen los
-          impuestos aplicables salvo indicación expresa distinta. La suscripción
+          La oferta y la pantalla de pago muestran el importe que se va a cobrar.
+          Cada vendedor es responsable de informar correctamente sobre sus impuestos
+          y de emitir las facturas que correspondan. La suscripción
           de Delunivo es mensual y puede cancelarse para evitar renovaciones
           futuras. Stripe procesa los pagos y muestra el importe definitivo antes
           de confirmar.
@@ -32,6 +33,22 @@ export default function CondicionesPage() {
           una vez iniciada la ejecución, puede perder el derecho de desistimiento
           en los supuestos previstos por la normativa de consumo. Esto no limita
           los derechos por falta de conformidad ni cualquier garantía obligatoria.
+          La solicitud de acceso inmediato, por sí sola, no elimina derechos:
+          deben cumplirse todos los requisitos legales, incluida la confirmación
+          del contrato en un soporte duradero. No se aplica una regla general de
+          «sin reembolsos». Las condiciones particulares de cada escuela deben
+          respetar los derechos obligatorios del comprador.
+        </p>
+      </LegalSection>
+      <LegalSection title="Cursos gratuitos y cambios de precio">
+        <p>
+          Un curso marcado como Gratis permite obtener acceso a ese curso mediante
+          una cuenta verificada, sin un pago ni una tarjeta. El acceso gratuito
+          obtenido válidamente se conserva si el curso pasa a ser de pago, sujeto
+          a las condiciones de acceso y publicación aplicables. Si un curso de
+          pago pasa a ser gratuito, no se tramita un reembolso automático y se
+          conserva el historial de la compra. Una expulsión o revocación requiere
+          resolverla con la escuela antes de volver a acceder.
         </p>
       </LegalSection>
       <LegalSection title="Disponibilidad y uso de la cuenta">

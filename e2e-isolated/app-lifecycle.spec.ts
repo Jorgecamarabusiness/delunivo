@@ -13,8 +13,9 @@ async function login(page: import("@playwright/test").Page, account: { email: st
   await page.goto(`${base}/login`);
   await page.getByLabel(/correo/i).fill(account.email);
   await page.getByLabel(/contrase/i).fill(account.password);
-  await page.getByRole("button", { name: /inicia sesi/i }).click();
+  await page.getByRole("button", { name: /iniciar sesi/i }).click();
   await page.waitForURL(new RegExp(`${base}/cursos`));
+  await page.waitForLoadState("networkidle");
 }
 
 test("el alumno obtiene un curso gratuito sin Stripe Connect y solo entra a su aula", async ({ page }) => {

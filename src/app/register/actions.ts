@@ -72,7 +72,7 @@ export async function registerAction(
 
   if (membershipError) {
     await admin.auth.admin.deleteUser(userId).catch(() => {});
-    return { error: membershipError.message };
+    return { error: "No se pudo crear la cuenta. Inténtalo de nuevo." };
   }
 
   const { code, error: codeError } = await issueVerificationCode(email, "signup");

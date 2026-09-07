@@ -47,7 +47,7 @@ function ToolbarButton({
       disabled={disabled}
       aria-label={label}
       title={label}
-      className={`flex h-8 min-w-8 items-center justify-center rounded px-2 text-sm font-semibold transition-colors ${
+      className={`flex min-h-11 min-w-11 items-center justify-center rounded px-2 text-sm font-semibold transition-colors ${
         active
           ? "bg-foreground text-background"
           : "text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
@@ -179,7 +179,7 @@ export function RichTextEditor({
 
         <select
           aria-label="Fuente"
-          className="h-8 rounded border border-border bg-background px-1 text-xs"
+          className="min-h-11 rounded border border-border bg-background px-2 text-xs"
           value={editor.getAttributes("textStyle").fontFamily ?? ""}
           onChange={(event) => {
             const family = event.target.value;
@@ -199,7 +199,7 @@ export function RichTextEditor({
 
         <select
           aria-label="Tamaño de fuente"
-          className="h-8 rounded border border-border bg-background px-1 text-xs"
+          className="min-h-11 rounded border border-border bg-background px-2 text-xs"
           value={editor.getAttributes("textStyle").fontSize ?? ""}
           onChange={(event) => {
             const size = event.target.value;
@@ -221,7 +221,7 @@ export function RichTextEditor({
           type="color"
           aria-label="Color de texto"
           title="Color de texto"
-          className="h-8 w-8 cursor-pointer rounded border border-border bg-background p-1"
+          className="h-11 w-11 cursor-pointer rounded border border-border bg-background p-1"
           value={editor.getAttributes("textStyle").color ?? "#000000"}
           onChange={(event) =>
             editor.chain().focus().setColor(event.target.value).run()
@@ -260,7 +260,7 @@ export function RichTextEditor({
               id="rich-text-image-alt"
               value={imageAlt}
               onChange={(event) => setImageAlt(event.target.value)}
-              className="min-h-10 flex-1 rounded-md border border-border bg-background px-3 text-sm"
+              className="min-h-11 flex-1 rounded-md border border-border bg-background px-3 text-sm"
               placeholder="Describe la información que aporta la imagen"
               autoFocus
               required

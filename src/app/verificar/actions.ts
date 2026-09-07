@@ -54,7 +54,7 @@ export async function verifyCodeAction(
     { email_confirm: true }
   );
   if (confirmError) {
-    return { error: confirmError.message };
+    return { error: "No se pudo confirmar el correo. Solicita un código nuevo." };
   }
 
   // Se le deja la sesión iniciada para no obligarle a escribir la contraseña

@@ -54,7 +54,7 @@ export async function updateLessonBlocksAction(
   });
 
   if (error) {
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   return { error: null };
@@ -80,7 +80,7 @@ export async function updateLessonTitleAction(
     .eq("id", lessonId);
 
   if (error) {
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   return { error: null };
@@ -102,7 +102,7 @@ export async function deleteLessonAction(
     .eq("course_id", courseId);
 
   if (error) {
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   revalidatePath(`/admin/cursos/${courseId}`);

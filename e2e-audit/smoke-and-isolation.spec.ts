@@ -62,6 +62,19 @@ test("una alumna invitada sin compra puede abrir el aula, mientras el editor exi
   await page.goto(`/o/audit-org-a/admin/cursos/${ids.courseA}/lecciones/${ids.lessonA}`);
   await expect(page.getByRole("heading", { name: "Lección de vídeo" })).toBeVisible();
   await expect(page.getByText("Contenido de la lección")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+});
+
+test("el borrado global propio y la ficha legal de escuela se revisan en tres anchos", async ({ page }, testInfo) => {
+  await login(page, "studentA");
+  await page.goto("/cuenta/eliminar");
+  await expect(page.getByRole("heading", { name: "Eliminar mi cuenta" })).toBeVisible();
+  await expect(page.getByText(/en todas las escuelas de Delunivo/)).toBeVisible();
+  await captureResponsive(page, testInfo, "account-deletion");
+  await login(page, "ownerA");
+  await page.goto("/o/audit-org-a/admin/marca");
+  await expect(page.getByRole("heading", { name: "Vendedor y contacto público" })).toBeVisible();
+  await captureResponsive(page, testInfo, "seller-legal");
 });
 
 test("el panel de subida mantiene el vídeo en processing y no carga proveedores", async ({ page }, testInfo) => {

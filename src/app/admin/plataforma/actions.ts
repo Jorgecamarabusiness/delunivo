@@ -53,7 +53,7 @@ export async function updatePlatformPriceAction(
     .single();
 
   if (error || !data) {
-    return { error: error?.message ?? "No se encontró la configuración." };
+    return { error: "No se pudo cargar la configuración. Recarga la página." };
   }
 
   revalidatePath("/");
@@ -189,7 +189,7 @@ export async function updateOrganizationCommercialTermsAction(
     .maybeSingle();
 
   if (error) {
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
   if (!updatedBilling) {
     return {
@@ -221,7 +221,7 @@ export async function updateOrganizationCommercialTermsAction(
       })
       .eq("organization_id", organizationId)
       .eq("updated_at", nextUpdatedAt);
-    return { error: refreshError.message };
+    return { error: "No se pudo actualizar la información. Inténtalo de nuevo." };
   }
 
   const { data: refreshed, error: refreshedError } = await admin

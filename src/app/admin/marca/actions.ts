@@ -140,7 +140,7 @@ export async function updateBrandingAction(
     if (error.code === "23505") {
       return { error: "Ese enlace acaba de ser ocupado. Elige otro nombre." };
     }
-    return { error: error.message };
+    return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
   }
 
   revalidatePath("/", "layout");
@@ -179,7 +179,7 @@ export async function updateSellerLegalAction(
     .from("organizations")
     .update(validation.value)
     .eq("id", membership.organizationId);
-  if (error) return { error: error.message };
+  if (error) return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
 
   revalidatePath("/", "layout");
   return { error: null, saved: true };

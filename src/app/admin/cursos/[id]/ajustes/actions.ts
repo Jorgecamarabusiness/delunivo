@@ -49,7 +49,7 @@ export async function updateCourseSettingsAction(
     })
     .eq("id", courseId);
 
-  if (error) return { error: error.message };
+  if (error) return { error: "No se pudo completar la operación. Inténtalo de nuevo." };
 
   revalidatePath("/admin/cursos");
   revalidatePath("/", "layout");
