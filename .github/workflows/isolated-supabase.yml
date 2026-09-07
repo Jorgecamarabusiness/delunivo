@@ -4,11 +4,46 @@ on:
   push:
     branches: [codex/audit-close-20260906]
   workflow_dispatch:
+    inputs:
+      private_restore:
+        description: Restore the encrypted private snapshot in an ephemeral runner
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
+  private_restore:
+    if: github.event_name == 'workflow_dispatch' && inputs.private_restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SUPABASE_CLI: supabase
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+      - name: Start an isolated stack for private recovery verification
+        run: supabase start
+      - name: Reconstruct the versioned schema before importing records
+        run: supabase db reset --local --yes
+      - name: Restore encrypted snapshot without emitting private data
+        env:
+          DELUNIVO_RESTORE_PART_1: ${{ secrets.DELUNIVO_RESTORE_PART_1 }}
+          DELUNIVO_RESTORE_PART_2: ${{ secrets.DELUNIVO_RESTORE_PART_2 }}
+          DELUNIVO_RESTORE_PART_3: ${{ secrets.DELUNIVO_RESTORE_PART_3 }}
+          DELUNIVO_RESTORE_PART_4: ${{ secrets.DELUNIVO_RESTORE_PART_4 }}
+          DELUNIVO_RESTORE_KEY: ${{ secrets.DELUNIVO_RESTORE_KEY }}
+          DELUNIVO_RESTORE_SHA256: ${{ secrets.DELUNIVO_RESTORE_SHA256 }}
+        run: node scripts/isolated-private-restore.mjs
+      - name: Remove private recovery stack and volumes
+        if: always()
+        run: supabase stop --project-id delunivo-audit --no-backup
   database:
     runs-on: ubuntu-latest
     timeout-minutes: 25
