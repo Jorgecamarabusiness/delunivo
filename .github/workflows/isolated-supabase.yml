@@ -36,6 +36,8 @@ jobs:
         run: node scripts/isolated-auth-revocation-baseline.mjs
       - name: Exercise Storage authorization with synthetic users
         run: node scripts/isolated-storage-ab.mjs
+      - name: Exercise free access and account lifecycle with synthetic identities
+        run: node scripts/isolated-account-lifecycle.mjs
       - name: Remove isolated containers and volumes
         if: ${{ always() }}
         run: supabase stop --project-id delunivo-audit --no-backup

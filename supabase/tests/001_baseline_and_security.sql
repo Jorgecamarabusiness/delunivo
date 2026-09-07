@@ -21,12 +21,15 @@ declare
   org_b uuid := '00000000-0000-0000-0000-000000000202';
   course_a uuid := '00000000-0000-0000-0000-000000000301';
   course_b uuid := '00000000-0000-0000-0000-000000000302';
+  session_a uuid := '00000000-0000-0000-0000-000000000501';
   changed_rows integer;
 begin
   insert into auth.users (id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values
     (owner_a, 'authenticated', 'authenticated', 'rls-owner-a@synthetic.invalid', 'not-used', now(), '{"provider":"email","providers":["email"]}', '{}'),
     (owner_b, 'authenticated', 'authenticated', 'rls-owner-b@synthetic.invalid', 'not-used', now(), '{"provider":"email","providers":["email"]}', '{}');
+  insert into auth.sessions (id, user_id, created_at, updated_at, not_after)
+  values (session_a, owner_a, now(), now(), now() + interval '1 hour');
   insert into public.organizations (id, name, slug, owner_id)
   values (org_a, 'Synthetic A', 'synthetic-a', owner_a), (org_b, 'Synthetic B', 'synthetic-b', owner_b);
   insert into public.organization_admins (organization_id, user_id, role)
@@ -38,9 +41,15 @@ begin
     (course_a, org_a, 'A', 'Synthetic course A', 10, 'published'),
     (course_b, org_b, 'B', 'Synthetic course B', 10, 'published');
 
-  perform set_config('request.jwt.claim.sub', owner_a::text, true);
-  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('sub', owner_a, 'role', 'authenticated', 'session_id', session_a)::text,
+    true
+  );
   set local role authenticated;
+  update public.courses set title = 'same-tenant mutation' where id = course_a;
+  get diagnostics changed_rows = row_count;
+  if changed_rows <> 1 then raise exception 'same-tenant course update was unexpectedly denied'; end if;
   update public.courses set title = 'cross-tenant mutation' where id = course_b;
   get diagnostics changed_rows = row_count;
   reset role;
