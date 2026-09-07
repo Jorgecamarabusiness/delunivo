@@ -5,6 +5,16 @@ Sustituye la autorización limitada de la auditoría inicial. Se autorizan commi
 push, migraciones compatibles, respaldo privado y despliegue verificado. Nunca
 se prueban borrados, cobros o reembolsos con cuentas/datos reales.
 
+## Estado final
+
+El lote quedó integrado en `main` mediante el merge verificado
+`5f6b268be5edfbe18f23218f83eb157d17c92332` y desplegado en Production en
+`https://www.delunivo.com` (`dpl_CFQmPMKnSiCdKoaviGoUHZ8mrY4c`, `READY`). Las
+siete migraciones compatibles se aplicaron de forma atómica y el ledger remoto
+quedó alineado en 29 entradas. Stripe Connect LIVE escucha los 11 eventos que
+consume el handler desplegado. No se creó ningún cobro, reembolso, acceso gratuito
+ni solicitud de borrado real durante la verificación.
+
 ## Reconstrucción tras la interrupción
 
 - Rama: `codex/audit-close-20260906`, remoto público `Jorgecamarabusiness/delunivo`.
@@ -24,9 +34,9 @@ se prueban borrados, cobros o reembolsos con cuentas/datos reales.
 | Lote | Commit / evidencia | Estado real |
 |---|---|---|
 | Supabase aislado | `c2fd6ce`; [CI 34063424037](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34063424037) | Pasan reconstrucción PG17, restore sintético, RLS, Mux ready, OTP concurrente, Auth refresh y Storage A/B. No equivale a restaurar el backup privado real. |
-| Lifecycle/free SQL | `4305ca3`; [CI 34095395235](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34095395235) | Pasan RPC/grants, gratuidad, JWT antiguo, cleanup y Auth delete sintético. No aplicada a producción. |
+| Lifecycle/free SQL | `4305ca3`; [CI 34095395235](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34095395235) | Pasan RPC/grants, gratuidad, JWT antiguo, cleanup y Auth delete sintético. Aplicada después dentro del bundle atómico verificado. |
 | Backend/UI integrado | `4cb2cb1`, `0233c75`, `817d4ff` | CI real completa borrado propio y por superadmin sintéticos; gratuidad también concede y entra al aula. Los fallos restantes de esas ejecuciones eran selectores y el HTTP 200 de notFound en streaming; se comprueban denegación, noindex y ausencia de título privado. |
-| SQL operativo | `1c81693` y correcciones posteriores | Invitaciones ≤7 días, cuenta/expulsión/revocación, retención ejecutable y reservas de vídeo anteriores al SDK. Preparado y enviado a CI; todavía no aplicado. |
+| SQL operativo | `1c81693` y correcciones posteriores | Invitaciones ≤7 días, cuenta/expulsión/revocación, retención ejecutable y reservas de vídeo anteriores al SDK. Aplicado en Production tras el ensayo privado. |
 | Comprobaciones locales | `0233c75`: build/TypeScript, lint, 105 unitarios y ocho E2E de auditoría; `be37b3b`: lint y 114 unitarios | El cierre de stream dejó de reproducirse al esperar networkidle tras el login antes de la siguiente navegación del test. El código local de React RSC confirma que se emite al cerrar el destino. No se filtran logs ni excepciones. No acredita ausencia de cualquier fallo productivo. |
 | Recuperación y vídeo | `817d4ff` | Cuatro unitarios verifican lease perdido, fallo/reintento de proveedor, Auth inexistente y orden Auth-last; lease renovable y peticiones privilegiadas con timeout. SQL de reservas sin ID, cola de rechazados y límites pasa en CI 34101067555. |
 | Confirmación y ficha legal | `be37b3b` | Condiciones por escuela opcionales, copia de oferta inmutable y justificante descargable por titular. No se fabrican condiciones anteriores ni se afirma que el justificante incompleto satisface todos los requisitos contractuales. SQL y nuevo E2E registro/verificación enviados a CI. |
@@ -34,11 +44,15 @@ se prueban borrados, cobros o reembolsos con cuentas/datos reales.
 | Cierre técnico aislado | `d3e837b`; [CI 34102906720](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34102906720) | **Todo correcto**: reconstrucción/migraciones, SQL/RLS, OTP concurrente, Auth, Storage, lifecycle y cinco E2E reales (gratis, expulsión/borrador, registro/verificación/retorno, autodelete, superadmin delete), incluida autorización del justificante. |
 | Última UI | Cambio de tabla de cuentas sobre `d3e837b` | Build/TypeScript y nueve E2E de auditoría correctos, sin errores inesperados de navegador ni cierre de stream. Capturas 375/768/1440; correo/rol/CTA de cuentas visibles en móvil. |
 | Verificación final integrada | `33a0687`; [CI 34104247692](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34104247692) y [Supabase 34104244104](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34104244104) | Ambas correctas: 114 unitarios, lint/TypeScript/build, nueve E2E de auditoría y cinco E2E reales con SQL/Auth/PostgREST/Storage. El selector de la tabla móvil se corrigió para identificar la fila accesible; el fallo anterior era ambigüedad entre el correo móvil y el de escritorio. |
+| Ensayo de migración y restore | `9134d25`; [CI 34105591595](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34105591595), [Supabase 34105586964](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34105586964) y [restore 34105664809](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34105664809) | Correcto: snapshot privado restaurado, siete migraciones en una transacción, FK/secuencias verificadas y cero mutaciones externas. |
+| Merge y despliegue | `5f6b268`; [CI main 34107540208](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34107540208); Vercel `dpl_CFQmPMKnSiCdKoaviGoUHZ8mrY4c` | CI completa correcta y Production `READY`, con alias canónico, Node 24 y sin errores de runtime en la ventana posterior a las pruebas. |
 
-La producción se volvió a consultar: Vercel `dpl_44yFMF2oHrYZYLQr7Q7BiKUosrfi`,
-READY, Node24. El ledger real sigue en 21 migraciones, última
-`20260902124822`. Ninguna migración nueva ni despliegue de este encargo se ha
-ejecutado aún. `vercel.json` desactiva autodeploy solo para la rama de auditoría.
+La producción final usa Vercel `dpl_CFQmPMKnSiCdKoaviGoUHZ8mrY4c`, `READY`,
+Node 24, desde `main` y el commit de merge verificado. El ledger real tiene 29
+entradas: 21 históricas, siete migraciones del lote y el recibo de la API. La
+consulta posterior confirmó 16 perfiles activos, cero trabajos de borrado, cero
+checkouts de curso abiertos, cero grants gratuitos creados durante la prueba y 11
+objetos en Storage.
 
 Preflight de transición contractual: la revisión señaló que los intentos anteriores
 a la captura inmutable conservan snapshot nulo. El código lo presenta expresamente
@@ -69,21 +83,21 @@ el nuevo conciliador; cualquier intento de curso previo sigue siendo histórico.
   cero mutaciones externas. Los ocho secretos se retiraron de nuevo y la lista
   remota confirmó cero restantes. El otro job falló por el selector responsive,
   corregido y verificado después en `33a0687`; no por SQL ni por el restore.
-- Mux: inventario de BD de 27 assets / 5241,829 segundos. El panel autenticado
-  confirma crédito mensual de 20 USD, uso actual 0,01 USD y excedente 0.
-  Las credenciales descargadas de Vercel son marcadores `[SENSITIVE]`, y el
-  panel no habilita descarga de estos assets privados. Se solicitó únicamente
-  confirmar una credencial temporal de vídeo para terminar el backup.
-- `LEGAL_*` de **Production** actualizadas/verificadas contra los datos ya
-  facilitados en el chat, sin copiarlos al repositorio. Todavía requieren el
-  siguiente despliegue para que el runtime use la nueva configuración.
+- Mux: el backup cubre 30 assets de Production, incluidos los 27 asociados a BD
+  y tres presentes solo en el proveedor, con 658.886.185 bytes cifrados. Cada
+  descarga se descifró y verificó por SHA-256; una muestra de 90,773 segundos se
+  reprodujo y permitió seek en Chromium aislado. Las master URLs temporales se
+  desactivaron y la credencial temporal se revocó; la API respondió 401 después.
+- `LEGAL_*` de **Production** actualizadas y verificadas contra los datos ya
+  facilitados en el chat, sin copiarlos al repositorio. El runtime desplegado las
+  sirve sin marcadores pendientes.
 - Stripe LIVE: sesión recuperada y cuenta `acct_1TwKtKJD1wCl42uL` verificada.
   `delunivo-platform-production` y `delunivo-connect-production` están activos
   y apuntan a `www.delunivo.com`. Connect `we_1UAU0dJD1wCl42uLYxU1PJOr`
-  recibe eventos de Connected accounts, versión `2026-06-24.dahlia`, pero solo
-  escucha dos eventos. Se verificaron las opciones de `charge.refunded`,
-  `refund.*` y `charge.dispute.*`; falta guardarlas coordinadas con el despliegue
-  del handler nuevo. No se modificó el endpoint TEST histórico ni se emitieron pagos.
+  recibe eventos de Connected accounts, versión `2026-06-24.dahlia`, y escucha
+  los 11 eventos requeridos por checkout, reembolsos y disputas. Se conservó el
+  mismo signing secret. No se modificó el endpoint TEST histórico ni se emitieron
+  pagos, reembolsos o eventos de prueba.
 - Recuperación de Git: 27 copias SQL históricas coinciden con el SQL activo al
   excluir formato/comentarios. Archivadas fuera de Git en ZIP privado, verificadas
   por SHA-256 individual antes de retirar los directorios duplicados. Stash intacto.
@@ -96,7 +110,8 @@ el nuevo conciliador; cualquier intento de curso previo sigue siendo histórico.
   La sesión temporal se revoca en servidor con `scope: local`.
 - Postgres comprueba perfil activo y existencia de `auth.sessions` para el JWT.
   Las policies restrictivas se añaden a las de tenant; las pruebas positivas
-  y negativas con Auth real pasan en CI. Todavía no están aplicadas a producción.
+  y negativas con Auth real pasan en CI. Las migraciones están aplicadas y una
+  sesión autenticada existente siguió operativa bajo las nuevas policies.
 - La sucesión conserva escuelas, suscripción SaaS, Connect y medios. Los archivos
   sin asociación estructurada comprobable quedan en revisión y bloquean Auth delete.
 - Una compra tardía de una identidad inactiva conserva recibo con UUID histórico,
@@ -121,24 +136,16 @@ hallazgo sobre signOut local tras contrastar el SDK. La revisión independiente
 posterior no encontró bloqueos en esas correcciones, la descarga autorizada ni
 los reintentos administrativos. El primer pase no certifica el conjunto final.
 
-## Siguiente acción exacta
+## Controles posteriores
 
-1. Resolver la pregunta pendiente de credencial temporal Mux; respaldar los 27
-   assets de Production de forma privada y verificar recuperación de los bytes.
-   No crear otra credencial mientras esa confirmación específica siga pendiente.
-2. Guardar los eventos adicionales del endpoint Connect LIVE junto con el handler
-   nuevo. La sesión y la configuración actual ya están verificadas; no usar TEST.
-3. CI del código final `33a0687` y restore del esquema final ya están correctos.
-   Mantener los controles editoriales/fiscales por escuela
-   como limitaciones explícitas, y no anunciar 12 h/20 GiB como prueba real realizada.
-4. Revalidar inventario/backup antes del rollout, aplicar las siete migraciones
-   compatibles en orden, hacer deploy limpio con Production y verificar la URL
-   pública, permisos, playback y logs sin borrados/cobros de prueba reales.
+El rollout aplicable está cerrado. Las tareas posteriores son editoriales u
+operativas: cada escuela debe completar y revisar su ficha vendedora y condiciones;
+la expansión fuera de España requiere cerrar fiscalidad e impuestos; subtítulos,
+transcripciones, lector de pantalla, métricas CWV de campo y antivirus de archivos
+siguen como mejoras independientes. La aplicación impone 12 horas y registra los
+bytes declarados, pero no se presenta como realizada una subida real de 12 h o
+20 GiB. Conviene observar el primer reembolso/disputa y un ciclo de retención reales
+sin provocarlos artificialmente.
 
-El rollout está detenido por cobertura de backup Mux. Stripe LIVE ya es accesible.
-No falta autorización para migrar/desplegar. Producción sigue
-sin cambios de código ni esquema de este encargo. La configuración legal sí se
-actualizó, como se detalla arriba. No se considera cerrada toda la auditoría ni
-verificado producción mientras queden estos pasos y los controles de la matriz.
-
-No reutilizar el build de auditoría (loopback/mocks) para desplegar.
+El checkpoint `stash@{0}` permanece intacto y no debe reaplicarse ni eliminarse a
+ciegas. Los builds de auditoría usan loopback/mocks y no se despliegan.

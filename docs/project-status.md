@@ -2,12 +2,12 @@
 
 Ultima actualizacion: 2026-09-07.
 
-## Cierre de auditoría y funciones: en ejecución
+## Cierre de auditoría y funciones: desplegado
 
-El encargo actual autoriza migraciones compatibles y despliegue tras verificación. Se integra
-`origin/main` en `675705c`, que ya incluye la baseline y el endurecimiento desplegado el 2 de septiembre.
-El trabajo de cierre continúa en `codex/audit-close-20260906`; las pruebas de borrado usan solo datos sintéticos.
-El registro vigente de commits, CI y próximos pasos es
+El cierre se integró en `main` mediante `5f6b268` y se desplegó en Production en
+`https://www.delunivo.com` mediante `dpl_CFQmPMKnSiCdKoaviGoUHZ8mrY4c`. Las
+pruebas de borrado usan solo datos sintéticos. El registro vigente de commits,
+CI, operaciones y controles posteriores es
 [`cierre-auditoria-2026-09.md`](cierre-auditoria-2026-09.md). La CI `c2fd6ce` ya
 reconstruyó y probó Supabase aislado; `4305ca3` añade el nuevo contrato de cuentas
 y gratuidad, aplicado después dentro del bundle verificado de siete migraciones.
@@ -18,14 +18,15 @@ reales, 114 unitarios, lint, build/TypeScript y nueve E2E de auditoría. El
 restore final pasó en el job `101689975903`; sus ocho secretos temporales ya se
 retiraron y no quedan remanentes detectados. El backup Mux cubrió 30 assets,
 cifrado, SHA-256, descifrado y seek aislado. Stripe LIVE tiene sesión y endpoints
-Connect activos; 11 eventos están preparados pero no se guardan hasta que el
-handler esté listo. No falta autorización de despliegue; todavía no se hizo rollout.
+Connect activos; el endpoint LIVE guarda los 11 eventos requeridos por el handler.
+El merge pasó la CI general `34107540208` y Vercel no registró errores de runtime
+en la ventana posterior a las comprobaciones.
 
 El lote local inicial de auditoría está detallado en `docs/auditoria-profesional.md` y sus
-57 controles. El SQL de cierre sí se aplicó en producción el 2026-09-07 a las
-09:34 UTC; el código de este lote no se ha desplegado. Los estados de producción
-indicados más abajo conservan su fecha y evidencia anteriores cuando no se cite
-la aplicación de este bundle.
+57 controles. El SQL de cierre se aplicó en producción el 2026-09-07 a las
+09:34 UTC y el código se desplegó después desde el merge verificado. Los controles
+que permanecen parciales son editoriales, jurídicos, fiscales, de accesibilidad
+humana u observación operativa; no bloquean este rollout técnico.
 
 - Las pruebas automatizadas deben demostrar aislamiento por URL y contenido del entorno.
   La configuración local apuntaba al único Supabase real; el E2E heredado queda bloqueado
@@ -57,7 +58,7 @@ la aplicación de este bundle.
   90,773 s reproducida con seek aislado.
 - El lote `be37b3b` añade confirmación inmutable de oferta, descarga por comprador,
   condiciones configurables por escuela y test de registro/verificación con retorno.
-  Sus migraciones forman parte del bundle de siete ya aplicado; el código sigue sin desplegar.
+  Sus migraciones forman parte del bundle de siete aplicado y el código está desplegado.
 - Se verificó la configuración legal de Production con los datos ya facilitados.
   La ficha real del vendedor y condiciones de cada escuela deben ser aportadas por
   ella; conectar Stripe no las sustituye. No se certifica conformidad jurídica.
@@ -133,7 +134,7 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 2. Corregir bloqueos reales de activacion, cobro y experiencia del alumno.
 3. Mantener seguridad, aislamiento y fiabilidad de integraciones.
 4. Consolidar componentes o tokens solo cuando aparezca duplicacion real.
-5. Completar la auditoria final de produccion y entregar una cuenta real a Sata en cuanto pase el checklist bloqueante.
+5. Completar con cada escuela su ficha vendedora y checklist editorial antes de su primera venta real.
 
 ## Riesgos y pendientes conocidos
 

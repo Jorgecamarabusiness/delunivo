@@ -622,17 +622,17 @@ de `course-videos` quedan contradichas por esta lectura; no se borró ni descarg
 El propósito y las políticas de `public-media` necesitan reconciliación.
 
 Se confirmó una única cuenta superadmin y ninguna organización sin owner mediante
-conteos agregados. No se han inspeccionado sus datos ni se ha demostrado integridad
-del historial tras la recuperación reportada. La defensa frente a borrados privilegiados
-y la restauración aislada están pendientes.
+conteos agregados. La defensa frente al borrado del último owner/superadmin y la
+sucesión obligatoria pasaron SQL/Auth aislado. La restauración privada final también
+pasó antes de aplicar el lote; no se probó eliminando ninguna cuenta real.
 
-Migración nueva **preparada, no aplicada**:
-`20260906213000_require_ready_mux_assets.sql`. Refuerza la RPC de guardado de bloques
+La migración `20260906213000_require_ready_mux_assets.sql`, inicialmente preparada
+en este punto del informe, quedó aplicada dentro del bundle final. Refuerza la RPC de guardado de bloques
 para exigir `ready`, playback ID y duración `(0, 43200]` en el UPDATE transaccional;
 una validación previa en la action no cierra por sí sola la carrera con webhooks.
 Rollback versionado restaura la definición remota leída; es una protección más débil,
-no debe ejecutarse como prueba en producción. Validación SQL y concurrencia requieren
-baseline aislada antes de cualquier rollout de este cambio.
+no debe ejecutarse como prueba en producción. La validación SQL y de concurrencia
+pasó sobre la baseline aislada antes del rollout.
 
 ### Cierre de septiembre: esquema aplicado y restauración ensayada
 
@@ -656,8 +656,9 @@ El ledger de producción tiene 29 entradas: las 21 históricas, estas siete y el
 recibo de API `20260907093414_audit_close_verified_bundle.sql` (no-op local,
 commit `09fb064`). El bundle se ensayó antes de aplicar; CI `9134d25`
 (`34105591595` general y `34105586964` Supabase) y el ensayo privado
-`34105664809` pasaron. SQL aplicado y código desplegado siguen siendo estados
-distintos: el despliegue de aplicación continúa pendiente.
+`34105664809` pasaron. SQL aplicado y código desplegado se verificaron como pasos
+distintos; el código quedó desplegado después mediante el merge `5f6b268` y el
+deployment `dpl_CFQmPMKnSiCdKoaviGoUHZ8mrY4c`.
 
 Los detalles de auditoría de borrado caducan al año y el tombstone mínimo a
 seis años; las referencias históricas se desacoplan antes de retirar el tombstone.
