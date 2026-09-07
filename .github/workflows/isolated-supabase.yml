@@ -30,8 +30,8 @@ jobs:
           version: 2.116.0
       - name: Start an isolated stack for private recovery verification
         run: supabase start
-      - name: Reconstruct the versioned schema before importing records
-        run: supabase db reset --local --yes
+      - name: Reconstruct the current production baseline before importing records
+        run: supabase db reset --local --version 20260902124822 --yes
       - name: Restore encrypted snapshot without emitting private data
         env:
           DELUNIVO_RESTORE_PART_1: ${{ secrets.DELUNIVO_RESTORE_PART_1 }}
@@ -43,6 +43,8 @@ jobs:
           DELUNIVO_RESTORE_KEY: ${{ secrets.DELUNIVO_RESTORE_KEY }}
           DELUNIVO_RESTORE_SHA256: ${{ secrets.DELUNIVO_RESTORE_SHA256 }}
         run: node scripts/isolated-private-restore.mjs
+      - name: Rehearse the atomic rollout against the restored private snapshot
+        run: node scripts/isolated-private-migration.mjs
       - name: Remove private recovery stack and volumes
         if: always()
         run: supabase stop --project-id delunivo-audit --no-backup
