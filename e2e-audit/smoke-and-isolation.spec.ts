@@ -95,3 +95,19 @@ test("el panel de subida mantiene el vídeo en processing y no carga proveedores
   await expect(page.getByRole("button", { name: /Añadir|Guardar/ })).toBeEnabled();
   // No se pulsa guardar: esta prueba no modifica la lección ni el proveedor.
 });
+
+test("administración y seguimiento de cuentas conservan navegación responsive", async ({ page }, testInfo) => {
+  await login(page, "ownerA");
+  await page.goto("/o/audit-org-a/admin");
+  await expect(page.getByRole("heading", { name: "Panel de administración" })).toBeVisible();
+  await captureResponsive(page, testInfo, "admin-home");
+  await login(page, "superadmin");
+  await page.goto("/admin/plataforma/cuentas");
+  await expect(page.getByRole("heading", { name: "Cuentas", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Buscar por correo")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Eliminaciones en curso" })).toBeVisible();
+  await captureResponsive(page, testInfo, "platform-accounts");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const animation = await page.getByRole("heading", { name: "Cuentas", exact: true }).evaluate(element => getComputedStyle(element).animationDuration);
+  expect(animation).toBe("1e-05s");
+});
