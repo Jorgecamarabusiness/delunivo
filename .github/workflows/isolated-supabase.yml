@@ -38,6 +38,8 @@ jobs:
           DELUNIVO_RESTORE_PART_2: ${{ secrets.DELUNIVO_RESTORE_PART_2 }}
           DELUNIVO_RESTORE_PART_3: ${{ secrets.DELUNIVO_RESTORE_PART_3 }}
           DELUNIVO_RESTORE_PART_4: ${{ secrets.DELUNIVO_RESTORE_PART_4 }}
+          DELUNIVO_RESTORE_PART_5: ${{ secrets.DELUNIVO_RESTORE_PART_5 }}
+          DELUNIVO_RESTORE_PART_6: ${{ secrets.DELUNIVO_RESTORE_PART_6 }}
           DELUNIVO_RESTORE_KEY: ${{ secrets.DELUNIVO_RESTORE_KEY }}
           DELUNIVO_RESTORE_SHA256: ${{ secrets.DELUNIVO_RESTORE_SHA256 }}
         run: node scripts/isolated-private-restore.mjs

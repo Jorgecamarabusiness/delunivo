@@ -15,7 +15,7 @@ try {
   const { localSupabase } = await import("./isolated-supabase.mjs");
   const local = localSupabase();
   if (local.apiUrl !== "http://127.0.0.1:55471") throw new Error();
-  const encoded = [1,2,3,4].map(n => secrets[`DELUNIVO_RESTORE_PART_${n}`] ?? "").join("");
+  const encoded = [1,2,3,4,5,6].map(n => secrets[`DELUNIVO_RESTORE_PART_${n}`] ?? "").join("");
   const ciphertext = Buffer.from(encoded, "base64");
   if (createHash("sha256").update(ciphertext).digest("hex") !== secrets.DELUNIVO_RESTORE_SHA256) throw new Error();
   temporary = mkdtempSync(join(tmpdir(), "delunivo-private-restore-"));
