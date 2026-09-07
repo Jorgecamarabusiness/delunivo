@@ -12,11 +12,13 @@ El registro vigente de commits, CI y próximos pasos es
 reconstruyó y probó Supabase aislado; `4305ca3` añade el nuevo contrato de cuentas
 y gratuidad, todavía sin aplicar a producción.
 
-`d3e837b` pasa la CI completa `34102906720`: siete migraciones nuevas, SQL/RLS,
-Auth/PostgREST/Storage/concurrencia y cinco E2E reales. El conjunto local pasa
-114 unitarios, lint, build/TypeScript y nueve E2E de auditoría. Quedan bloqueos
-externos de backup Mux (credencial) y verificación de eventos Stripe LIVE
-(sesión ausente). No falta autorización de despliegue; no se ha hecho rollout.
+`33a0687` pasa las CI `34104247692` y `34104244104`: siete migraciones nuevas,
+SQL/RLS/Auth/PostgREST/Storage/concurrencia, cinco E2E reales, 114 unitarios,
+lint, build/TypeScript y nueve E2E de auditoría. El restore privado del esquema
+final pasó en el job `101683493178`; sus ocho secretos temporales ya se retiraron.
+Falta cobertura del backup Mux (secreto no recuperable). Stripe LIVE ya tiene
+sesión y endpoints activos verificados; quedan sus eventos adicionales coordinados
+con el nuevo handler. No falta autorización de despliegue; no se ha hecho rollout.
 
 El lote local inicial de auditoría está detallado en `docs/auditoria-profesional.md` y sus
 57 controles. Ningún cambio de este lote se ha desplegado ni aplicado a datos reales.

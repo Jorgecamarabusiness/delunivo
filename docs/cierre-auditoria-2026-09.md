@@ -33,11 +33,20 @@ se prueban borrados, cobros o reembolsos con cuentas/datos reales.
 | Revisión de secretos | Escáner local: 42 commits, 1021 blobs y 413 archivos de trabajo | Cero patrones conocidos. No inspecciona secretos ignorados ni demuestra ausencia absoluta. |
 | Cierre técnico aislado | `d3e837b`; [CI 34102906720](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34102906720) | **Todo correcto**: reconstrucción/migraciones, SQL/RLS, OTP concurrente, Auth, Storage, lifecycle y cinco E2E reales (gratis, expulsión/borrador, registro/verificación/retorno, autodelete, superadmin delete), incluida autorización del justificante. |
 | Última UI | Cambio de tabla de cuentas sobre `d3e837b` | Build/TypeScript y nueve E2E de auditoría correctos, sin errores inesperados de navegador ni cierre de stream. Capturas 375/768/1440; correo/rol/CTA de cuentas visibles en móvil. |
+| Verificación final integrada | `33a0687`; [CI 34104247692](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34104247692) y [Supabase 34104244104](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34104244104) | Ambas correctas: 114 unitarios, lint/TypeScript/build, nueve E2E de auditoría y cinco E2E reales con SQL/Auth/PostgREST/Storage. El selector de la tabla móvil se corrigió para identificar la fila accesible; el fallo anterior era ambigüedad entre el correo móvil y el de escritorio. |
 
 La producción se volvió a consultar: Vercel `dpl_44yFMF2oHrYZYLQr7Q7BiKUosrfi`,
 READY, Node24. El ledger real sigue en 21 migraciones, última
 `20260902124822`. Ninguna migración nueva ni despliegue de este encargo se ha
 ejecutado aún. `vercel.json` desactiva autodeploy solo para la rama de auditoría.
+
+Preflight de transición contractual: la revisión señaló que los intentos anteriores
+a la captura inmutable conservan snapshot nulo. El código lo presenta expresamente
+como historial sin copia original; no se inventa aceptación retrospectiva. La consulta
+real del 7 de septiembre encontró cero intentos de compra de curso y uno de
+suscripción SaaS abierto. No se cancela este último para probar ni desplegar.
+Revalidar el inventario inmediatamente antes de migrar y coordinar la captura con
+el nuevo conciliador; cualquier intento de curso previo sigue siendo histórico.
 
 ## Backups y operaciones externas de este lote
 
@@ -55,6 +64,11 @@ ejecutado aún. `vercel.json` desactiva autodeploy solo para la rama de auditor�
   Los ocho secretos temporales de GitHub se retiraron y se verificó que quedan cero.
   El otro job de esa ejecución falló por una fixture SQL independiente; eso no
   invalida ni convierte el restore privado en un restore sintético.
+- Restore repetido sobre **el esquema final**: [ejecución 34103612710](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/34103612710),
+  job `101683493178` correcto: 54 tablas/1446 filas, FK y secuencias verificadas,
+  cero mutaciones externas. Los ocho secretos se retiraron de nuevo y la lista
+  remota confirmó cero restantes. El otro job falló por el selector responsive,
+  corregido y verificado después en `33a0687`; no por SQL ni por el restore.
 - Mux: inventario de BD de 27 assets / 5241,829 segundos. El panel autenticado
   confirma crédito mensual de 20 USD, uso actual 0,01 USD y excedente 0.
   Las credenciales descargadas de Vercel son marcadores `[SENSITIVE]`, y el
@@ -63,10 +77,13 @@ ejecutado aún. `vercel.json` desactiva autodeploy solo para la rama de auditor�
 - `LEGAL_*` de **Production** actualizadas/verificadas contra los datos ya
   facilitados en el chat, sin copiarlos al repositorio. Todavía requieren el
   siguiente despliegue para que el runtime use la nueva configuración.
-- Stripe: la credencial local utilizable es **TEST**, con un endpoint histórico.
-  No se modificó. La pestaña de Stripe se abre en login; no hay sesión para
-  verificar/ajustar los eventos LIVE de reembolsos y disputas. La configuración
-  LIVE histórica figura documentada, pero no se da por revalidada en este lote.
+- Stripe LIVE: sesión recuperada y cuenta `acct_1TwKtKJD1wCl42uL` verificada.
+  `delunivo-platform-production` y `delunivo-connect-production` están activos
+  y apuntan a `www.delunivo.com`. Connect `we_1UAU0dJD1wCl42uLYxU1PJOr`
+  recibe eventos de Connected accounts, versión `2026-06-24.dahlia`, pero solo
+  escucha dos eventos. Se verificaron las opciones de `charge.refunded`,
+  `refund.*` y `charge.dispute.*`; falta guardarlas coordinadas con el despliegue
+  del handler nuevo. No se modificó el endpoint TEST histórico ni se emitieron pagos.
 - Recuperación de Git: 27 copias SQL históricas coinciden con el SQL activo al
   excluir formato/comentarios. Archivadas fuera de Git en ZIP privado, verificadas
   por SHA-256 individual antes de retirar los directorios duplicados. Stash intacto.
@@ -78,8 +95,8 @@ ejecutado aún. `vercel.json` desactiva autodeploy solo para la rama de auditor�
   actor se obtiene de Auth y confirma su contraseña en cliente no persistente.
   La sesión temporal se revoca en servidor con `scope: local`.
 - Postgres comprueba perfil activo y existencia de `auth.sessions` para el JWT.
-  Las policies restrictivas se añaden a las de tenant; necesitan pruebas positivas
-  y negativas con Auth real antes de aplicarse.
+  Las policies restrictivas se añaden a las de tenant; las pruebas positivas
+  y negativas con Auth real pasan en CI. Todavía no están aplicadas a producción.
 - La sucesión conserva escuelas, suscripción SaaS, Connect y medios. Los archivos
   sin asociación estructurada comprobable quedan en revisión y bloquean Auth delete.
 - Una compra tardía de una identidad inactiva conserva recibo con UUID histórico,
@@ -98,25 +115,28 @@ ejecutado aún. `vercel.json` desactiva autodeploy solo para la rama de auditor�
 
 `closure_quality` identificó carreras de checkout, cobro a expulsados, consumidores
 de compras sin estado, retorno de login con sesión y coincidencias débiles de
-Storage. Se están integrando. Retiró expresamente el hallazgo sobre signOut local
-tras contrastar el SDK. No presentar este primer pase como revisión final.
+Storage. Sus correcciones están integradas y probadas, incluida la referencia
+exacta de bucket/ruta con escapes y contenido rich text. Retiró expresamente el
+hallazgo sobre signOut local tras contrastar el SDK. La revisión independiente
+posterior no encontró bloqueos en esas correcciones, la descarga autorizada ni
+los reintentos administrativos. El primer pase no certifica el conjunto final.
 
 ## Siguiente acción exacta
 
 1. Resolver la pregunta pendiente de credencial temporal Mux; respaldar los 27
    assets de Production de forma privada y verificar recuperación de los bytes.
    No crear otra credencial mientras esa confirmación específica siga pendiente.
-2. Recuperar sesión de Stripe LIVE para comprobar el endpoint Connect y añadir
-   únicamente los eventos usados por el handler si faltan. No usar la clave TEST.
-3. Confirmar CI del último commit de integración/documentación; `d3e837b` ya pasó
-   todo el conjunto aislado. Mantener los controles editoriales/fiscales por escuela
+2. Guardar los eventos adicionales del endpoint Connect LIVE junto con el handler
+   nuevo. La sesión y la configuración actual ya están verificadas; no usar TEST.
+3. CI del código final `33a0687` y restore del esquema final ya están correctos.
+   Mantener los controles editoriales/fiscales por escuela
    como limitaciones explícitas, y no anunciar 12 h/20 GiB como prueba real realizada.
 4. Revalidar inventario/backup antes del rollout, aplicar las siete migraciones
    compatibles en orden, hacer deploy limpio con Production y verificar la URL
    pública, permisos, playback y logs sin borrados/cobros de prueba reales.
 
-El rollout está detenido por cobertura de backup Mux y acceso de configuración
-Stripe LIVE. No por falta de autorización para migrar/desplegar. Producción sigue
+El rollout está detenido por cobertura de backup Mux. Stripe LIVE ya es accesible.
+No falta autorización para migrar/desplegar. Producción sigue
 sin cambios de código ni esquema de este encargo. La configuración legal sí se
 actualizó, como se detalla arriba. No se considera cerrada toda la auditoría ni
 verificado producción mientras queden estos pasos y los controles de la matriz.

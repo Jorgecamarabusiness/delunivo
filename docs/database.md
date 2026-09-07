@@ -637,8 +637,9 @@ no aplicadas allí:
 | `20260907100000` | Condiciones opcionales de escuela ≤4000 caracteres; snapshots inmutables de oferta/consentimiento en intento y compra. No se reconstruyen contratos históricos ficticios. |
 | `20260907101500` | Referencias exactas de Storage con bucket/ruta, URL codificada y rich text; conserva medios de escuela y deja objetos sin asociación para revisión explícita. |
 
-Las siete migraciones y sus pruebas pasan juntas en la CI de `d3e837b`
-(`34102906720`). SQL probado, migración aplicada y código desplegado son estados
+Las siete migraciones y sus pruebas pasan juntas en la CI final de `33a0687`
+(`34104244104`), además del pase anterior de `d3e837b` (`34102906720`).
+SQL probado, migración aplicada y código desplegado son estados
 distintos: los dos últimos siguen pendientes en producción.
 
 Los detalles de auditoría de borrado caducan al año y el tombstone mínimo a
@@ -647,7 +648,9 @@ La cola y las RPC de limpieza/conciliación son exclusivas del servidor. La
 identidad Auth se elimina al final, tras pagos y propiedad Storage; los medios,
 ownership sucesor, suscripción SaaS y Connect de la escuela se conservan.
 
-El restore privado recuperó 54 tablas/1446 filas con FK y secuencias verificadas.
+El restore privado del esquema final, job `101683493178` de `34103612710`,
+recuperó 54 tablas/1446 filas con FK y secuencias verificadas. Los ocho secretos
+temporales se retiraron y el inventario remoto confirmó cero restantes.
 Los dos ledgers de proveedor excluidos de importación se reconstruyen con Auth y
 Storage de la versión fijada. Una restauración futura de producción exige aplicar
 primero los tombstones posteriores al snapshot antes de habilitar sesiones/tráfico.
