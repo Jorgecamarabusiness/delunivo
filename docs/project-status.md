@@ -1,6 +1,58 @@
 # Delunivo: estado y decisiones vigentes
 
-Ultima actualizacion: 2026-09-02.
+Ultima actualizacion: 2026-09-07.
+
+## Cierre de auditoría y funciones: en ejecución
+
+El encargo actual autoriza migraciones compatibles y despliegue tras verificación. Se integra
+`origin/main` en `675705c`, que ya incluye la baseline y el endurecimiento desplegado el 2 de septiembre.
+El trabajo de cierre continúa en `codex/audit-close-20260906`; las pruebas de borrado usan solo datos sintéticos.
+El registro vigente de commits, CI y próximos pasos es
+[`cierre-auditoria-2026-09.md`](cierre-auditoria-2026-09.md). La CI `c2fd6ce` ya
+reconstruyó y probó Supabase aislado; `4305ca3` añade el nuevo contrato de cuentas
+y gratuidad, todavía sin aplicar a producción.
+
+`d3e837b` pasa la CI completa `34102906720`: siete migraciones nuevas, SQL/RLS,
+Auth/PostgREST/Storage/concurrencia y cinco E2E reales. El conjunto local pasa
+114 unitarios, lint, build/TypeScript y nueve E2E de auditoría. Quedan bloqueos
+externos de backup Mux (credencial) y verificación de eventos Stripe LIVE
+(sesión ausente). No falta autorización de despliegue; no se ha hecho rollout.
+
+El lote local inicial de auditoría está detallado en `docs/auditoria-profesional.md` y sus
+57 controles. Ningún cambio de este lote se ha desplegado ni aplicado a datos reales.
+Los estados de producción indicados más abajo conservan su fecha y evidencia anteriores.
+
+- Las pruebas automatizadas deben demostrar aislamiento por URL y contenido del entorno.
+  La configuración local apuntaba al único Supabase real; el E2E heredado queda bloqueado
+  para producción. GitHub CI ya ejecuta Supabase PG17/Auth/PostgREST/Storage reales,
+  SQL/RLS/concurrencia y Next/Chromium con identidades sintéticas. La suite rápida
+  con mock se conserva como evidencia distinta.
+- Emisión y consumo de códigos de verificación pasan a las RPC atómicas ya existentes,
+  confirmadas en el catálogo real. No se conserva el fallback de lecturas/escrituras no atómicas.
+- Objetivo de vídeo: máximo inclusivo de 43.200 segundos, independiente de 20 GiB y 1080p.
+  La aplicación valida duración de proveedor y espera `ready` antes de guardar. El cierre
+  atómico se prepara en `20260906213000_require_ready_mux_assets.sql`, todavía sin aplicar.
+  Los bytes declarados por el navegador no constituyen un límite autoritativo de costes.
+- Playback usa duración verificada + 15 minutos y verifica acceso cada 5 minutos sin
+  sustituir innecesariamente el token. Un bearer emitido continúa válido hasta caducar;
+  no hay revocación individual instantánea en Mux. Subida real de 12 horas sigue pendiente.
+- Se elimina copy ficticio por defecto, mejora contraste dinámico y estados accesibles,
+  y se añaden cabeceras defensivas/noindex privado. No cambian precios ni derechos.
+- La actualización de `origin/main` recupera la baseline y las 21 migraciones del ledger.
+  La reconstrucción y el SQL nuevo de borrado/gratuidad, último owner/superadmin,
+  invitaciones, retención y reservas de vídeo pasan en CI. Los dos E2E de borrado
+  completan Auth real; gratuidad entra al aula sin Connect.
+- Tiptap 3.31.3 y Browserslist 4.28.9: audit limpio, lock actual conservado.
+- Backup privado de BD restaurado en runner efímero: 54 tablas/1446 filas, FK y
+  secuencias verificadas (job 101669740041). Ocho secretos temporales retirados.
+  Storage: 11 objetos cifrados con recuperación/hash comprobados. Mux: falta
+  credencial utilizable para respaldar los vídeos; la pregunta específica está pendiente.
+- El lote `be37b3b` añade confirmación inmutable de oferta, descarga por comprador,
+  condiciones configurables por escuela y test de registro/verificación con retorno.
+  Las migraciones siguen **sin aplicar a producción**, y no se ha desplegado este lote.
+- Se verificó la configuración legal de Production con los datos ya facilitados.
+  La ficha real del vendedor y condiciones de cada escuela deben ser aportadas por
+  ella; conectar Stripe no las sustituye. No se certifica conformidad jurídica.
 
 ## Producto
 
@@ -51,7 +103,7 @@ Delunivo es una plataforma SaaS multi-tenant para que creadores y academias cree
 - La organizacion de Supabase esta en Pro con Spend Cap activo y un unico proyecto, `Delunivo` (`jgxqdzmmeveksseflyst`). El proyecto inicial vacio fue verificado sin tablas, usuarios ni archivos y eliminado el 2026-08-31; el coste proyectado quedo en 25 USD/mes.
 - Resend entrega desde `Delunivo <hola@mail.delunivo.com>` con el dominio `mail.delunivo.com` verificado (DKIM, SPF y DMARC). Un restablecimiento real de contrasena llego correctamente en produccion.
 - Stripe live esta activo para la suscripcion de plataforma y Stripe Connect. Produccion usa clave live y Preview clave de prueba; los webhooks de plataforma y Connect apuntan a `www.delunivo.com`. La cuenta bancaria de Jorge recibe la suscripcion de Delunivo; cada profesor debe conectar su propia cuenta para recibir ventas de cursos.
-- La politica fiscal provisional no bloquea la auditoria: los precios publicados se consideran finales con IVA incluido y, para operaciones espanolas, se reserva el 21 % general. La suscripcion de Delunivo se clasifica como SaaS y los cursos grabados bajo demanda como servicios electronicos; no se presume exencion educativa. Stripe Tax y OSS se automatizaran antes de escalar ventas internacionales o superar el umbral B2C intracomunitario aplicable. Mientras no exista esa automatizacion, cualquier cobro real debe facturarse y contabilizarse con su desglose fiscal.
+- Los precios publicados se conservan como finales. La hipótesis fiscal previa de reservar el 21 % general en operaciones españolas no es una regla universal: tipo, localización, B2B/B2C y exención deben justificarse por operación. No se presume exención educativa. Stripe Tax y OSS requieren validar clasificación y obligaciones antes de automatizar ventas internacionales; la auditoría local no cambia impuestos ni condiciones comerciales. Véase el borrador legal con fuentes oficiales.
 - Mux usa el entorno `Production`, plan Pay as you go, reproduccion firmada y webhook `https://www.delunivo.com/api/webhooks/mux`. El webhook real respondio 200 y aplico un video de 53:12 a 720p; tambien hay evidencia separada de subida y reproduccion a 1080p.
 - Los identificadores internos estables, referencias de proyecto, buckets, tablas, claves y URLs de API no se renombran cuando el cambio no es cosmetico: preservarlos evita roturas y no expone una marca distinta al usuario.
 - El esquema real vive en Supabase. `docs/database.md` mantiene el inventario confirmado y `20260830000000_initial_platform_baseline.sql` permite reconstruirlo desde cero sin copiar datos reales. El historial local y remoto está alineado y cada migración nueva se verifica primero en una rama vacía.

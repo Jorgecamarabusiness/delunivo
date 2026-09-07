@@ -58,27 +58,31 @@ export default async function PlatformAccountsPage({ searchParams }: { searchPar
       ) : null}
       {profiles?.length ? (
         <div className="mt-6 overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <table className="w-full table-fixed text-left text-sm md:table-auto">
             <thead className="border-b border-border bg-muted/60">
               <tr>
                 <th className="px-4 py-3 font-semibold">Cuenta</th>
-                <th className="px-4 py-3 font-semibold">Correo</th>
-                <th className="px-4 py-3 font-semibold">Rol</th>
+                <th className="hidden px-4 py-3 font-semibold md:table-cell">Correo</th>
+                <th className="hidden px-4 py-3 font-semibold md:table-cell">Rol</th>
                 <th className="px-4 py-3 text-right font-semibold">Acción</th>
               </tr>
             </thead>
             <tbody>
               {profiles.map((profile, index) => (
                 <tr key={profile.id} className={index < profiles.length - 1 ? "border-b border-border" : ""}>
-                  <td className="px-4 py-3 font-medium">{profile.name || "Sin nombre"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{profile.email}</td>
-                  <td className="px-4 py-3">
+                  <td className="break-words px-3 py-3 font-medium md:px-4">
+                    {profile.name || "Sin nombre"}
+                    <span className="mt-1 block break-all text-xs font-normal text-muted-foreground md:hidden">{profile.email}</span>
+                    {profile.is_super_admin ? <span className="mt-1 block text-xs md:hidden">Superadministración</span> : null}
+                  </td>
+                  <td className="hidden break-all px-4 py-3 text-muted-foreground md:table-cell">{profile.email}</td>
+                  <td className="hidden px-4 py-3 md:table-cell">
                     {profile.is_super_admin ? "Superadministración" : "Cuenta"}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-2 py-3 text-right md:px-4">
                     <Link
                       href={`/cuenta/eliminar?target=${encodeURIComponent(profile.id)}`}
-                      className={buttonClassName("danger", "sm")}
+                      className={buttonClassName("danger", "sm", "min-h-11 max-w-full text-center")}
                     >
                       Revisar eliminación
                     </Link>

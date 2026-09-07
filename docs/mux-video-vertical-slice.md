@@ -7,7 +7,8 @@ a Mux mediante Mux Uploader.
 
 ## Flujo
 
-1. Un admin abre el editor de una lección y selecciona un vídeo.
+1. Un admin abre el editor y selecciona un vídeo. El navegador valida tamaño
+   (20 GiB inclusivos) y duración de metadata local `(0, 43200]` antes de pedir URL.
 2. `POST /api/admin/mux/uploads` valida sesión, organización, curso y lección.
 3. El servidor crea en Mux un Direct Upload con playback `signed`, 1080p máximo y
    24 horas de validez. Sólo la URL efímera vuelve al navegador.
@@ -17,10 +18,42 @@ a Mux mediante Mux Uploader.
    se reclama una sola vez y los fallos pueden reintentarse.
 6. Las transiciones usan `created_at` de Mux: un evento antiguo puede completar
    IDs que falten, pero no puede hacer retroceder el estado de un evento más nuevo.
-7. Guardar los bloques de la lección marca el asset como vigente en la misma
-   transacción. Una sustitución sin guardar no corta el vídeo anterior.
+7. El webhook rechaza `ready` sin duración válida del proveedor: queda `errored`,
+   sin playback ID. El formulario espera `ready` antes de habilitar guardar.
+   La action revalida asociación/duración; la migración preparada
+   `20260906213000_require_ready_mux_assets.sql` cierra además la carrera con
+   webhooks dentro de la transacción. Sigue pendiente aplicarla y probarla en aislado.
+   Una sustitución rechazada o sin guardar conserva el vídeo anterior.
 8. `GET /api/video/<videoAssetId>/playback` vuelve a comprobar sesión, compra,
-   roster, publicación y asociación del bloque antes de emitir un JWT de 4 horas.
+   roster, publicación y asociación del bloque antes de emitir un JWT cuya vida es
+   `ceil(duración verificada) + 900` segundos (máximo 12 h 15 min).
+   `?check=1` valida acceso sin emitir token. El cliente comprueba cada 5 minutos y
+   al volver a la pestaña/red, renueva 60 s antes de caducar y conserva posición,
+   pausa y velocidad al cambiar grant. Si no hay red, retira el reproductor al expirar.
+
+La documentación oficial de Mux exige que la expiración supere la duración del
+vídeo desde el momento actual, también por el seek. Los tokens capturados son
+bearer válidos hasta `exp`: el check del cliente no proporciona revocación individual
+instantánea. No se promete protección absoluta contra copia.
+
+Fuente consultada 2026-09-06: [secure video playback](https://www.mux.com/docs/guides/secure-video-playback).
+El SDK oficial instalado (`@mux/mux-node`, `resources/video/assets.d.ts`, campo
+`duration`) documenta máximo de 12 horas. La validez de upload de 24 horas es distinta.
+
+### Evidencia y límites del lote local, 2026-09-06
+
+No se ha subido nada a Mux real en esta auditoría. El MP4 Sintel de unos 52 segundos
+sirve para metadata real de navegador y upload por chunks interceptado en loopback;
+el estado processing/ready del proveedor es simulado. Unitarios cubren bordes de
+duración, tamaño, eventos y caducidad con reloj controlado. No demuestran un asset
+real de 12 horas ni recuperación tras cortar la red de una subida real.
+
+20 GiB sigue siendo límite de selección y metadata declarada, **no un control
+autoritativo de bytes en Mux**: la URL directa permite eludir esa declaración.
+Quedan pendientes cuotas por actor/tenant, conciliación de minutos/bytes, pista de
+vídeo válida, abuso por IDs distintos, cancelación/huérfanos y prueba de red/resume.
+Antes de anunciar capacidad de 12 horas debe validarse la cadena real con entorno,
+archivo y presupuesto autorizados, sin transportar los bytes por Vercel.
 
 Los bloques `video_file` con `video_url` siguen usando las URLs firmadas de
 Supabase existentes. Los bloques nuevos guardan `mux_video_asset_id`.

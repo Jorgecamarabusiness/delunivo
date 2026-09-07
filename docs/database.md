@@ -571,7 +571,89 @@ muestra el catálogo. Las lecturas privadas del panel usan
   `mux_deletion_jobs`; la aplicación los procesa de inmediato y un cron diario
   protegido por `CRON_SECRET` reintenta los fallos con espera exponencial.
 
-## Despliegue y dominio
+## Contraste de catálogo real, 2026-09-06 (solo lectura)
+
+Proyecto confirmado: `Delunivo`, referencia `jgxqdzmmeveksseflyst`, Postgres 17.6.
+El inventario de `docs/auditoria-inventario.md` enumera las 25 tablas públicas con
+RLS y las funciones/RPC; no se encontraron vistas públicas. Esto no sustituye
+pruebas de roles sobre una base aislada ni certifica todos los grants.
+
+El ledger remoto tiene 21 entradas. Estas tres no tienen archivo correspondiente
+en `supabase/migrations/`; además hay nombres/versiones históricas no alineados:
+
+- `20260902092019_harden_signup_media_and_progress`
+- `20260902124433_remove_redundant_purchase_unique`
+- `20260902124822_optimize_rls_and_foreign_keys`
+
+No se han reconstruido ni aplicado esas migraciones. Recuperar el SQL original,
+compararlo con DDL/grants/triggers reales y construir baseline reproducible es el
+siguiente lote de datos. No usar datos reales para rellenar la baseline.
+
+RPC de verificación confirmadas con `SECURITY DEFINER`, search_path `public, pg_temp`
+y ejecución exclusiva de `service_role`:
+
+- `issue_verification_code(p_email text, p_code_hash text, p_purpose text)` devuelve
+  `issued`, `rate_limited_email` o `rate_limited_global`; serializa con advisory lock,
+  limita 3/email y 60 globales por 15 minutos, invalida el anterior y fija 30 minutos.
+- `consume_verification_code` con los mismos parámetros devuelve JSON con estado
+  `missing`, `expired`, `too_many_attempts`, `incorrect` o `consumed`, y
+  `attempts_left` opcional. Usa bloqueo de fila y consume al acertar, caducar o agotar
+  cinco intentos. El wrapper local ya llama a estas RPC; unitarios con fake RPC no
+  demuestran la concurrencia del Postgres real.
+
+Storage en consulta agregada: `course-videos` privado vacío, `lesson-media` privado
+con 7 objetos y `public-media` público con 4. Las referencias anteriores a eliminación
+de `course-videos` quedan contradichas por esta lectura; no se borró ni descargó nada.
+El propósito y las políticas de `public-media` necesitan reconciliación.
+
+Se confirmó una única cuenta superadmin y ninguna organización sin owner mediante
+conteos agregados. No se han inspeccionado sus datos ni se ha demostrado integridad
+del historial tras la recuperación reportada. La defensa frente a borrados privilegiados
+y la restauración aislada están pendientes.
+
+Migración nueva **preparada, no aplicada**:
+`20260906213000_require_ready_mux_assets.sql`. Refuerza la RPC de guardado de bloques
+para exigir `ready`, playback ID y duración `(0, 43200]` en el UPDATE transaccional;
+una validación previa en la action no cierra por sí sola la carrera con webhooks.
+Rollback versionado restaura la definición remota leída; es una protección más débil,
+no debe ejecutarse como prueba en producción. Validación SQL y concurrencia requieren
+baseline aislada antes de cualquier rollout de este cambio.
+
+### Cierre de septiembre: esquema preparado frente a esquema aplicado
+
+Actualización 2026-09-07. Las limitaciones de reconstrucción/restore descritas
+en el inventario inicial anterior quedan sustituidas por las ejecuciones de
+[`cierre-auditoria-2026-09.md`](cierre-auditoria-2026-09.md). Producción conserva
+21 migraciones hasta `20260902124822`; las siguientes están versionadas y aún
+no aplicadas allí:
+
+| Migración | Contrato |
+|---|---|
+| `20260906213000` | Guardado Mux atómico exige ready, playback firmado y duración válida. |
+| `20260906220156` | Cuenta active/deleting; trabajos persistentes con lease y sucesión; sesiones activas en RLS/RPC; acceso free único; histórico de pagos desvinculado; conciliación y ajustes de reembolso/disputa. |
+| `20260907083000` | Invitaciones con límites SQL, aceptación ligada a identidad/cuenta activa y sin restaurar expulsados/revocados. |
+| `20260907084000` | Retención ejecutable; reservas Mux previas al SDK, cuotas serializadas por actor y escuela; tamaño declarado separado de bytes reales. |
+| `20260907094500` | Reservas sin ID se pueden retirar; cola permite asset sin upload; rechazados no adjuntos se reconcilian sin borrar material actual o referenciado. |
+| `20260907100000` | Condiciones opcionales de escuela ≤4000 caracteres; snapshots inmutables de oferta/consentimiento en intento y compra. No se reconstruyen contratos históricos ficticios. |
+| `20260907101500` | Referencias exactas de Storage con bucket/ruta, URL codificada y rich text; conserva medios de escuela y deja objetos sin asociación para revisión explícita. |
+
+Las siete migraciones y sus pruebas pasan juntas en la CI de `d3e837b`
+(`34102906720`). SQL probado, migración aplicada y código desplegado son estados
+distintos: los dos últimos siguen pendientes en producción.
+
+Los detalles de auditoría de borrado caducan al año y el tombstone mínimo a
+seis años; las referencias históricas se desacoplan antes de retirar el tombstone.
+La cola y las RPC de limpieza/conciliación son exclusivas del servidor. La
+identidad Auth se elimina al final, tras pagos y propiedad Storage; los medios,
+ownership sucesor, suscripción SaaS y Connect de la escuela se conservan.
+
+El restore privado recuperó 54 tablas/1446 filas con FK y secuencias verificadas.
+Los dos ledgers de proveedor excluidos de importación se reconstruyen con Auth y
+Storage de la versión fijada. Una restauración futura de producción exige aplicar
+primero los tombstones posteriores al snapshot antes de habilitar sesiones/tráfico.
+No se ha restaurado ni borrado producción durante estas pruebas.
+
+### Dominio vigente (sin cambios)
 
 La URL canónica de producción es `https://www.delunivo.com`; el dominio raíz
 redirige a `www` y `https://delunivo.vercel.app` se conserva solo como URL
