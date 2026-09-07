@@ -110,6 +110,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let mux: ReturnType<typeof createMuxApiClient>;
+  try {
+    mux = createMuxApiClient();
+  } catch {
+    return NextResponse.json({ error: "La carga de vídeo no está disponible temporalmente." }, { status: 503 });
+  }
   const videoAssetId = randomUUID();
   // Reserve in Postgres before creating a provider URL. The trigger serializes
   // quotas by actor and school, regardless of the supplied lesson/block IDs.
@@ -121,7 +127,6 @@ export async function POST(request: NextRequest) {
   if (reserved.error) {
     return NextResponse.json({ error: "No se pudo reservar otra carga. Espera a que terminen las cargas abiertas e inténtalo de nuevo." }, { status: 429 });
   }
-  const mux = createMuxApiClient();
 
   let upload: Awaited<ReturnType<typeof mux.video.uploads.create>>;
   try {
@@ -144,6 +149,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!upload.url) {
+    try { await mux.video.uploads.cancel(upload.id); } catch { /* The persisted ID permits later reconciliation. */ }
     await admin.from("video_assets").update({ status: "errored", error_type: "upload_url_missing", mux_upload_id: upload.id }).eq("id", videoAssetId);
     return NextResponse.json(
       { error: "Mux no devolvió una URL de carga." },

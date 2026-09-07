@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Container } from "@/components/ui/Container";
@@ -13,6 +14,67 @@ import { formatPrice } from "@/lib/format";
 import { isFreeCoursePrice, parseFiniteCoursePrice } from "@/lib/courses/freeCourseAccess";
 import { FreeCourseAccessButton } from "./FreeCourseAccessButton";
 import { SellerLegalInfoCard } from "@/components/organizations/SellerLegalInfo";
+import { coursePath, metadataDescription } from "@/lib/seo/publicUrls";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const organization = await getCurrentOrganization();
+
+  if (!organization) {
+    return {
+      title: "Contenido no disponible",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: course } = await supabase
+    .from("courses")
+    .select("id, title, long_description, thumbnail_url")
+    .eq("id", id)
+    .eq("organization_id", organization.id)
+    .eq("status", "published")
+    .maybeSingle();
+
+  // Los borradores pueden mostrarse a administradores en la página, pero nunca
+  // se convierten en título, descripción ni URL canónica públicos.
+  if (!course) {
+    return {
+      title: "Contenido no disponible",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const canonical = coursePath(organization.slug, course.id);
+  const description =
+    metadataDescription(course.long_description) ?? `Curso de ${organization.name}.`;
+
+  return {
+    title: `${course.title} | ${organization.name}`,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "website",
+      url: canonical,
+      title: course.title,
+      description,
+      siteName: organization.name,
+      ...(course.thumbnail_url
+        ? { images: [{ url: course.thumbnail_url, alt: course.title }] }
+        : {}),
+    },
+    twitter: {
+      card: course.thumbnail_url ? "summary_large_image" : "summary",
+      title: course.title,
+      description,
+      ...(course.thumbnail_url ? { images: [course.thumbnail_url] } : {}),
+    },
+  };
+}
 
 export default async function CursoDetallePage({
   params,

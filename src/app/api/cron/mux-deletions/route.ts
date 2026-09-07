@@ -10,6 +10,8 @@ export async function GET(request: Request) {
 
   try {
     const accounts = await processAccountDeletionJobs(5);
+    const rejected = await createAdminClient().rpc("queue_rejected_mux_assets");
+    if (rejected.error) throw new Error("video_reconciliation_failed");
     const mux = await processMuxDeletionJobs(50);
     const retention = await createAdminClient().rpc("purge_expired_operational_data");
     if (retention.error) throw new Error("retention_failed");

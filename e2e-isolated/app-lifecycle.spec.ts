@@ -23,7 +23,7 @@ test("el alumno obtiene un curso gratuito sin Stripe Connect y solo entra a su a
   await page.goto(`${base}/cursos/${appFixture.freeCourse}`);
   await page.getByRole("button", { name: "Accede gratis" }).click();
   await page.waitForURL(new RegExp(`${base}/cursos/${appFixture.freeCourse}/aprender`));
-  await expect(page.getByText(/Curso E2E gratuito/i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Curso E2E gratuito", exact: true })).toBeVisible();
   await page.goto(`${base}/cursos/${appFixture.paidCourse}/aprender`);
   await expect(page).toHaveURL(new RegExp(`${base}/cursos/${appFixture.paidCourse}$|${base}/login`));
 });
@@ -32,7 +32,7 @@ test("los cursos de pago, borrador y alumnos retirados no conceden acceso gratui
   await login(page, appFixture.removed);
   await page.goto(`${base}/cursos/${appFixture.freeCourse}`);
   await page.getByRole("button", { name: "Accede gratis" }).click();
-  await expect(page.getByText(/ya no puede acceder|no se puede activar/i)).toBeVisible();
+  await expect(page.getByText("Tu acceso a esta organización está desactivado.", { exact: true })).toBeVisible();
   await page.goto(`${base}/cursos/${appFixture.paidCourse}`);
   await expect(page.getByRole("button", { name: "Accede gratis" })).toHaveCount(0);
   const draftResponse = await page.goto(`${base}/cursos/${appFixture.draftCourse}`);

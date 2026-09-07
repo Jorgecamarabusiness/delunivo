@@ -6,13 +6,9 @@ import { createMuxApiClient } from "./config";
 type MuxDeletionJob = {
   id: number;
   mux_asset_id: string | null;
-  mux_upload_id: string;
+  mux_upload_id: string | null;
   attempts: number;
 };
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message.slice(0, 500) : "Error desconocido de Mux";
-}
 
 function isNotFound(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
@@ -46,16 +42,16 @@ export async function processMuxDeletionJobs(limit = 20) {
       try {
         if (job.mux_asset_id) {
           await mux.video.assets.delete(job.mux_asset_id);
-        } else {
+        } else if (job.mux_upload_id) {
           const upload = await mux.video.uploads.retrieve(job.mux_upload_id);
           if (upload.asset_id) {
             await mux.video.assets.delete(upload.asset_id);
           } else {
             await mux.video.uploads.cancel(job.mux_upload_id);
           }
-        }
+        } else throw new Error("provider_reference_missing");
 
-        await admin
+        const saved = await admin
           .from("mux_deletion_jobs")
           .update({
             status: "completed",
@@ -64,10 +60,11 @@ export async function processMuxDeletionJobs(limit = 20) {
             updated_at: new Date().toISOString(),
           })
           .eq("id", job.id);
+        if (saved.error) throw new Error("completion_record_failed");
         completed += 1;
       } catch (jobError) {
         if (isNotFound(jobError)) {
-          await admin
+          const saved = await admin
             .from("mux_deletion_jobs")
             .update({
               status: "completed",
@@ -76,22 +73,24 @@ export async function processMuxDeletionJobs(limit = 20) {
               updated_at: new Date().toISOString(),
             })
             .eq("id", job.id);
+          if (saved.error) throw new Error("completion_record_failed");
           completed += 1;
           return;
         }
 
         const delayMinutes = Math.min(24 * 60, 2 ** Math.min(job.attempts, 10));
-        await admin
+        const saved = await admin
           .from("mux_deletion_jobs")
           .update({
             status: "pending",
-            last_error: errorMessage(jobError),
+            last_error: "provider_cleanup_failed",
             next_attempt_at: new Date(
               Date.now() + delayMinutes * 60_000
             ).toISOString(),
             updated_at: new Date().toISOString(),
           })
           .eq("id", job.id);
+        if (saved.error) throw new Error("retry_record_failed");
         failed += 1;
       }
     })

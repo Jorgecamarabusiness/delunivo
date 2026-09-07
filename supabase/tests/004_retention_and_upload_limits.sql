@@ -1,5 +1,5 @@
 begin;
-select plan(5);
+select plan(9);
 select ok(not has_function_privilege('authenticated','public.purge_expired_operational_data()','execute'),'browser cannot purge operational history');
 do $$ declare actor uuid:='90000000-0000-4000-8000-000000000001'; org uuid:='90000000-0000-4000-8000-000000000002'; course uuid:='90000000-0000-4000-8000-000000000003'; lesson uuid:='90000000-0000-4000-8000-000000000004'; begin
   insert into auth.users(id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data)
@@ -20,6 +20,14 @@ do $$ declare actor uuid:='90000000-0000-4000-8000-000000000001'; org uuid:='900
 end $$;
 select pass('changing block IDs cannot bypass three active uploads per actor');
 select is((select count(*)::integer from public.video_assets where created_by='90000000-0000-4000-8000-000000000001'),3,'rejected reservation creates no fourth provider request');
+delete from public.video_assets where id=(select id from public.video_assets where created_by='90000000-0000-4000-8000-000000000001' limit 1);
+select is((select count(*)::integer from public.mux_deletion_jobs),0,'a reservation without a provider ID can be removed without an impossible deletion job');
+update public.video_assets set status='errored',error_type='invalid_duration',mux_asset_id='synthetic-rejected-'||id
+  where created_by='90000000-0000-4000-8000-000000000001';
+update public.video_assets set is_current=true where id=(select id from public.video_assets where created_by='90000000-0000-4000-8000-000000000001' limit 1);
+select is(public.queue_rejected_mux_assets(),1,'only unattached rejected media enters durable cleanup');
+select is(public.queue_rejected_mux_assets(),0,'rejected-media reconciliation is idempotent');
+select ok(not has_function_privilege('authenticated','public.queue_rejected_mux_assets()','execute'),'browser cannot queue provider deletion');
 insert into public.account_deletion_jobs(target_user_id,actor_user_id,administrative,reason,tracking_hash,status,stage,completed_at,audit_expires_at,tombstone_expires_at)
 values('90000000-0000-4000-8000-000000000010','90000000-0000-4000-8000-000000000011',true,'Synthetic audit reason',repeat('a',64),'completed','completed',now()-interval '2 years',now()-interval '1 year',now()+interval '4 years'),
 ('90000000-0000-4000-8000-000000000012',null,false,null,repeat('b',64),'completed','completed',now()-interval '7 years',now()-interval '6 years',now()-interval '1 year');
