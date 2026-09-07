@@ -5,6 +5,7 @@ do $$ declare actor uuid:='91000000-0000-4000-8000-000000000001'; org uuid:='910
     values(actor,'authenticated','authenticated','checkout-retry@synthetic.invalid','x',now(),'{}','{}');
   insert into public.organizations(id,name,slug,owner_id) values(org,'Checkout retry','checkout-retry-synthetic',actor);
   insert into public.organization_billing(organization_id,platform_subscription_status) values(org,'active');
+  insert into public.organization_integrations(organization_id,stripe_account_id,stripe_connect_status) values(org,'acct_synthetic','connected');
   insert into public.courses(id,organization_id,title,description,price,status) values(course,org,'Checkout','Synthetic',10,'published');
   insert into public.stripe_checkout_attempts(id,checkout_kind,organization_id,user_id,course_id,stripe_account_id,stripe_params,expected_amount_total,expected_currency,status)
     values(attempt,'course_purchase',org,actor,course,'acct_synthetic','{}',1000,'eur','creating');
@@ -14,6 +15,12 @@ do $$ declare actor uuid:='91000000-0000-4000-8000-000000000001'; org uuid:='910
     raise exception 'old_price_reused';
   exception when others then if sqlerrm<>'course_price_changed' then raise; end if; end;
   update public.courses set price=10 where id=course;
+  update public.organization_integrations set stripe_account_id='acct_changed' where organization_id=org;
+  begin
+    update public.stripe_checkout_attempts set status='creating' where id=attempt;
+    raise exception 'old_connected_account_reused';
+  exception when others then if sqlerrm<>'school_payment_account_changed' then raise; end if; end;
+  update public.organization_integrations set stripe_account_id='acct_synthetic' where organization_id=org;
   update public.profiles set account_status='deleting' where id=actor;
   begin
     update public.stripe_checkout_attempts set status='creating' where id=attempt;

@@ -415,6 +415,9 @@ begin
   select * into c from public.courses where id=new.course_id and organization_id=new.organization_id for update;
   if not found or c.status<>'published' or c.price is null or c.price<=0 or c.price::text='NaN'
     or round(c.price*100)<>new.expected_amount_total then raise exception 'course_price_changed'; end if;
+  if not exists(select 1 from public.organization_integrations i where i.organization_id=new.organization_id
+    and i.stripe_account_id=new.stripe_account_id and i.stripe_connect_status='connected')
+    then raise exception 'school_payment_account_changed'; end if;
   if exists(select 1 from public.organization_students where user_id=new.user_id and organization_id=new.organization_id and status='removed') then raise exception 'student_removed'; end if;
   if not exists(select 1 from public.organization_billing b where b.organization_id=new.organization_id and (
     b.platform_subscription_status in ('active','trialing','past_due') or

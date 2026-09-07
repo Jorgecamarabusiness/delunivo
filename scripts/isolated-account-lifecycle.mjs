@@ -97,6 +97,8 @@ for (const token of [undefined, learner.access_token]) { const r = await request
 const lateAttempt = "40000000-0000-4000-8000-000000000001";
 const lateSession = `cs_late_${suffix}`;
 const lateIntent = `pi_late_${suffix}`;
+const connected = await requestJson(`${apiUrl}/rest/v1/organization_integrations`, { key: serviceRoleKey, method: "POST", body: { organization_id: orgA, stripe_account_id: "acct_synthetic_late", stripe_connect_status: "connected" } });
+assert(connected.response.ok, "No se pudo preparar Connect simulado para la regresion de pago.");
 const lateAttemptInsert = await requestJson(`${apiUrl}/rest/v1/stripe_checkout_attempts`, { key: serviceRoleKey, method: "POST", body: {
   id: lateAttempt, checkout_kind: "course_purchase", organization_id: orgA, user_id: lateBuyer.user.id, course_id: paidA,
   stripe_account_id: "acct_synthetic_late", stripe_session_id: lateSession, stripe_session_url: "https://synthetic.invalid/checkout",
