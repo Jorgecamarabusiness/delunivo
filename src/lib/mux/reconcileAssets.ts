@@ -59,7 +59,11 @@ export async function reconcileMuxAssets() {
       .eq("id", ledger.video_asset_id)
       .maybeSingle();
     if (local.error) throw new Error("Asset local pendiente de conciliar.");
-    if (local.data && ["waiting_for_upload","processing"].includes(local.data.status) && asset.status==="ready") {
+    if (
+      local.data &&
+      ["waiting_for_upload", "processing"].includes(local.data.status) &&
+      ["ready", "errored"].includes(asset.status)
+    ) {
       const transition = normalizeMuxVideoEvent({
         id: `snapshot-${asset.id}`,
         type: "video.asset.updated",
@@ -67,13 +71,25 @@ export async function reconcileMuxAssets() {
         data: { ...asset, passthrough: ledger.video_asset_id },
       });
       if (transition) {
-        const applied=await db.rpc("recover_mux_asset_snapshot",{p_transition:transition});
-        if(applied.error) throw new Error("Snapshot Mux pendiente de conciliación.");
+        if (asset.status === "errored") {
+          transition.errorMessage =
+            [transition.errorType, transition.errorMessage]
+              .filter(Boolean)
+              .join(": ") || "Mux no pudo procesar el archivo.";
+          transition.errorType = "provider_processing_failed";
+        }
+        const applied = await db.rpc("recover_mux_asset_snapshot", {
+          p_transition: transition,
+        });
+        if (applied.error)
+          throw new Error("Snapshot Mux pendiente de conciliación.");
       }
-    } else {
+    } else if (typeof asset.duration === "number" && asset.duration > 0) {
+      // A processing snapshot can lag a ready webhook. Missing duration is
+      // unknown, and must not erase the verified duration used for costs.
       const tombstone = await db
         .from("mux_asset_ledger")
-        .update({ duration_seconds: asset.duration ?? null })
+        .update({ duration_seconds: asset.duration })
         .eq("video_asset_id", ledger.video_asset_id);
       if (tombstone.error)
         throw new Error("Coste de asset huérfano pendiente.");

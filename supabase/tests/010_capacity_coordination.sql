@@ -3,6 +3,7 @@ select no_plan();
 do $$ begin
  insert into auth.users(id,email,raw_user_meta_data) values('94000000-0000-4000-8000-000000000001','coordination@synthetic.invalid','{}');
  insert into public.organizations(id,name,slug,owner_id) values('94000000-0000-4000-8000-000000000002','Coordination synthetic','coordination-synthetic','94000000-0000-4000-8000-000000000001');
+ insert into public.organization_admins(organization_id,user_id,role) values('94000000-0000-4000-8000-000000000002','94000000-0000-4000-8000-000000000001','owner');
  insert into public.organization_billing(organization_id,platform_subscription_status,access_mode,retention_until) values('94000000-0000-4000-8000-000000000002','canceled','standard',now()-interval '1 day');
  insert into public.platform_storage_deletion_jobs(organization_id,bucket_id,object_name) values('94000000-0000-4000-8000-000000000002','public-media','coordination/orphan.png');
 end $$;
@@ -36,6 +37,12 @@ insert into public.video_assets(id,organization_id,course_id,lesson_id,block_id,
  values('94000000-0000-4000-8000-000000000007','94000000-0000-4000-8000-000000000002','94000000-0000-4000-8000-000000000005','94000000-0000-4000-8000-000000000006',gen_random_uuid(),'94000000-0000-4000-8000-000000000001','snapshot-synthetic','snapshot-playback','ready',60,now());
 select ok(not public.recover_mux_asset_snapshot('{"videoAssetId":"94000000-0000-4000-8000-000000000007","assetId":"snapshot-synthetic","status":"processing"}'),'lagging snapshot cannot downgrade provider ready state');
 select is((select status from public.video_assets where id='94000000-0000-4000-8000-000000000007'),'ready','signed ready video survives reconciliation');
+insert into public.video_assets(id,organization_id,course_id,lesson_id,block_id,created_by,mux_asset_id,status,reserved_duration_seconds)
+ values('94000000-0000-4000-8000-000000000009','94000000-0000-4000-8000-000000000002','94000000-0000-4000-8000-000000000005','94000000-0000-4000-8000-000000000006',gen_random_uuid(),'94000000-0000-4000-8000-000000000001','snapshot-error-synthetic','processing',60);
+select ok(public.recover_mux_asset_snapshot(jsonb_build_object('videoAssetId','94000000-0000-4000-8000-000000000009','assetId','snapshot-error-synthetic','status','errored','errorType','provider_processing_failed','eventCreatedAt',now())),'missed processing error webhook is recovered from provider snapshot');
+select is((select status from public.video_assets where id='94000000-0000-4000-8000-000000000009'),'errored','failed snapshot does not remain reserved forever');
+select public.queue_rejected_mux_assets();
+select is((select count(*)::integer from public.mux_deletion_jobs where video_asset_id='94000000-0000-4000-8000-000000000009'),1,'failed detached provider asset enters persistent cleanup once');
 insert into public.organizations(id,name,slug,owner_id,created_at) values('94000000-0000-4000-8000-000000000008','Pending trial','pending-trial-synthetic','94000000-0000-4000-8000-000000000001',now()-interval '2 hours');
 insert into public.organization_billing(organization_id,platform_subscription_status,access_mode,pending_offer_at,pending_offer_snapshot,trial_initialization_status) values('94000000-0000-4000-8000-000000000008','canceled','standard',now()-interval '119 minutes','{"version":"2026-10-01","planKey":"trial"}','pending');
 select ok(public.start_platform_trial('94000000-0000-4000-8000-000000000008','{"version":"2026-10-01","planKey":"trial"}'),'trial initialization retries after the original fifteen-minute creation window');

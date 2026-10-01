@@ -39,7 +39,8 @@ const renewed=await reserve();assert(renewed.response.ok,'Expired orphan reserva
 const real=await api('video_assets',{mux_asset_id:`synthetic-${asset.id}`,duration_seconds:7500,status:'ready'},'PATCH',`?id=eq.${asset.id}`);
 assert(real.response.ok && real.data[0].status==='errored','Manipulated duration was published');
 const start=new Date(Math.floor((Date.now()-20*3600000)/3600000)*3600000).toISOString();
-await api('platform_capacity_cycles',{starts_at:new Date(Date.now()-24*3600000).toISOString()},'PATCH',`?organization_id=eq.${school.org}`);
+const syntheticRightsStart=new Date(Date.now()-24*3600000).toISOString();
+await api('platform_capacity_cycles',{starts_at:syntheticRightsStart,rights_start_at:syntheticRightsStart},'PATCH',`?organization_id=eq.${school.org}`);
 const payload={p_environment:'synthetic',p_start:start,p_rows:[{asset_id:`synthetic-${asset.id}`,delivered_seconds:18001}]};
 const imports=await Promise.all([rpc('replace_mux_usage_hour',payload),rpc('replace_mux_usage_hour',payload)]);
 assert(imports.every(r=>r.response.ok),'Concurrent importer failed');

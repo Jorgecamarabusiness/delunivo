@@ -78,7 +78,7 @@ declare affected integer;
 begin
  insert into public.mux_deletion_jobs(video_asset_id,mux_asset_id,mux_upload_id)
  select v.id,v.mux_asset_id,v.mux_upload_id from public.video_assets v
- where v.status='errored' and not v.is_current and v.error_type in ('invalid_duration','video_track_missing','upload_url_missing','upload_registration_failed','library_capacity_exceeded','reservation_expired')
+ where v.status='errored' and not v.is_current and v.error_type in ('invalid_duration','video_track_missing','upload_url_missing','upload_registration_failed','library_capacity_exceeded','reservation_expired','provider_processing_failed')
  and (v.mux_asset_id is not null or v.mux_upload_id is not null)
  and not exists(select 1 from public.lessons l,lateral jsonb_array_elements(coalesce(l.blocks,'[]'::jsonb)) b where b->>'mux_video_asset_id'=v.id::text)
  on conflict(video_asset_id) do nothing;
@@ -99,7 +99,7 @@ end $$;
 revoke all on function public.record_platform_custom_request(uuid,text) from public,anon,authenticated;
 grant execute on function public.record_platform_custom_request(uuid,text) to service_role;
 
--- Snapshots repair missed ready events only. They never downgrade a webhook's
+-- Snapshots repair missed terminal ready/error events. They never downgrade a webhook's
 -- terminal state, including when it arrives between a REST read and this RPC.
 create function public.recover_mux_asset_snapshot(p_transition jsonb) returns boolean language plpgsql security definer set search_path=public,pg_temp as $$
 declare v public.video_assets;

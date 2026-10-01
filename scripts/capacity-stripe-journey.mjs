@@ -133,7 +133,13 @@ try {
   const packIntent=typeof pack.payment_intent==='string' ? pack.payment_intent : pack.payment_intent.id;
   // Refund precedes delivery of the checkout webhook: grant and refund are atomic.
   await stripe.refunds.create({payment_intent:packIntent,amount:1000});
-  await services.fulfilCapacityCheckout(pack);await services.fulfilCapacityCheckout(pack);
+  const activationBefore=Date.now();
+  await services.fulfilCapacityCheckout(pack);
+  const activatedPack=(await db.from('platform_delivery_packs').select('*').eq('organization_id',org).single()).data;
+  assert(Date.parse(activatedPack.starts_at)>=activationBefore-1000 && Date.parse(activatedPack.starts_at)<=Date.now()+1000,'Pack starts at first server-confirmed activation, not Stripe Test Clock charge time');
+  assert.equal(Date.parse(activatedPack.expires_at)-Date.parse(activatedPack.starts_at),90*86400000);
+  await services.fulfilCapacityCheckout(pack);
+  assert.equal((await db.from('platform_delivery_packs').select('starts_at').eq('organization_id',org).single()).data.starts_at,activatedPack.starts_at,'Duplicate delivery cannot restart validity');
   assert.equal((await db.from('platform_delivery_packs').select('id').eq('organization_id',org)).data.length,1);
   const packPayment=await stripe.paymentIntents.retrieve(packIntent);
   const charge=await stripe.charges.retrieve(typeof packPayment.latest_charge==='string' ? packPayment.latest_charge : packPayment.latest_charge.id);
