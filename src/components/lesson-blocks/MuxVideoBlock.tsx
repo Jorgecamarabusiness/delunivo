@@ -21,8 +21,18 @@ function AuthorizedVideo({ videoAssetId, title }: Props) {
   const lastToken = useRef<string | null>(null);
 
   useEffect(() => {
+    let serverSessionId: string | null = null;
     const session = startPlaybackSession({
-      request: (renew, signal) => fetch(`/api/video/${videoAssetId}/playback${renew ? "" : "?check=1"}`, { cache: "no-store", signal }),
+      async request(renew, signal) {
+        const query = new URLSearchParams();
+        if (!renew) query.set("check", "1");
+        if (serverSessionId) query.set("session", serverSessionId);
+        const response = await fetch(`/api/video/${videoAssetId}/playback?${query}`, { cache: "no-store", signal });
+        const data = await response.json();
+        if (typeof data.sessionId === "string") serverSessionId = data.sessionId;
+        if (response.status === 410) serverSessionId = null;
+        return { ok: response.ok, status: response.status, json: async () => data };
+      },
       onState(next) {
         if (player.current && (next.kind !== "ready" || next.token !== lastToken.current)) {
           resume.current = { time: player.current.currentTime, paused: player.current.paused, rate: player.current.playbackRate };

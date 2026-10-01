@@ -7,6 +7,8 @@ import {
   updatePlatformBillingStatusForSubscription,
 } from "@/lib/stripe/handlePlatformBilling";
 import { syncOrganizationDiscountToStripe } from "@/lib/stripe/platformDiscounts";
+import { fulfilCapacityCheckout, reconcileCapacityOperation } from "@/lib/stripe/capacityBilling";
+import { reconcileCapacitySubscription, handleCapacityRefund } from "@/lib/stripe/capacityEvents";
 import {
   applyPlatformAffiliateEvent,
   claimPlatformWebhookEvent,
@@ -45,6 +47,10 @@ export async function POST(request: NextRequest) {
     "invoice.paid",
     "invoice.payment_failed",
     "customer.subscription.deleted",
+    "customer.subscription.updated",
+    "customer.subscription.pending_update_applied",
+    "customer.subscription.pending_update_expired",
+    "charge.refunded",
   ]);
   if (!handledTypes.has(event.type)) {
     return NextResponse.json({ received: true, ignored: "unsupported_event" });
@@ -73,6 +79,9 @@ export async function POST(request: NextRequest) {
           session,
           new Date(event.created * 1000)
         );
+        await fulfilCapacityCheckout(session);
+      } else if (session.metadata?.capacity_operation_id) {
+        await fulfilCapacityCheckout(session);
       } else {
         throw new Error(
           "Una venta de curso ha llegado a la cuenta principal; se rechaza por seguridad."
@@ -89,6 +98,7 @@ export async function POST(request: NextRequest) {
         new Date(event.created * 1000)
       );
       if (organizationId) {
+        await reconcileCapacitySubscription(organizationId, invoiceSubscriptionId(invoice)!, invoice.id);
         const affected = await applyPlatformAffiliateEvent({
           eventId: event.id,
           organizationId,
@@ -104,6 +114,13 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    if (["customer.subscription.updated", "customer.subscription.pending_update_applied", "customer.subscription.pending_update_expired"].includes(event.type)) {
+      const subscription = event.data.object as Stripe.Subscription;
+      // Fetch current provider state. A stale payload cannot revert a paid plan.
+      if (subscription.metadata.capacity_operation_id) await reconcileCapacityOperation(subscription.metadata.capacity_operation_id);
+    }
+    if (event.type === "charge.refunded") await handleCapacityRefund(event.data.object as Stripe.Charge);
 
     if (event.type === "invoice.payment_failed") {
       const invoice = event.data.object as Stripe.Invoice;

@@ -81,7 +81,8 @@ export function VideoFileForm({
       if (!file) throw new Error("No se ha seleccionado ningún archivo.");
       const validationError = validateMuxVideoFile(file);
       if (validationError) throw new Error(validationError);
-      const durationError = validateMuxVideoDuration(await readVideoDuration(file));
+      const durationSeconds = await readVideoDuration(file);
+      const durationError = validateMuxVideoDuration(durationSeconds);
       if (durationError) throw new Error(durationError);
 
       if (localPreviewRef.current) URL.revokeObjectURL(localPreviewRef.current);
@@ -104,6 +105,7 @@ export function VideoFileForm({
           blockId,
           fileSize: file.size,
           mimeType: file.type,
+          durationSeconds,
         }),
       });
       const data = (await response.json()) as {

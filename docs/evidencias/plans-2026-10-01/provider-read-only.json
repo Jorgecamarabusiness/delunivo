@@ -1,0 +1,20 @@
+{
+  "inspectedAt": "2026-10-01T13:41:36.238Z",
+  "test": {
+    "available": true,
+    "keyMode": "test",
+    "taxRates": [],
+    "hasMore": false
+  },
+  "production-read-only": {
+    "available": false,
+    "errorType": "StripeAuthenticationError",
+    "status": 401
+  },
+  "mux": {
+    "status": 401,
+    "environmentId": null,
+    "environmentName": null,
+    "tokenType": null
+  }
+}

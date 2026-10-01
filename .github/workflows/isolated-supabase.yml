@@ -2,7 +2,7 @@ name: Isolated Supabase
 
 on:
   push:
-    branches: [codex/audit-close-20260906]
+    branches: [codex/audit-close-20260906, codex/plans-consumption-20261001]
   workflow_dispatch:
     inputs:
       private_restore:

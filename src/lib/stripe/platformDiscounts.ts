@@ -6,6 +6,8 @@ import { PLATFORM_NAME } from "@/lib/brand";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "./client";
 import { createPlatformCoupon } from "./platformCoupons";
+import { capacityPrice } from "./capacityPrices";
+import { PLANS } from "@/lib/billing/catalog";
 import {
   commercialTermsIdempotencyKey,
   subscriptionMatchesCommercialTerms,
@@ -49,7 +51,7 @@ export async function ensureOrganizationDiscountCoupon(
       admin
         .from("organization_billing")
         .select(
-          "effective_discount_percent, stripe_coupon_id, platform_subscription_id"
+          "effective_discount_percent, stripe_coupon_id, platform_subscription_id, offer_version"
         )
         .eq("organization_id", organizationId)
         .single(),
@@ -69,6 +71,7 @@ export async function ensureOrganizationDiscountCoupon(
       organizationName: organization.name ?? PLATFORM_NAME,
       percentOff: effectivePercent,
       duration: "forever",
+      ...(billing.offer_version ? { productIds: await capacityBaseProducts() } : {}),
     });
     couponId = coupon.id;
   }
@@ -125,7 +128,7 @@ export async function reconcileOrganizationCommercialTermsToStripe(
         admin
           .from("organization_billing")
           .select(
-            "platform_subscription_id, access_mode, access_expires_at, effective_discount_percent, stripe_coupon_id, updated_at"
+            "platform_subscription_id, access_mode, access_expires_at, effective_discount_percent, stripe_coupon_id, updated_at, offer_version"
           )
           .eq("organization_id", organizationId)
           .single(),
@@ -147,6 +150,7 @@ export async function reconcileOrganizationCommercialTermsToStripe(
               organizationName: organization.name ?? PLATFORM_NAME,
               percentOff: percent,
               duration: "forever",
+              ...(billing.offer_version ? { productIds: await capacityBaseProducts() } : {}),
             })
           ).id
         : null;
@@ -171,7 +175,7 @@ export async function reconcileOrganizationCommercialTermsToStripe(
         { expand: ["discounts.source.coupon"] }
       );
       const trialEndsAt =
-        billing.access_mode === "trial" && billing.access_expires_at
+        !billing.offer_version && billing.access_mode === "trial" && billing.access_expires_at
           ? new Date(billing.access_expires_at)
           : null;
       const expectedTerms = {
@@ -214,4 +218,9 @@ export async function reconcileOrganizationCommercialTermsToStripe(
   }
 
   throw new Error("Las condiciones siguieron cambiando durante la reconciliación.");
+}
+
+async function capacityBaseProducts() {
+  const prices = await Promise.all(PLANS.map((plan) => capacityPrice(plan.key)));
+  return prices.map((price) => typeof price.product === "string" ? price.product : price.product.id);
 }

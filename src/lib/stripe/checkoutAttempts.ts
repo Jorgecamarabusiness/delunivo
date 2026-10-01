@@ -5,7 +5,7 @@ import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "./client";
 
-export type CheckoutAttemptKind = "course_purchase" | "platform_subscription";
+export type CheckoutAttemptKind = "course_purchase" | "platform_subscription" | "platform_delivery_pack";
 export type CheckoutAttemptStatus =
   | "creating"
   | "open"

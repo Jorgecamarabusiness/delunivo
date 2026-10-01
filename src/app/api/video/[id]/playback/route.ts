@@ -85,18 +85,32 @@ export async function GET(
     );
   }
 
-  if (new URL(request.url).searchParams.get("check") === "1") {
+  const query = new URL(request.url).searchParams;
+  const sessionId = query.get("session");
+  if (sessionId && !isUuid(sessionId)) return NextResponse.json({ error: "Sesión no válida." }, { status: 400 });
+  const lifetimeSeconds = playbackTokenLifetimeSeconds(asset.duration_seconds);
+  const admission = await admin.rpc("admit_platform_playback", {
+    p_organization_id: asset.organization_id, p_user_id: user.id,
+    p_video_asset_id: asset.id, p_session_id: sessionId, p_lifetime: lifetimeSeconds,
+  });
+  if (admission.error) return NextResponse.json({ error: "No se pudo verificar la capacidad de reproducción." }, { status: 503 });
+  if (!admission.data?.allowed) {
+    const ended = admission.data?.reason === "session_expired";
+    return NextResponse.json({ error: ended ? "Esta sesión ha finalizado. Inicia una nueva reproducción." : "La reproducción está pausada temporalmente por la capacidad de la escuela. Tu compra y progreso se conservan.", reason: admission.data?.reason }, { status: ended ? 410 : 402, headers: { "Cache-Control": "private, no-store" } });
+  }
+  if (query.get("check") === "1") {
     return NextResponse.json({ authorized: true }, { headers: { "Cache-Control": "private, no-store" } });
   }
 
   let token: string;
-  const lifetimeSeconds = playbackTokenLifetimeSeconds(asset.duration_seconds);
-  const expiresAt = Math.floor(Date.now() / 1_000) * 1_000 + lifetimeSeconds * 1_000;
+  const expiresAt = Date.parse(admission.data.expiresAt);
+  const remainingSeconds = Math.floor((expiresAt - Date.now()) / 1000);
+  if (!Number.isFinite(expiresAt) || remainingSeconds <= 60) return NextResponse.json({ error: "Esta sesión está terminando. Inicia una nueva reproducción." }, { status: 410 });
   try {
     const mux = createMuxSigningClient();
     token = await mux.jwt.signPlaybackId(asset.mux_playback_id, {
       type: "video",
-      expiration: `${lifetimeSeconds}s`,
+      expiration: `${remainingSeconds}s`,
     });
   } catch {
     return NextResponse.json(
@@ -106,7 +120,7 @@ export async function GET(
   }
 
   return NextResponse.json(
-    { playbackId: asset.mux_playback_id, token, expiresAt },
+    { playbackId: asset.mux_playback_id, token, expiresAt, sessionId: admission.data.sessionId },
     { headers: { "Cache-Control": "private, no-store" } }
   );
 }

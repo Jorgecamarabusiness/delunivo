@@ -52,6 +52,11 @@ export function startPlaybackSession({
       const response = await request(renew, AbortSignal.any([abort.signal, attempt.signal]));
       const data = await response.json();
       if (stopped) return;
+      if (response.status === 402) {
+        ready = null; clearTimeout(timer); clearTimeout(expiryTimer);
+        onState({ kind: "error", message: "La reproducción está pausada temporalmente por la capacidad de la escuela. Tu compra y progreso se conservan." });
+        return;
+      }
       if ([401, 403, 404, 410].includes(response.status)) {
         ready = null;
         clearTimeout(timer);
