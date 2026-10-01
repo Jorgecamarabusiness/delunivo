@@ -27,6 +27,13 @@ test("oferta y condiciones comparten cifras y se adaptan a móvil, tablet y escr
     body: await page.screenshot({ fullPage: true }),
     contentType: "image/png",
   });
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.screenshot({
+      path: `docs/evidencias/plans-2026-10-01/conditions-${width}.png`,
+      fullPage: true,
+    });
+  }
 });
 test("propietario ve saldo, cobertura pendiente y recuperación de pago; alumno y owner B no exportan A", async ({
   page,
@@ -42,6 +49,14 @@ test("propietario ve saldo, cobertura pendiente y recuperación de pago; alumno 
       page.getByRole("button", { name: "Actualizar pago" }),
     ).toBeVisible();
     await expect(page.getByText(/horas de cobertura pendientes/)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Comprar bolsa" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", {
+        name: "Extraer tus datos y contenido disponible",
+      }),
+    ).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,

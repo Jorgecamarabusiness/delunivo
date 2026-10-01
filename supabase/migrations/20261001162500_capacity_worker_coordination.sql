@@ -63,7 +63,7 @@ begin
    created:=case when r->>'created_at' ~ '^[0-9]+(\.[0-9]+)?$' then (r->>'created_at')::numeric else null end;
    update public.mux_asset_ledger set environment=p_environment,
     provider_created_at=coalesce(to_timestamp(created),provider_created_at),
-    minimum_storage_until=coalesce(to_timestamp(created)+interval '30 days',minimum_storage_until)
+    minimum_storage_until=coalesce(to_timestamp(created)+interval '720 hours',minimum_storage_until)
    where video_asset_id=(r->>'passthrough')::uuid and mux_asset_id=r->>'asset_id' and environment in (p_environment,'legacy-unverified');
   end if;
  end loop;
@@ -92,8 +92,8 @@ begin
  perform 1 from public.profiles where id=p_user_id and account_status='active' for update;
  if not found then raise exception 'active_identity_required'; end if;
  if length(trim(p_message)) not between 10 and 2000 then raise exception 'invalid_request'; end if;
- if exists(select 1 from public.platform_custom_requests where user_id=p_user_id and message=trim(p_message) and created_at>now()-interval '1 day') then return; end if;
- if (select count(*) from public.platform_custom_requests where user_id=p_user_id and created_at>now()-interval '1 day')>=3 then raise exception 'custom_request_rate_limit'; end if;
+ if exists(select 1 from public.platform_custom_requests where user_id=p_user_id and message=trim(p_message) and created_at>now()-interval '24 hours') then return; end if;
+ if (select count(*) from public.platform_custom_requests where user_id=p_user_id and created_at>now()-interval '24 hours')>=3 then raise exception 'custom_request_rate_limit'; end if;
  insert into public.platform_custom_requests(user_id,message) values(p_user_id,trim(p_message));
 end $$;
 revoke all on function public.record_platform_custom_request(uuid,text) from public,anon,authenticated;

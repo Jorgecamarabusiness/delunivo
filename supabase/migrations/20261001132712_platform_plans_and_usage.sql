@@ -93,7 +93,7 @@ alter table public.video_assets add column mux_environment text not null default
   add column reserved_duration_seconds numeric check(reserved_duration_seconds>0 and reserved_duration_seconds<=43200),
   add column reservation_expires_at timestamptz not null default (now()+interval '25 hours');
 insert into public.mux_asset_ledger(video_asset_id,organization_id,environment,mux_asset_id,duration_seconds,state,created_at,minimum_storage_until)
- select id,organization_id,mux_environment,mux_asset_id,case when duration_seconds>0 then duration_seconds end,status,created_at,created_at+interval '30 days' from public.video_assets;
+ select id,organization_id,mux_environment,mux_asset_id,case when duration_seconds>0 then duration_seconds end,status,created_at,created_at+interval '720 hours' from public.video_assets;
 
 create table public.mux_usage_hours (
   environment text not null, mux_asset_id text not null, starts_at timestamptz not null,
@@ -142,7 +142,7 @@ create table public.platform_retention_jobs (
   policy_version text not null, ended_at timestamptz not null, delete_after timestamptz not null,
   status text not null default 'pending' check(status in ('pending','processing','canceled','completed','failed')),
   lease_until timestamptz, attempts integer not null default 0, last_error text, completed_at timestamptz,
-  check(delete_after>=ended_at+interval '30 days')
+  check(delete_after>=ended_at+interval '720 hours')
 );
 create table public.platform_custom_requests (
   id uuid primary key default gen_random_uuid(), user_id uuid not null references public.profiles(id) on delete cascade,
@@ -177,7 +177,7 @@ begin
   return old;
  end if;
  insert into public.mux_asset_ledger(video_asset_id,organization_id,environment,mux_asset_id,duration_seconds,state,created_at,minimum_storage_until)
- values(new.id,new.organization_id,new.mux_environment,new.mux_asset_id,case when new.duration_seconds>0 then new.duration_seconds end,new.status,new.created_at,new.created_at+interval '30 days')
+ values(new.id,new.organization_id,new.mux_environment,new.mux_asset_id,case when new.duration_seconds>0 then new.duration_seconds end,new.status,new.created_at,new.created_at+interval '720 hours')
  on conflict(video_asset_id) do update set environment=case when excluded.environment='legacy-unverified' then mux_asset_ledger.environment else excluded.environment end,mux_asset_id=coalesce(excluded.mux_asset_id,mux_asset_ledger.mux_asset_id),
  duration_seconds=coalesce(excluded.duration_seconds,mux_asset_ledger.duration_seconds),state=excluded.state,updated_at=now();
  return new;
@@ -306,7 +306,7 @@ begin
  if s->>'version'<>'2026-10-01' or s->>'taxBehavior'<>'inclusive' or s->>'currency'<>'eur' then raise exception 'unrecognized_offer'; end if;
  if o.kind='delivery_pack' then
   insert into public.platform_delivery_packs(organization_id,source_id,starts_at,expires_at,granted_seconds,paid_cents,offer_snapshot)
-  values(o.organization_id,p_source_id,p_confirmed_at,p_confirmed_at+interval '90 days',300000,2000,s) on conflict(source_id) do nothing;
+  values(o.organization_id,p_source_id,p_confirmed_at,p_confirmed_at+interval '2160 hours',300000,2000,s) on conflict(source_id) do nothing;
  else
   if p_subscription_id is null or p_cycle_end<=p_cycle_start then raise exception 'invalid_capacity_period'; end if;
   if b.platform_subscription_id is distinct from p_subscription_id then raise exception 'subscription_changed'; end if;
@@ -389,9 +389,9 @@ begin
   return false;
  end if;
  update public.organization_billing set plan_key='trial',offer_version='2026-10-01',accepted_offer=p_offer,accepted_at=trial_start,accepted_by=(select owner_id from public.organizations where id=p_organization_id),quota_mode='enforce',
- retention_policy_version='2026-10-01',access_mode='trial',access_expires_at=trial_start+interval '14 days',library_limit_seconds=7200,economic_limit_seconds=8640,trial_initialization_status='active',pending_offer_snapshot=null,pending_offer_at=null where organization_id=p_organization_id;
+ retention_policy_version='2026-10-01',access_mode='trial',access_expires_at=trial_start+interval '336 hours',library_limit_seconds=7200,economic_limit_seconds=8640,trial_initialization_status='active',pending_offer_snapshot=null,pending_offer_at=null where organization_id=p_organization_id;
  insert into public.platform_capacity_cycles(organization_id,starts_at,ends_at,plan_key,offer_snapshot,base_seconds,grace_seconds)
- values(p_organization_id,trial_start,trial_start+interval '14 days','trial',p_offer,18000,0);
+ values(p_organization_id,trial_start,trial_start+interval '336 hours','trial',p_offer,18000,0);
  return true;
 end $$;
 revoke all on function public.start_platform_trial(uuid,jsonb) from public,anon,authenticated;
@@ -409,7 +409,7 @@ begin
  end if;
  if b.quota_mode='enforce' and b.offer_version is not null then
   if not (b.platform_subscription_status in ('active','trialing','past_due') or (b.access_mode='complimentary' and (b.access_expires_at is null or b.access_expires_at>now())) or (b.access_mode='trial' and b.access_expires_at>now())) then return jsonb_build_object('allowed',false,'reason','school_access_ended'); end if;
-  if b.library_excess_since is not null and b.library_excess_since+interval '7 days'<=now() then return jsonb_build_object('allowed',false,'reason','library_excess'); end if;
+  if b.library_excess_since is not null and b.library_excess_since+interval '168 hours'<=now() then return jsonb_build_object('allowed',false,'reason','library_excess'); end if;
   select exists(select 1 from public.platform_quota_exceptions where organization_id=p_organization_id and resource='admission' and starts_at<=now() and expires_at>now()) into exception_allowed;
   select * into c from public.platform_capacity_cycles where organization_id=p_organization_id and starts_at<=now() and ends_at>now() order by starts_at desc limit 1;
   if c.id is null then
@@ -502,8 +502,8 @@ begin
  else
   ended:=coalesce(b.effective_ended_at,p_confirmed_end,case when b.access_mode in ('trial','complimentary') then b.access_expires_at end);
   if ended is not null and ended<=now() then
-   update public.organization_billing set effective_ended_at=ended,retention_until=ended+interval '30 days' where organization_id=p_organization_id;
-   insert into public.platform_retention_jobs(organization_id,policy_version,ended_at,delete_after) values(p_organization_id,b.retention_policy_version,ended,ended+interval '30 days')
+   update public.organization_billing set effective_ended_at=ended,retention_until=ended+interval '720 hours' where organization_id=p_organization_id;
+   insert into public.platform_retention_jobs(organization_id,policy_version,ended_at,delete_after) values(p_organization_id,b.retention_policy_version,ended,ended+interval '720 hours')
    on conflict(organization_id) do update set ended_at=excluded.ended_at,delete_after=excluded.delete_after,
    status=case when platform_retention_jobs.status in ('completed','processing') and platform_retention_jobs.ended_at=excluded.ended_at then platform_retention_jobs.status else 'pending' end;
   end if;
@@ -592,7 +592,7 @@ begin
  end if;
  if b.retention_until is not null then
   insert into public.platform_resource_notices(organization_id,resource,cycle_key,threshold,payload) values(p_organization_id,'retention',b.effective_ended_at::text,'ended',jsonb_build_object('deleteAfter',b.retention_until)) on conflict do nothing;
-  if b.retention_until<=now()+interval '7 days' then
+  if b.retention_until<=now()+interval '168 hours' then
    insert into public.platform_resource_notices(organization_id,resource,cycle_key,threshold,payload) values(p_organization_id,'retention',b.effective_ended_at::text,'7_days',jsonb_build_object('deleteAfter',b.retention_until)) on conflict do nothing;
   end if;
  end if;

@@ -61,9 +61,9 @@ async function seed() {
   await service("organization_admins","POST",{organization_id:capacityOrg,user_id:capacityOwner,role:"owner"});
   await service("organization_billing","POST",{organization_id:capacityOrg,platform_subscription_status:"active",access_mode:"standard",offer_version:"2026-10-01",plan_key:"inicio",quota_mode:"enforce",accepted_offer:{version:"2026-10-01",name:"Inicio"},library_limit_seconds:72000,economic_limit_seconds:86400});
   await service("platform_capacity_cycles","POST",{organization_id:capacityOrg,starts_at:new Date(Date.now()-86400000).toISOString(),rights_start_at:new Date(Date.now()-86400000).toISOString(),ends_at:new Date(Date.now()+29*86400000).toISOString(),plan_key:"inicio",offer_snapshot:{version:"2026-10-01"},base_seconds:180000,grace_seconds:18000});
-  const storagePath=`${capacityOrg}/capacity-export.txt`;
-  const uploaded=await fetch(`${apiUrl}/storage/v1/object/public-media/${storagePath}`,{method:"POST",headers:{apikey:serviceRoleKey,authorization:`Bearer ${serviceRoleKey}`,"content-type":"text/plain"},body:"Only synthetic creator content."});
-  assert(uploaded.ok,"Capacity export Storage fixture failed");
+  const storagePath=`${capacityOrg}/capacity-export.png`;
+  const uploaded=await fetch(`${apiUrl}/storage/v1/object/public-media/${storagePath}`,{method:"POST",headers:{apikey:serviceRoleKey,authorization:`Bearer ${serviceRoleKey}`,"content-type":"image/png"},body:readFileSync("public/branding/delunivo-favicon-32.png")});
+  assert(uploaded.ok,`Capacity export Storage fixture failed (${uploaded.status}): ${uploaded.ok ? "" : await uploaded.text()}`);
   await service("courses","POST",{id:capacityCourse,organization_id:capacityOrg,title:"Curso capacidad",description:"Synthetic",price:0,status:"published",thumbnail_url:`${apiUrl}/storage/v1/object/public/public-media/${storagePath}`});
   await service("lessons","POST",{id:capacityLesson,course_id:capacityCourse,title:"Vídeo largo sintético",status:"published",order_index:0,blocks:[{id:block,type:"video_file",mux_video_asset_id:capacityAsset}]});
   await service("video_assets","POST",{id:capacityAsset,organization_id:capacityOrg,course_id:capacityCourse,lesson_id:capacityLesson,block_id:block,created_by:capacityOwner,mux_asset_id:"capacity-synthetic",mux_playback_id:"capacity-synthetic-playback",mux_environment:"capacity-synthetic",status:"ready",is_current:true,duration_seconds:43200});

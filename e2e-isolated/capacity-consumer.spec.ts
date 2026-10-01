@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { appFixture } from "./fixtures";
 const org = "71000000-0000-4000-8000-000000000001",
   asset = "71000000-0000-4000-8000-000000000004";
@@ -90,7 +91,7 @@ test("consumidor real conserva sesión de 12 horas al agotar cuota, recupera adm
   expect(media).toBeTruthy();
   const downloaded = await page.request.get(media.url);
   expect(downloaded.status()).toBe(200);
-  expect(await downloaded.text()).toBe("Only synthetic creator content.");
+  expect(await downloaded.body()).toEqual(readFileSync("public/branding/delunivo-favicon-32.png"));
   expect(
     (
       await page.request.get(
@@ -103,5 +104,7 @@ test("consumidor real conserva sesión de 12 horas al agotar cuota, recupera adm
     .getByLabel("Tus necesidades")
     .fill("Solicitud sintética sobre la capacidad necesaria.");
   await page.getByRole("button", { name: "Registrar solicitud" }).click();
-  await expect(page.getByRole("alert")).toContainText("Solicitud registrada");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Solicitud registrada" }),
+  ).toBeVisible();
 });

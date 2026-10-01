@@ -28,6 +28,9 @@ export async function SchoolUsagePanel({
     committed = Number(s.library.committed_seconds);
   const planName = b.accepted_offer?.name ?? "Oferta anterior";
   const invoice = s.invoices.find((i) => i.currency === "eur");
+  const hasBlockingOperation = s.operations.some((op) =>
+    ["processing", "pending_payment"].includes(op.status),
+  );
   return (
     <section className="space-y-6" aria-label="Consumo y capacidad">
       <div>
@@ -209,7 +212,7 @@ export async function SchoolUsagePanel({
           ))}
         </Card>
       ) : null}
-      {controls && !s.operations.some(op=>["processing","pending_payment"].includes(op.status)) && b.trial_initialization_status!=="pending" ? (
+      {controls ? (
         <Link
           href={`/api/admin/content-export?organizationId=${organizationId}`}
           className="inline-block text-sm underline"
@@ -230,7 +233,9 @@ export async function SchoolUsagePanel({
           . Las facturas se conservan por separado.
         </Alert>
       ) : null}
-      {controls ? (
+      {controls &&
+      !hasBlockingOperation &&
+      b.trial_initialization_status !== "pending" ? (
         <CapacityControls
           organizationId={organizationId}
           planKey={b.plan_key}

@@ -47,5 +47,11 @@ insert into public.organizations(id,name,slug,owner_id,created_at) values('94000
 insert into public.organization_billing(organization_id,platform_subscription_status,access_mode,pending_offer_at,pending_offer_snapshot,trial_initialization_status) values('94000000-0000-4000-8000-000000000008','canceled','standard',now()-interval '119 minutes','{"version":"2026-10-01","planKey":"trial"}','pending');
 select ok(public.start_platform_trial('94000000-0000-4000-8000-000000000008','{"version":"2026-10-01","planKey":"trial"}'),'trial initialization retries after the original fifteen-minute creation window');
 select is((select extract(epoch from(access_expires_at-now()))::integer from public.organization_billing where organization_id='94000000-0000-4000-8000-000000000008'),1202460,'retry retains the original trial start rather than resetting fourteen days');
+set local timezone='Europe/Madrid';
+insert into public.platform_billing_operations(id,organization_id,kind,actor_id,quote,offer_snapshot,expires_at)
+ values('94000000-0000-4000-8000-000000000010','94000000-0000-4000-8000-000000000002','delivery_pack','94000000-0000-4000-8000-000000000001','{}','{"version":"2026-10-01","currency":"eur","taxBehavior":"inclusive"}',now()+interval '1 hour');
+select public.apply_platform_capacity_payment('94000000-0000-4000-8000-000000000010',null,null,null,'2026-10-01T16:00:00Z','dst-pack-synthetic');
+select is((select extract(epoch from(expires_at-starts_at))::bigint from public.platform_delivery_packs where source_id='dst-pack-synthetic'),7776000::bigint,'ninety days are exact UTC hours even across Madrid daylight saving change');
+set local timezone='UTC';
 select * from finish();
 rollback;
