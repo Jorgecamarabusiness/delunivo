@@ -25,9 +25,26 @@ const payload=Buffer.from(JSON.stringify({role:'service_role',iss:'isolated-port
 const token=`${head}.${payload}.${createHmac('sha256',secret).update(`${head}.${payload}`).digest('base64url')}`;
 const config=path.join(base,'postgrest.conf');
 fs.writeFileSync(config,`db-uri = "postgresql://authenticator@127.0.0.1:54399/postgres"\ndb-schemas = "public"\ndb-anon-role = "anon"\njwt-secret = "${secret}"\nserver-host = "127.0.0.1"\nserver-port = 54397\n`);
-const rest=spawn(path.join(base,'postgrest','postgrest.exe'),[config],{windowsHide:true,stdio:'ignore',env:{...process.env,Path:`${bin};${process.env.Path ?? process.env.PATH}`}});
+// Windows environment keys are case-insensitive. Node keeps the first sorted
+// duplicate, so a stale PATH can override the injected Path and hide libpq.dll.
+const restEnv=Object.fromEntries(Object.entries(process.env).filter(([key])=>key.toLowerCase()!=='path'));
+restEnv.PATH=`${bin};${process.env.Path ?? process.env.PATH}`;
+const rest=spawn(path.join(base,'postgrest','postgrest.exe'),[config],{windowsHide:true,stdio:'ignore',env:restEnv});
 fs.writeFileSync('.env.capacity-isolated.local',`NEXT_PUBLIC_SUPABASE_URL="http://127.0.0.1:54398"\nSUPABASE_SERVICE_ROLE_KEY="${token}"\n`);
 fs.writeFileSync(path.join(base,'state.json'),JSON.stringify({data,restPid:rest.pid,dbPort:54399,apiPort:54398}));
-rest.unref();
-const proxy=spawn(process.execPath,['scripts/portable-rest-proxy.mjs'],{windowsHide:true,stdio:'ignore'});proxy.unref();
-console.log('PostgreSQL migrations applied; authenticated loopback PostgREST on 54398. Auth/Storage compatibility schemas, not full services.');
+const proxy=spawn(process.execPath,['scripts/portable-rest-proxy.mjs'],{windowsHide:true,stdio:'ignore'});
+// Keep the dedicated session alive: child processes can stop at a Windows shell
+// job boundary. A successful bootstrap alone did not prove REST was running.
+let verified=false;
+for(let tries=0;tries<30;tries++) {
+  try {const response=await fetch('http://127.0.0.1:54398/rest/v1/',{headers:{apikey:token,Authorization:`Bearer ${token}`}});if(response.ok){verified=true;break;}}
+  catch {}
+  await new Promise(resolve=>setTimeout(resolve,200));
+}
+if(!verified) {
+  proxy.kill();rest.kill();execute('pg_ctl.exe',['-D',data,'-w','stop']);
+  throw new Error('Native isolated REST endpoint did not start');
+}
+console.log('PostgreSQL migrations applied; REST verified on loopback 54398. Keep this session running. Auth/Storage compatibility schemas, not full services.');
+function stop(){proxy.kill();rest.kill();execFileSync(path.join(bin,'pg_ctl.exe'),['-D',data,'-w','stop'],{stdio:'ignore',windowsHide:true});}
+process.once('SIGINT',stop);process.once('SIGTERM',stop);

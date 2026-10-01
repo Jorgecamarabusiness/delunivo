@@ -22,7 +22,7 @@ const fixture = {
 
 async function service(path, method = "GET", body) {
   const result = await requestJson(`${apiUrl}/rest/v1/${path}`, { key: serviceRoleKey, method, body, headers: { Prefer: "resolution=merge-duplicates" } });
-  assert(result.response.ok, `Fixture app E2E no pudo escribir ${path}: ${result.response.status}`);
+  assert(result.response.ok, `Fixture app E2E no pudo escribir ${path}: ${result.response.status} ${result.data?.message ?? ""}`);
   return result.data;
 }
 async function createUser([email, password], name) {
@@ -66,7 +66,7 @@ async function seed() {
   assert(uploaded.ok,`Capacity export Storage fixture failed (${uploaded.status}): ${uploaded.ok ? "" : await uploaded.text()}`);
   await service("courses","POST",{id:capacityCourse,organization_id:capacityOrg,title:"Curso capacidad",description:"Synthetic",price:0,status:"published",thumbnail_url:`${apiUrl}/storage/v1/object/public/public-media/${storagePath}`});
   await service("lessons","POST",{id:capacityLesson,course_id:capacityCourse,title:"Vídeo largo sintético",status:"published",order_index:0,blocks:[{id:block,type:"video_file",mux_video_asset_id:capacityAsset}]});
-  await service("video_assets","POST",{id:capacityAsset,organization_id:capacityOrg,course_id:capacityCourse,lesson_id:capacityLesson,block_id:block,created_by:capacityOwner,mux_asset_id:"capacity-synthetic",mux_playback_id:"capacity-synthetic-playback",mux_environment:"capacity-synthetic",status:"ready",is_current:true,duration_seconds:43200});
+  await service("video_assets","POST",{id:capacityAsset,organization_id:capacityOrg,course_id:capacityCourse,lesson_id:capacityLesson,block_id:block,created_by:capacityOwner,mux_asset_id:"capacity-synthetic",mux_playback_id:"capacity-synthetic-playback",mux_environment:"capacity-synthetic",status:"ready",is_current:true,duration_seconds:43200,reserved_duration_seconds:43200});
   await service("organization_students","POST",{organization_id:capacityOrg,user_id:learnerId,status:"active",joined_via:"free"});
   await service("student_course_access","POST",{user_id:learnerId,course_id:capacityCourse});
   return { learnerId, deletingId, adminDeleteId };
