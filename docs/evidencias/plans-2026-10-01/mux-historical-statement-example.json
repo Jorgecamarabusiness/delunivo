@@ -1,0 +1,17 @@
+{
+  "statement": {
+    "id": "mux-historical-2026-09-30",
+    "provider": "mux",
+    "environment": "account-unverified",
+    "currency": "usd",
+    "startsAt": "2026-08-30T00:00:00Z",
+    "endsAt": "2026-09-30T00:00:00Z",
+    "source": "Historical Mux_invoice_2026-09-30.csv and authenticated Billing Breakdown, 2026-10-01; exact timezone boundaries must be verified before production import",
+    "grossCents": 35,
+    "discountCents": 13,
+    "creditCents": 22,
+    "taxCents": 0,
+    "paidCents": 0
+  },
+  "lines": []
+}

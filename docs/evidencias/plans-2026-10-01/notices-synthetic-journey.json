@@ -1,0 +1,62 @@
+{
+  "checkedAt": "2026-10-01T17:06:45.964Z",
+  "database": "real native PostgreSQL and PostgREST",
+  "provider": "Resend SDK with intercepted transport, no delivery",
+  "checks": [
+    "70/90 recipients synthetic, unique notice per cycle",
+    "Duplicate worker does not resend",
+    "Provider failure remains unsent and retries with the same idempotency key",
+    "Retention date preserved in rendered message"
+  ],
+  "captured": [
+    {
+      "to": [
+        "capacity-race-1790874400464-0@synthetic.invalid"
+      ],
+      "subject": "Aviso de capacidad y conservación de Delunivo",
+      "idempotencyKey": "capacity-notice-1a99bd8a-f44d-48b3-86ed-0e6e8ee6f838"
+    },
+    {
+      "to": [
+        "capacity-race-1790874400464-0@synthetic.invalid"
+      ],
+      "subject": "Aviso de capacidad y conservación de Delunivo",
+      "idempotencyKey": "capacity-notice-25b5011e-5bc6-41b0-b275-c2b3b2aed2e9"
+    },
+    {
+      "to": [
+        "capacity-race-1790874400464-0@synthetic.invalid"
+      ],
+      "subject": "Aviso de capacidad y conservación de Delunivo",
+      "idempotencyKey": "capacity-notice-29a76c42-75ad-444b-85c4-17be648fe75c"
+    },
+    {
+      "to": [
+        "capacity-race-1790874400464-0@synthetic.invalid"
+      ],
+      "subject": "Aviso de capacidad y conservación de Delunivo",
+      "idempotencyKey": "capacity-notice-31db2427-6906-49dc-9f41-31c1afc69604"
+    },
+    {
+      "to": [
+        "capacity-race-1790874400464-0@synthetic.invalid"
+      ],
+      "subject": "Aviso de capacidad y conservación de Delunivo",
+      "idempotencyKey": "capacity-notice-f6570b43-76d0-4392-a50a-81f130fb7746"
+    },
+    {
+      "to": [
+        "capacity-race-1790874205769-0@synthetic.invalid"
+      ],
+      "subject": "Aviso de capacidad y conservación de Delunivo",
+      "idempotencyKey": "capacity-notice-dea2561b-46dc-4a2b-b5da-035079cb47bc"
+    },
+    {
+      "to": [
+        "capacity-race-1790874205769-0@synthetic.invalid"
+      ],
+      "subject": "Aviso de capacidad y conservación de Delunivo",
+      "idempotencyKey": "capacity-notice-dea2561b-46dc-4a2b-b5da-035079cb47bc"
+    }
+  ]
+}

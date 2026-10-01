@@ -1,7 +1,7 @@
 {
-  "startedAt": "2026-10-01T16:23:07.678Z",
+  "startedAt": "2026-10-01T16:54:42.385Z",
   "environment": "Stripe TEST + PostgreSQL native / application services",
-  "organizationId": "4d74eda8-17e5-4ae8-b16e-01c0865c6ef9",
+  "organizationId": "2c9f4547-16a5-4c1a-9ba9-e85bae33a4b8",
   "checks": [
     "Signed webhook route accepts payment once, rejects invalid signatures and ignores Connect account",
     "Actual hosted checkout, inclusive synthetic 7% tax, once discount, duplicate fulfilment",
@@ -12,9 +12,9 @@
     "Scheduled downgrade, schedule release/resume, cancel retains paid access"
   ],
   "resources": {
-    "customer": "cus_VMVm8XmIbr2Zpv",
-    "clock": "clock_1ULmlCQtWyL7dVrGOegjI5UA",
-    "subscription": "sub_1ULmlKQtWyL7dVrGBR6COiTP"
+    "customer": "cus_VMWIfZ2tSn40vg",
+    "clock": "clock_1ULnFlQtWyL7dVrGrY5s9RRi",
+    "subscription": "sub_1ULnFrQtWyL7dVrGUa0AAHXg"
   },
-  "completedAt": "2026-10-01T16:24:29.196Z"
+  "completedAt": "2026-10-01T16:56:00.086Z"
 }

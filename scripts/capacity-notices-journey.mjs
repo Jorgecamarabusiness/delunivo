@@ -33,7 +33,7 @@ assert(captured.some(m=>m.html.includes('70%')) && captured.some(m=>m.html.inclu
 assert.equal((await runCapacityMaintenance()).sent,0);assert.equal(captured.length,first.sent);
 const row=(await db.from('platform_resource_notices').select('organization_id').limit(1).single()).data;
 assert(row);
-const inserted=await db.from('platform_resource_notices').insert({organization_id:row.organization_id,resource:'retention',cycle_key:'synthetic-failure',threshold:'ended',payload:{deleteAfter:'2026-11-01T12:00:00Z'}}).select('id').single();
+const inserted=await db.from('platform_resource_notices').insert({organization_id:row.organization_id,resource:'retention',cycle_key:`synthetic-failure-${Date.now()}`,threshold:'ended',payload:{deleteAfter:'2026-11-01T12:00:00Z'}}).select('id').single();
 assert.equal(inserted.error,null);
 failNext=true;
 const failed=await runCapacityMaintenance();
@@ -44,5 +44,5 @@ const retried=await runCapacityMaintenance();assert.equal(retried.sent,1);
 assert.equal(captured.at(-1).idempotencyKey,captured.at(-2).idempotencyKey);
 assert(captured.at(-1).html.includes('2026-11-01T12:00:00Z'));
 assert.equal((await runCapacityMaintenance()).sent,0);
-fs.writeFileSync('docs/evidencias/plans-2026-10-01/notices-synthetic-journey.json',JSON.stringify({checkedAt:new Date().toISOString(),database:'real native PostgreSQL and PostgREST',provider:'Resend SDK with intercepted transport, no delivery',checks:['70/90 recipients synthetic, unique notice per cycle','Duplicate worker does not resend','Provider failure remains unsent and retries with the same idempotency key','Retention date preserved in rendered message'],captured:captured.map(({html,...metadata})=>metadata)},null,2)+'\n');
+fs.writeFileSync('docs/evidencias/plans-2026-10-01/notices-synthetic-journey.json',JSON.stringify({checkedAt:new Date().toISOString(),database:'real native PostgreSQL and PostgREST',provider:'Resend SDK with intercepted transport, no delivery',checks:['70/90 recipients synthetic, unique notice per cycle','Duplicate worker does not resend','Provider failure remains unsent and retries with the same idempotency key','Retention date preserved in rendered message'],captured:captured.map(({html:_html,...metadata})=>metadata)},null,2)+'\n');
 console.log('Synthetic notice journey passed: real SQL outbox, SDK payload, duplicate suppression and failed-provider recovery. No mail sent.');

@@ -1,0 +1,70 @@
+# Planes y consumo — implementación verificada, 2026-10-01
+
+Las decisiones comerciales canónicas están en [el prompt aceptado](plans-consumption-spec.md).
+Este anexo describe su implementación; no modifica precios o contratos anteriores.
+Estado final y recuperación en [progreso](plans-implementation-progress.md) y
+[procedimiento de lanzamiento](plans-launch-runbook.md).
+
+## Fuentes de verdad y tiempo
+
+`src/lib/billing/catalog.ts` publica oferta versión2026-10-01 y snapshots aceptados.
+Stripe determina cobro/periodo real; las membresías actuales determinan permisos.
+Los saldos importados se reconstruyen en Postgres y nunca se toman del navegador.
+Importes en céntimos; detalle de coste en micro-unidades; duración precisa en segundos.
+Los incrementos proporcionales redondean hacia abajo a segundos enteros.
+
+Ciclos UTC `[inicio,fin)`. La hora oficial de Mux se asigna por el inicio del bucket,
+sin inventar precisión intrahoraria. `rights_start_at` evita cargar uso previo al
+pago inicial. Los aumentos usan quote congelada y efectividad tras pago, conservando
+consumo. Bolsa: primera verificación del servidor y exactamente2160h; los plazos
+de prueba/conservación/exceso son336/720/168h, sin desfase DST del servidor.
+
+## Recorridos y evidencia
+
+| Requisito | Implementación y comprobación |
+|---|---|
+| Oferta y A medida | Portada/condiciones/catálogo canónico; solicitud auditada sin contrato automático. UI375/768/1440 y acción real con Supabase aislado. |
+| Compra y ampliación | Checkout Stripe TEST hospedado real, precio inclusivo, descuento once sólo base, biblioteca recurrente y bolsa única. |
+| Cambios | Quote exacta Stripe, upgrade medio ciclo añade150.000s y15.000s de gracia, no reset; downgrade y cantidad biblioteca a cero en renovación Test Clock. |
+| Recuperación | Firma/Connect/duplicados, checkout completado sin grant, rechazo→pago→conciliación, expiración explícita del checkout, refund previo al grant atómico. |
+| Cuotas y aislamiento | SQL real/RLS, reservas concurrentes en dos escuelas, duración falsa, expiración, compras/importación bajo bloqueo de escuela. |
+| Uso y costes | Ledger persistente incluso asset borrado, reemplazo/corrección por hora, paginación completa, lease renovada y escritura con fencing; cobertura/errores explícitos, datos sin atribución separados. |
+| Playback | Sesión persistida por usuario/escuela/asset, duración+900s; agotamiento impide nueva sesión pero conserva la anterior sin extender vencimiento. Revocación de roster bloquea la comprobación siguiente. |
+| Avisos | Umbrales70/90 únicos por escuela/recurso/ciclo; worker real, destinatarios sintéticos y SDK Resend con transporte capturado. Fallo permanece sin enviar y retry usa misma clave. |
+| Conservación | Fin efectivo/30d/version aceptada, recuperación cancela trabajo, SQL synthetic prueba idempotencia/retención de facturas, Storage processing mantiene barrera de restore mientras el proveedor es incierto. |
+| Salida | Owner propio fuera de Run as, JSON/cursos/lecciones/medios, Storage exclusivo firmado y descargado real, HLS procesado; sin compras/credenciales ni promesa de original Mux. |
+| Paneles | Escuela: saldos/cobertura/operaciones y recuperación; plataforma: ingreso real/desconocido, bruto/créditos/pago, referencia, FX explícito y Storage separado. |
+
+Los unitarios y los dobles prueban calendario/correcciones/paginación/errores/UI,
+pero no sustituyen llamadas oficiales del importador ni un vídeo real. El E2E de
+sesión larga usa una duración sintética y JWT local, no una subida de12 horas.
+La captura de Resend verifica contenido, destinatario e idempotencia, no entrega.
+
+## Ejecución reproducible y límites
+
+`npm run test:unit`, `npm run lint`, `npx tsc --noEmit` y
+`npm run test:e2e:audit` (incluye build aislado). El harness neutraliza todas las
+variables `.env*` y bloquea red externa en la aplicación/navegador.
+No ejecutar E2E normales con `.env.local` de producción.
+
+El workflow `Isolated Supabase` crea Postgres17/Auth/REST/Storage temporales,
+aplica todas las migraciones y ejecuta pgTAP, concurrencia, OTP, lifecycle y
+`playwright.isolated.config.ts`; no contiene pasos de despliegue.
+[CI final](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/36896822192):
+128 aserciones SQL en11 archivos y seis E2E reales pasan.
+
+En Windows, el harness portable utiliza PostgreSQL17.11 y PostgREST16.4 oficiales
+en TEMP/delunivo-capacity-tools, puertos54399/54397/54398 exclusivamente loopback.
+`start-portable-capacity-db.mjs` aplica migraciones y verifica REST; mantener la
+sesión abierta. `isolated-capacity-concurrency.mjs --portable` crea fixtures nuevas.
+`node --import ./scripts/capacity-test-imports.mjs scripts/capacity-stripe-journey.mjs`
+exige Stripe TEST y el REST local; nunca cargar LIVE. El script de avisos usa la
+misma base y un transporte capturado. `.env*.local` queda ignorado; ningún secreto
+se publica. Auth/Storage portables sólo son schemas compatibles: su prueba real
+corresponde al workflow completo. Los relojes Stripe sintéticos se eliminan al final.
+
+Pendientes en destino: credencial API Mux vigente (la antigua responde401),
+verificación fiscal LIVE por jurisdicciones tras acceder a la cuenta y activación
+expresamente autorizada. El piloto de hasta cinco escuelas/14 días/dos ciclos es
+observación futura. Borrado/envíos reales siguen desactivados y no se aplica la
+política nueva a contratos anteriores. No se ha probado subida12h/20GiB.
