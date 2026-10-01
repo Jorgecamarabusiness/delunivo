@@ -19,7 +19,19 @@ Encargo: prompt maestro de Jorge del 2026-10-01, leído completo. Rama:
 - Inspección API real: Stripe TEST disponible sin tarifas fiscales existentes;
   credenciales locales antiguas Stripe Production y Mux responden 401. Véase
   `evidencias/plans-2026-10-01/provider-read-only.json`. No se modificó producción.
-- Checkout/cambios/packs y webhooks implementándose, aún sin recorrido UI completo.
+- Checkout/cambios/packs y webhooks escritos; catálogo, portada, condiciones,
+  paneles de escuela/plataforma y solicitud A medida integrados. Pendiente recorrido final.
+- Primer CI aislado 36872372197: migraciones aplicadas; pgTAP detectó duración
+  legacy cero y conversión numeric→integer. Corregidos; nueva ejecución pendiente.
+- Revisión de calidad encontró quota_mode de nuevas altas, checkout caducado,
+  renovación de sesiones y job ausente de conservación. Correcciones integradas.
+- Cron autenticado de capacidad, importador, avisos con outbox, estimaciones y
+  worker de conservación añadidos. Ejecución/envíos siguen desactivados por defecto.
+- Exportación segura propia con manifiesto, Storage verificable y HLS procesado;
+  originales Mux no prometidos. Cleanup Storage persiste y excluye referencias ajenas.
+- TypeScript pasa tras el lote integrado de workers/exportación (15:10 aprox. UTC).
+- PostgreSQL/PostgREST portables descargados a TEMP para probar Stripe TEST con
+  SQL local además de Supabase completo en CI; no instalación de servicio global.
 
 ## Invariantes
 

@@ -9,6 +9,9 @@ import {
 import { syncOrganizationDiscountToStripe } from "@/lib/stripe/platformDiscounts";
 import { fulfilCapacityCheckout, reconcileCapacityOperation } from "@/lib/stripe/capacityBilling";
 import { reconcileCapacitySubscription, handleCapacityRefund } from "@/lib/stripe/capacityEvents";
+import { applyPaidAffiliateInvoice } from "@/lib/stripe/paidAffiliateInvoice";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { settleCapacityCheckouts } from "@/lib/stripe/capacityBilling";
 import {
   applyPlatformAffiliateEvent,
   claimPlatformWebhookEvent,
@@ -44,6 +47,7 @@ export async function POST(request: NextRequest) {
 
   const handledTypes = new Set<Stripe.Event.Type>([
     "checkout.session.completed",
+    "checkout.session.expired",
     "invoice.paid",
     "invoice.payment_failed",
     "customer.subscription.deleted",
@@ -88,6 +92,10 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+    if (event.type === "checkout.session.expired") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.capacity_operation_id && session.metadata.organization_id) await settleCapacityCheckouts(session.metadata.organization_id);
+    }
 
     if (event.type === "invoice.paid") {
       const invoice = event.data.object as Stripe.Invoice;
@@ -99,19 +107,7 @@ export async function POST(request: NextRequest) {
       );
       if (organizationId) {
         await reconcileCapacitySubscription(organizationId, invoiceSubscriptionId(invoice)!, invoice.id);
-        const affected = await applyPlatformAffiliateEvent({
-          eventId: event.id,
-          organizationId,
-          eventKind: "invoice_paid",
-          eventAt: new Date(event.created * 1000),
-          amountPaid: invoice.amount_paid,
-        });
-        for (const affectedOrganizationId of affected) {
-          await syncOrganizationDiscountToStripe(
-            affectedOrganizationId,
-            event.id
-          );
-        }
+        await applyPaidAffiliateInvoice(organizationId, invoice);
       }
     }
 
@@ -155,6 +151,10 @@ export async function POST(request: NextRequest) {
         new Date(event.created * 1000)
       );
       if (organizationId) {
+        const current = await stripe.subscriptions.retrieve(subscription.id);
+        if (current.status !== "canceled" || !current.ended_at) throw new Error("Subscription termination unconfirmed");
+        const reconciled = await createAdminClient().rpc("reconcile_platform_retention", { p_organization_id: organizationId, p_confirmed_end: new Date(current.ended_at * 1000).toISOString() });
+        if (reconciled.error) throw new Error(reconciled.error.message);
         const affected = await applyPlatformAffiliateEvent({
           eventId: event.id,
           organizationId,

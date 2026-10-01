@@ -14,6 +14,8 @@ import { getCurrentOrgMembership } from "@/lib/organizations/getCurrentOrgMember
 import { BillingActions } from "./BillingActions";
 import { AffiliatePanel } from "./AffiliatePanel";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { SchoolUsagePanel } from "@/components/billing/SchoolUsagePanel";
+import { getPlan } from "@/lib/billing/catalog";
 
 const STATUS_LABEL: Record<string, string> = {
   trialing: "En periodo de prueba",
@@ -87,7 +89,7 @@ export default async function FacturacionPage({
     admin
       .from("organization_billing")
       .select(
-        "platform_subscription_status, platform_stripe_customer_id, platform_subscription_id, access_mode, access_expires_at, discount_percent, discount_duration, effective_discount_percent, affiliate_discount_cap_percent, referral_welcome_remaining_payments"
+        "offer_version, plan_key, platform_subscription_status, platform_stripe_customer_id, platform_subscription_id, access_mode, access_expires_at, discount_percent, discount_duration, effective_discount_percent, affiliate_discount_cap_percent, referral_welcome_remaining_payments"
       )
       .eq("organization_id", selectedOrganizationId)
       .maybeSingle(),
@@ -138,7 +140,7 @@ export default async function FacturacionPage({
       <h1 className="text-2xl font-bold tracking-tight">Facturación</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         {selectedOrganization?.name ?? "Tu empresa"} · Suscripción a {PLATFORM_NAME}{" "}
-        — {formatPlatformPrice(priceCents)}/mes.
+        — {formatPlatformPrice(getPlan(billing?.plan_key)?.priceCents ?? priceCents)}/mes antes de descuentos.
       </p>
 
       {ownerOrganizationIds.length > 1 ? (
@@ -171,7 +173,7 @@ export default async function FacturacionPage({
 
       {checkout === "success" ? (
         <Alert variant="success" className="mt-6">
-          Pago confirmado. Puede tardar unos segundos en reflejarse aquí.
+          Hemos vuelto de Stripe. La capacidad se actualizará cuando el servidor confirme el pago; esta pantalla no confirma el cobro.
         </Alert>
       ) : null}
       {checkout === "cancelled" ? (
@@ -222,13 +224,15 @@ export default async function FacturacionPage({
           </p>
         ) : null}
 
-        <BillingActions
+        {!billing?.offer_version ? <BillingActions
           organizationId={selectedOrganizationId}
           canManage={canManage}
           status={status}
           complimentaryWithoutStripe={complimentary && !canManage}
-        />
+        /> : null}
       </div>
+
+      <div className="mt-8"><SchoolUsagePanel organizationId={selectedOrganizationId} controls /></div>
 
       <AffiliatePanel
         organizationId={selectedOrganizationId}

@@ -34,6 +34,12 @@ export function offerSnapshot(key: PlanKey, discountPercent = 0) {
   };
 }
 
+export function trialOfferSnapshot() {
+  return { ...offerSnapshot("inicio"), planKey: "trial", name: "Prueba", priceCents: 0,
+    librarySeconds: 7200, economicSeconds: 8640, deliverySeconds: 18000, graceSeconds: 0,
+    interval: "trial", trialDays: 14, automaticRenewal: false };
+}
+
 /** Floor to whole seconds; never grant more than the exact proportional increase. */
 export function proratedSeconds(delta: number, start: number, end: number, at: number) {
   if (![delta, start, end, at].every(Number.isSafeInteger) || delta < 0 || end <= start) throw new Error("Intervalo de prorrateo inválido.");

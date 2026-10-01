@@ -53,6 +53,13 @@ export function startPlaybackSession({
       const data = await response.json();
       if (stopped) return;
       if (response.status === 402) {
+        if (ready && ready.expiresAt > Date.now()) {
+          // Quota exhaustion cannot revoke an already admitted session.
+          ready = { ...ready, warning: "Esta sesión continúa hasta que caduque. La escuela necesita más capacidad para iniciar otra." };
+          onState(ready);
+          schedule(Math.max(1_000, ready.expiresAt - Date.now()));
+          return;
+        }
         ready = null; clearTimeout(timer); clearTimeout(expiryTimer);
         onState({ kind: "error", message: "La reproducción está pausada temporalmente por la capacidad de la escuela. Tu compra y progreso se conservan." });
         return;

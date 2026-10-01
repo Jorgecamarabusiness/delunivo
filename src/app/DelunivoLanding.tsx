@@ -4,7 +4,9 @@ import { Footer } from "@/components/layout/Footer";
 import { Container } from "@/components/ui/Container";
 import { buttonClassName } from "@/components/ui/Button";
 import { PLATFORM_DESCRIPTION, PLATFORM_NAME } from "@/lib/brand";
+import { PricingPlans } from "@/components/billing/PricingPlans";
 import { formatPlatformPrice } from "@/lib/billing/access";
+import { PLANS } from "@/lib/billing/catalog";
 import { PlatformLogo } from "@/components/media/PlatformLogo";
 
 const FEATURES = [
@@ -44,12 +46,10 @@ const STEPS = [
  */
 export function DelunivoLanding({
   isAdmin,
-  priceCents,
 }: {
   isAdmin: boolean;
   priceCents: number;
 }) {
-  const monthlyPrice = formatPlatformPrice(priceCents);
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">
       <Header />
@@ -100,7 +100,7 @@ export function DelunivoLanding({
             </div>
 
             <p className="mt-6 text-sm text-muted-foreground">
-              {monthlyPrice} al mes. Cancela cuando quieras.
+              Desde {formatPlatformPrice(PLANS[0].priceCents)} al mes, impuestos incluidos.
             </p>
           </Container>
         </section>
@@ -146,27 +146,11 @@ export function DelunivoLanding({
         </section>
 
         <section>
-          <Container width="sm" className="py-16 text-center sm:py-24">
+          <Container className="py-16 sm:py-24">
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-              Un precio, todo incluido
+              Elige la capacidad de tu escuela
             </h2>
-            <p className="mt-4 text-5xl font-bold tracking-tight">
-              {monthlyPrice}
-              <span className="text-lg font-medium text-muted-foreground">
-                /mes
-              </span>
-            </p>
-            <p className="mt-4 text-sm text-muted-foreground">
-              Cursos y alumnos ilimitados. Sin permanencia y sin comisión por
-              cada venta que hagas.
-            </p>
-
-            <Link
-              href={isAdmin ? "/admin" : "/crear-empresa"}
-              className={buttonClassName("primary", "lg", "mt-8")}
-            >
-              {isAdmin ? "Entrar" : "Crear mi empresa"}
-            </Link>
+            <div className="mt-8"><PricingPlans isAdmin={isAdmin} /></div>
           </Container>
         </section>
       </main>

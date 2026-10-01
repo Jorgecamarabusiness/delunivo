@@ -21,6 +21,9 @@ export async function subscribeAction(
   if (!auth.ok) return { error: auth.error };
   const { context } = auth;
 
+  const offer = await createAdminClient().from("organization_billing").select("offer_version").eq("organization_id", context.organizationId).single();
+  if (offer.error || offer.data?.offer_version) return { error: "Utiliza las ofertas versionadas del panel para contratar este plan." };
+
   let checkoutUrl: string | null;
   try {
     checkoutUrl = await createPlatformSubscriptionCheckoutUrl(
@@ -51,7 +54,7 @@ export async function openBillingPortalAction(
 
   const { data: billing } = await context.supabase
     .from("organization_billing")
-    .select("platform_stripe_customer_id")
+    .select("platform_stripe_customer_id,offer_version")
     .eq("organization_id", context.organizationId)
     .maybeSingle();
 
@@ -68,6 +71,7 @@ export async function openBillingPortalAction(
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  if (billing.offer_version) return { error: "Gestiona cambios y cancelación desde el panel de capacidad para confirmar sus importes y fechas." };
 
   let portalUrl: string;
   try {

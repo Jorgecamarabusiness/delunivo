@@ -2,17 +2,21 @@ import "server-only";
 import { randomUUID, createHash } from "node:crypto";
 import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getPlan, offerSnapshot, DELIVERY_PACK, LIBRARY_EXTENSION, type PlanKey } from "@/lib/billing/catalog";
+import { getPlan, offerSnapshot, DELIVERY_PACK, type PlanKey } from "@/lib/billing/catalog";
 import { stripe } from "./client";
 import { capacityPrice, platformTaxRates } from "./capacityPrices";
 import { ensureOrganizationDiscountCoupon } from "./platformDiscounts";
 import { claimCheckoutAttempt, getCheckoutUrlForAttempt, markCheckoutAttemptCompleted } from "./checkoutAttempts";
+import { handlePlatformSubscriptionCheckout } from "./handlePlatformBilling";
+import { applyPaidAffiliateInvoice } from "./paidAffiliateInvoice";
+import { reconcileCapacitySubscription } from "./capacityEvents";
 
 type ChangeKind = "upgrade" | "downgrade" | "library" | "cancel" | "resume";
 type Quote = {
   subscriptionId: string; fingerprint: string; planKey: PlanKey; libraryQuantity: number;
   prorationAt: string; cycleStart: string; cycleEnd: string; initialCents: number;
   recurringCents: number; currency: string; items: Stripe.SubscriptionUpdateParams.Item[];
+  currentItems?: {price:string;quantity:number}[]; discountIds?: string[]; taxRates?: string[];
 };
 type Operation = { id: string; organization_id: string; kind: string; status: string; quote: Quote; offer_snapshot: ReturnType<typeof offerSnapshot>; stripe_params: Stripe.Checkout.SessionCreateParams; provider_id: string | null; invoice_id: string | null; applied_at: string | null; expires_at: string };
 const iso = (seconds: number) => new Date(seconds * 1000).toISOString();
@@ -81,7 +85,7 @@ export async function quoteCapacityChange(organizationId: string, userId: string
   const subscription = await stripe.subscriptions.retrieve(billing.platform_subscription_id);
   if (subscription.status !== "active" || subscription.pending_update) throw new Error("Primero resuelve el pago pendiente de la suscripción.");
   if (subscription.schedule && kind !== "cancel" && kind !== "resume") throw new Error("Ya hay un cambio programado. Cancela la programación antes de preparar otro cambio.");
-  const current = getPlan(billing.plan_key)!; const target = getPlan(targetKey ?? current.key);
+  const current = getPlan(billing.plan_key)!; const target = getPlan(["library", "cancel", "resume"].includes(kind) ? current.key : targetKey ?? current.key);
   if (!target) throw new Error("Plan inválido.");
   if (kind === "upgrade" && target.priceCents <= current.priceCents || kind === "downgrade" && target.priceCents >= current.priceCents) throw new Error("Dirección de cambio inválida.");
   const quantity = libraryQuantity ?? billing.library_extension_quantity;
@@ -100,6 +104,9 @@ export async function quoteCapacityChange(organizationId: string, userId: string
     ...(libraryItem ? [{ id: libraryItem.id, ...(quantity ? { price: libraryPrice.id, quantity } : { deleted: true }) }] : quantity ? [{ price: libraryPrice.id, quantity }] : [])];
   const prorationDate = Math.floor(Date.now() / 1000);
   let initialCents = 0;
+  const recurringPreview = await stripe.invoices.createPreview({ customer: identifier(subscription.customer)!, subscription: subscription.id,
+    subscription_details: { items, proration_behavior: "none" } });
+  if (recurringPreview.currency !== "eur") throw new Error("Moneda recurrente incorrecta.");
   if (kind === "upgrade" || kind === "library") {
     const preview = await stripe.invoices.createPreview({ customer: identifier(subscription.customer)!, subscription: subscription.id,
       subscription_details: { items, proration_date: prorationDate, proration_behavior: "always_invoice" } });
@@ -108,7 +115,8 @@ export async function quoteCapacityChange(organizationId: string, userId: string
   }
   const quote: Quote = { subscriptionId: subscription.id, fingerprint: fingerprint(subscription), planKey: target.key, libraryQuantity: quantity,
     prorationAt: iso(prorationDate), cycleStart: iso(baseItem.current_period_start), cycleEnd: iso(baseItem.current_period_end), initialCents,
-    recurringCents: Math.round(target.priceCents * (100 - Number(billing.effective_discount_percent)) / 100) + quantity * LIBRARY_EXTENSION.priceCents, currency: "eur", items };
+    recurringCents: kind === "cancel" ? 0 : recurringPreview.total, currency: "eur", items,
+    currentItems: subscription.items.data.map(i=>({price:i.price.id,quantity:i.quantity ?? 1})), discountIds: subscription.discounts.map(d=>identifier(d)!), taxRates: await platformTaxRates() };
   return insertOperation({ organizationId, userId, kind, quote, snapshot: offerSnapshot(target.key, Number(billing.effective_discount_percent)) });
 }
 
@@ -125,12 +133,12 @@ export async function confirmCapacityChange(organizationId: string, operationId:
   if (claimed.error || !claimed.data) throw new Error("Ya hay una operación en curso para esta escuela.");
   try {
     if (op.kind === "downgrade") {
-      const created = await stripe.subscriptionSchedules.create({ from_subscription: subscription.id }, { idempotencyKey: `delunivo-schedule-${op.id}` });
+      const created = await stripe.subscriptionSchedules.create({ from_subscription: subscription.id, metadata:{capacity_operation_id:op.id} }, { idempotencyKey: `delunivo-schedule-${op.id}` });
       const library = await capacityPrice("library"), next = await capacityPrice(op.quote.planKey);
-      const discounts = subscription.discounts.map(d => ({ discount: identifier(d)! }));
-      const rates = await platformTaxRates();
+      const discounts = (op.quote.discountIds ?? []).map(d => ({ discount: d }));
+      const rates = op.quote.taxRates ?? [];
       const scheduled = await stripe.subscriptionSchedules.update(created.id, { end_behavior: "release", phases: [
-        { start_date: created.current_phase!.start_date, end_date: Math.floor(Date.parse(op.quote.cycleEnd) / 1000), items: subscription.items.data.map(i => ({ price: i.price.id, quantity: i.quantity ?? 1 })), discounts, default_tax_rates: rates, proration_behavior: "none" },
+        { start_date: created.current_phase!.start_date, end_date: Math.floor(Date.parse(op.quote.cycleEnd) / 1000), items: op.quote.currentItems!, discounts, default_tax_rates: rates, proration_behavior: "none" },
         { items: [{ price: next.id, quantity: 1 }, ...(op.quote.libraryQuantity ? [{ price: library.id, quantity: op.quote.libraryQuantity }] : [])], discounts, default_tax_rates: rates, proration_behavior: "none", duration: { interval: "month", interval_count: 1 } },
       ] }, { idempotencyKey: `delunivo-schedule-phases-${op.id}` });
       const saved = await admin.from("organization_billing").update({ scheduled_plan_key: op.quote.planKey, scheduled_library_quantity: op.quote.libraryQuantity, stripe_schedule_id: scheduled.id }).eq("organization_id", organizationId);
@@ -142,6 +150,8 @@ export async function confirmCapacityChange(organizationId: string, operationId:
     if (op.kind === "cancel" || op.kind === "resume") {
       if (subscription.schedule) await stripe.subscriptionSchedules.release(identifier(subscription.schedule)!, {}, { idempotencyKey: `delunivo-release-${op.id}` });
       await stripe.subscriptions.update(subscription.id, { cancel_at_period_end: op.kind === "cancel" }, { idempotencyKey: `delunivo-cancel-${op.id}` });
+      const cleared = await admin.from("organization_billing").update({ scheduled_plan_key: null, scheduled_library_quantity: null, stripe_schedule_id: null }).eq("organization_id", organizationId);
+      if (cleared.error) throw new Error(cleared.error.message);
       const saved = await admin.from("platform_billing_operations").update({ status: "completed", provider_id: subscription.id, applied_at: new Date().toISOString() }).eq("id", op.id);
       if (saved.error) throw new Error(saved.error.message);
       return { url: null, status: "completed" };
@@ -156,7 +166,7 @@ export async function confirmCapacityChange(organizationId: string, operationId:
     if (saved.error) throw new Error(saved.error.message);
     await reconcileCapacityOperation(op.id);
     const invoice = await stripe.invoices.retrieve(invoiceId);
-    return { url: invoice.status === "paid" ? null : invoice.hosted_invoice_url, status: invoice.status === "paid" ? "completed" : "pending_payment" };
+    return { url: invoice.status === "paid" ? null : invoice.hosted_invoice_url ?? null, status: invoice.status === "paid" ? "completed" : "pending_payment" };
   } catch (error) {
     // Preserve processing for reconciliation when Stripe may already have succeeded.
     await admin.from("platform_billing_operations").update({ last_error: error instanceof Error ? error.message.slice(0, 500) : "provider_update_failed" }).eq("id", op.id);
@@ -196,10 +206,36 @@ export async function fulfilCapacityCheckout(session: Stripe.Checkout.Session) {
     const saved = await admin.rpc("apply_platform_capacity_payment", { p_operation_id: id, p_subscription_id: subscriptionId,
       p_cycle_start: iso(item.current_period_start), p_cycle_end: iso(item.current_period_end), p_confirmed_at: iso(invoice.status_transitions.paid_at ?? session.created), p_source_id: invoice.id });
     if (saved.error) throw new Error(saved.error.message);
+    await applyPaidAffiliateInvoice(op.organization_id, invoice);
+    await reconcileCapacitySubscription(op.organization_id, subscriptionId, invoice.id);
   }
   await markCheckoutAttemptCompleted(attempt.data.id);
   void confirmedAt;
   return true;
+}
+
+export async function settleCapacityCheckouts(organizationId: string) {
+  const admin = createAdminClient();
+  const attempts = await admin.from("stripe_checkout_attempts").select("*").eq("organization_id", organizationId)
+    .in("checkout_kind", ["platform_subscription","platform_delivery_pack"]).in("status", ["creating","open","expired","failed"]);
+  if (attempts.error) throw new Error(attempts.error.message);
+  for (const attempt of attempts.data ?? []) {
+    const operationId = attempt.stripe_params?.metadata?.capacity_operation_id;
+    if (!operationId) continue;
+    if (!attempt.stripe_session_id) {
+      // Unknown provider creation is recovered with the existing attempt/key by createCapacityCheckout.
+      continue;
+    }
+    const session = await stripe.checkout.sessions.retrieve(attempt.stripe_session_id);
+    if (session.status === "complete") {
+      if (session.mode === "subscription") await handlePlatformSubscriptionCheckout(session, new Date(session.created * 1000));
+      await fulfilCapacityCheckout(session);
+    } else if (session.status === "expired") {
+      const savedAttempt = await admin.from("stripe_checkout_attempts").update({ status: "expired" }).eq("id", attempt.id).in("status", ["creating","open"]);
+      const savedOperation = await admin.from("platform_billing_operations").update({ status: "expired" }).eq("id", operationId).is("applied_at", null);
+      if (savedAttempt.error || savedOperation.error) throw new Error("No se pudo conciliar el checkout caducado.");
+    }
+  }
 }
 
 export async function reconcileCapacityOperation(operationId: string) {
@@ -207,6 +243,35 @@ export async function reconcileCapacityOperation(operationId: string) {
   if (result.error || !result.data) throw new Error("Operación no encontrada.");
   const op = result.data as Operation;
   if (op.applied_at || !["processing", "pending_payment"].includes(op.status)) return;
+  if (op.kind === "cancel" || op.kind === "resume") {
+    const subscription = await stripe.subscriptions.retrieve(op.quote.subscriptionId);
+    if (subscription.schedule) await stripe.subscriptionSchedules.release(identifier(subscription.schedule)!, {}, {idempotencyKey:`delunivo-release-${op.id}`});
+    await stripe.subscriptions.update(subscription.id,{cancel_at_period_end:op.kind==="cancel"},{idempotencyKey:`delunivo-cancel-${op.id}`});
+    const cleared=await admin.from("organization_billing").update({scheduled_plan_key:null,scheduled_library_quantity:null,stripe_schedule_id:null}).eq("organization_id",op.organization_id).eq("platform_subscription_id",subscription.id);
+    const done=await admin.from("platform_billing_operations").update({status:"completed",applied_at:new Date().toISOString(),last_error:null,provider_id:subscription.id}).eq("id",op.id);
+    if(cleared.error || done.error) throw new Error("Cancellation recovery pending");
+    return;
+  }
+  if (op.kind === "downgrade") {
+    const subscription=await stripe.subscriptions.retrieve(op.quote.subscriptionId);
+    const scheduleId=identifier(subscription.schedule);
+    const schedule=scheduleId ? await stripe.subscriptionSchedules.retrieve(scheduleId) : await stripe.subscriptionSchedules.create({from_subscription:subscription.id,metadata:{capacity_operation_id:op.id}},{idempotencyKey:`delunivo-schedule-${op.id}`});
+    if(schedule.metadata?.capacity_operation_id!==op.id) throw new Error("Unrelated subscription schedule");
+    const next=await capacityPrice(op.quote.planKey),library=await capacityPrice("library");
+    const complete=schedule.phases.some(p=>p.start_date===Math.floor(Date.parse(op.quote.cycleEnd)/1000) && p.items.some(i=>identifier(i.price)===next.id && i.quantity===1) && (p.items.find(i=>identifier(i.price)===library.id)?.quantity ?? 0)===op.quote.libraryQuantity);
+    if(!complete) {
+      if(Date.now()>=Date.parse(op.quote.cycleEnd) || !op.quote.currentItems) throw new Error("Scheduled change requires manual reconciliation");
+      const discounts=(op.quote.discountIds ?? []).map(d=>({discount:d}));
+      await stripe.subscriptionSchedules.update(schedule.id,{end_behavior:"release",phases:[
+        {start_date:schedule.current_phase!.start_date,end_date:Math.floor(Date.parse(op.quote.cycleEnd)/1000),items:op.quote.currentItems,discounts,default_tax_rates:op.quote.taxRates ?? [],proration_behavior:"none"},
+        {items:[{price:next.id,quantity:1},...(op.quote.libraryQuantity ? [{price:library.id,quantity:op.quote.libraryQuantity}] : [])],discounts,default_tax_rates:op.quote.taxRates ?? [],proration_behavior:"none",duration:{interval:"month",interval_count:1}},
+      ]},{idempotencyKey:`delunivo-schedule-phases-${op.id}`});
+    }
+    const saved=await admin.from("organization_billing").update({scheduled_plan_key:op.quote.planKey,scheduled_library_quantity:op.quote.libraryQuantity,stripe_schedule_id:schedule.id}).eq("organization_id",op.organization_id).eq("platform_subscription_id",subscription.id);
+    const done=await admin.from("platform_billing_operations").update({status:"scheduled",provider_id:schedule.id,last_error:null}).eq("id",op.id);
+    if(saved.error || done.error) throw new Error("Schedule recovery pending");
+    return;
+  }
   if (op.kind !== "upgrade" && op.kind !== "library") return;
   const subscription = await stripe.subscriptions.retrieve(op.quote.subscriptionId);
   const invoiceId = op.invoice_id ?? (subscription.metadata.capacity_operation_id === op.id ? identifier(subscription.latest_invoice) : null);

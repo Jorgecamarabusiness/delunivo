@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/capacity",
+      "schedule": "10 * * * *"
+    },
+    {
       "path": "/api/cron/mux-deletions",
       "schedule": "0 3 * * *"
     }

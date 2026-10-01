@@ -31,6 +31,7 @@ function fromAddress(address: string | undefined): string {
 }
 
 export type SendEmailParams = {
+  idempotencyKey?: string;
   to: string;
   subject: string;
   content: EmailContent;
@@ -45,6 +46,7 @@ export type SendEmailParams = {
  * registro de un alumno ni dejar una invitación a medias.
  */
 export async function sendEmail({
+  idempotencyKey,
   to,
   subject,
   content,
@@ -98,7 +100,7 @@ export async function sendEmail({
       to: recipients,
       subject: finalSubject,
       html,
-    });
+    }, idempotencyKey ? { idempotencyKey } : undefined);
 
     if (error) {
       return { error: describeResendError(error.message ?? String(error)) };

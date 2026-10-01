@@ -21,6 +21,7 @@ import { createClient } from "@/lib/supabase/server";
 import { OrganizationCommercialForm } from "./OrganizationCommercialForm";
 import { PlatformPriceForm } from "./PlatformPriceForm";
 import { RunAsButton } from "./RunAsButton";
+import { PlatformUsageOverview } from "@/components/billing/PlatformUsageOverview";
 
 const STRIPE_STATUS: Record<string, string> = {
   trialing: "en prueba",
@@ -200,9 +201,12 @@ export default async function PlatformAdminPage({
       </Link>
 
       <section id="precio" className="mt-10 scroll-mt-6 rounded-lg border border-border p-5 sm:p-6">
-        <h2 className="text-xl font-semibold">Precio de Delunivo</h2>
+        <h2 className="text-xl font-semibold">Precio histórico de suscripciones</h2>
+        <p className="my-3 text-sm text-muted-foreground">Este control se conserva para ofertas anteriores. Los planes Inicio, Crece y Academia usan el catálogo versionado y no cambian con este campo.</p>
         <PlatformPriceForm priceCents={settings?.monthly_price_cents ?? 3000} />
       </section>
+
+      <div className="mt-10"><PlatformUsageOverview organizations={organizations ?? []} /></div>
 
       <section id="empresas" className="mt-10 scroll-mt-6">
         <h2 className="text-xl font-semibold">Empresas</h2>

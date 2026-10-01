@@ -55,6 +55,17 @@ export function VideoFileForm({
   const { asset: muxAsset, error: muxStatusError } =
     useMuxVideoStatus(muxVideoAssetId);
   const isReplacing = Boolean(initialMuxVideoAssetId || initialUrl);
+  const [capacityMessage,setCapacityMessage]=useState("Comprobando capacidad de biblioteca…");
+  useEffect(()=>{
+    const controller=new AbortController();
+    fetch(`/api/admin/mux/capacity?lessonId=${encodeURIComponent(lessonId)}`,{cache:"no-store",signal:controller.signal}).then(async response=>{
+      const data=await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Capacidad pendiente de verificación.");
+      const h=(value:number)=>(Number(value)/3600).toLocaleString("es-ES",{maximumFractionDigits:2});
+      setCapacityMessage(`${h(data.activeSeconds)} h alojadas y ${h(data.reservedSeconds)} h reservadas${data.limitSeconds!==null?` de ${h(data.limitSeconds)} h`:""}. ${Number(data.committedSeconds)>0?`${h(data.committedSeconds)} h pendientes de liberar${data.releaseAt?`; próxima liberación: ${new Date(data.releaseAt).toLocaleDateString("es-ES")}`:""}. `:""}Al sustituir se reserva el nuevo vídeo hasta validarlo; el anterior se mantiene. Consulta Consumo y facturación para ampliar capacidad.`);
+    }).catch(error=>{if(!controller.signal.aborted)setCapacityMessage(error instanceof Error?error.message:"Capacidad pendiente de verificación.");});
+    return()=>controller.abort();
+  },[lessonId]);
 
   useEffect(() => {
     if (!initialUrl || initialMuxVideoAssetId) return;
@@ -161,6 +172,7 @@ export function VideoFileForm({
       </label>
 
       <div className="mt-4">
+        <p role="status" className="mb-4 text-sm text-muted-foreground">{capacityMessage}</p>
         <span className="block text-xs font-medium text-muted-foreground">
           Archivo de vídeo
         </span>

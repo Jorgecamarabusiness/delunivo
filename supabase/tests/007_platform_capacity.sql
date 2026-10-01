@@ -24,7 +24,7 @@ select is((select duration_seconds::integer from public.mux_asset_ledger where v
 delete from public.video_assets where id='91000000-0000-4000-8000-000000000005';
 select is((select organization_id::text from public.mux_asset_ledger where mux_asset_id='synthetic-capacity'),'91000000-0000-4000-8000-000000000002','deleted asset retains school attribution');
 update public.mux_deletion_jobs set status='completed',completed_at=now() where video_asset_id='91000000-0000-4000-8000-000000000005';
-select is((public.platform_library_usage('91000000-0000-4000-8000-000000000002')->>'committed_seconds')::integer,7500,'provider deletion preserves minimum storage commitment');
+select is((public.platform_library_usage('91000000-0000-4000-8000-000000000002')->>'committed_seconds')::numeric::integer,7500,'provider deletion preserves minimum storage commitment');
 -- Hourly aggregates assigned to the start instant, UTC [start,end).
 update public.platform_capacity_cycles set starts_at=date_trunc('hour',now())-interval '24 hours',ends_at=date_trunc('hour',now())+interval '24 hours',base_seconds=10,grace_seconds=2 where organization_id='91000000-0000-4000-8000-000000000002';
 insert into public.platform_delivery_packs(organization_id,source_id,starts_at,expires_at,granted_seconds,paid_cents,offer_snapshot)

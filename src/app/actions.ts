@@ -15,6 +15,7 @@ import {
   REFERRAL_COOKIE,
 } from "@/lib/referrals/constants";
 import { passwordPolicyError } from "@/lib/auth/passwordPolicy";
+import { OFFER_VERSION, trialOfferSnapshot } from "@/lib/billing/catalog";
 
 export type CreateCompanyState = {
   error: string | null;
@@ -59,6 +60,8 @@ export async function createCompanyAction(
   if (!acceptedTerms) {
     return { error: "Debes aceptar las condiciones y la política de privacidad." };
   }
+  const newPlans = process.env.PLATFORM_PLANS_ENABLED === "true";
+  if (newPlans && formData.get("offerVersion") !== OFFER_VERSION) return { error: "Las condiciones han cambiado. Actualiza el formulario antes de aceptar." };
   if (password !== confirmPassword) {
     return { error: "Las contraseñas no coinciden." };
   }
@@ -178,6 +181,11 @@ export async function createCompanyAction(
     }
   }
   cookieStore.delete(REFERRAL_COOKIE);
+
+  if (newPlans) {
+    const trial = await admin.rpc("start_platform_trial", { p_organization_id: organization.id, p_offer: trialOfferSnapshot() });
+    if (trial.error) return { error: "La escuela se ha creado, pero no se pudo activar la prueba. Inicia sesión para recuperar el alta; no habrá cobro automático." };
+  }
 
   // La fila en "profiles" la crea el trigger on_auth_user_created.
 
