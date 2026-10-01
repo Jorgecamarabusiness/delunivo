@@ -1,0 +1,31 @@
+begin;
+select no_plan();
+do $$ begin
+ insert into auth.users(id,email,raw_user_meta_data) values('93000000-0000-4000-8000-000000000001','economics-admin@synthetic.invalid','{}'),('93000000-0000-4000-8000-000000000011','economics-b@synthetic.invalid','{}');
+ update public.profiles set is_super_admin=true where id='93000000-0000-4000-8000-000000000001';
+ insert into public.organizations(id,name,slug,owner_id) values('93000000-0000-4000-8000-000000000002','Economics synthetic','economics-synthetic','93000000-0000-4000-8000-000000000001'),('93000000-0000-4000-8000-000000000012','Economics B','economics-b','93000000-0000-4000-8000-000000000011');
+ insert into public.organization_billing(organization_id) values('93000000-0000-4000-8000-000000000002'),('93000000-0000-4000-8000-000000000012');
+ insert into public.mux_asset_ledger(video_asset_id,organization_id,environment,mux_asset_id,duration_seconds,state,created_at,deletion_confirmed_at) values('93000000-0000-4000-8000-000000000005','93000000-0000-4000-8000-000000000002','economics-test','economics-deleted-asset',60,'ready',now()-interval '40 days',now());
+end $$;
+select ok(not has_table_privilege('authenticated','public.platform_provider_statements','select'),'provider invoice evidence is private');
+select ok(not has_function_privilege('authenticated','public.grant_platform_capacity_exception(uuid,uuid,uuid,text,numeric,text,timestamptz)','execute'),'browser cannot grant balances');
+select throws_ok($$select public.grant_platform_capacity_exception(gen_random_uuid(),'93000000-0000-4000-8000-000000000011','93000000-0000-4000-8000-000000000002','delivery',60,'Synthetic test',now()+interval '1 day')$$,'P0001','platform_admin_required','owner B cannot grant school A exceptions');
+create temp table statement_fixture as select '{"id":"synthetic-cost-source","provider":"mux","environment":"economics-test","currency":"usd","startsAt":"2026-09-01T00:00:00Z","endsAt":"2026-10-01T00:00:00Z","source":"Synthetic isolated evidence","grossCents":40,"discountCents":10,"creditCents":30,"taxCents":0,"paidCents":0}'::jsonb s,
+ '[{"key":"known","assetId":"economics-deleted-asset","category":"storage","startsAt":"2026-09-01T00:00:00Z","endsAt":"2026-10-01T00:00:00Z","amountMicroUnits":300000},{"key":"unknown","assetId":"unmapped","organizationId":"93000000-0000-4000-8000-000000000002","category":"delivery","startsAt":"2026-09-01T00:00:00Z","endsAt":"2026-10-01T00:00:00Z","amountMicroUnits":100000}]'::jsonb l;
+select public.record_platform_provider_statement('93000000-0000-4000-8000-000000000001',(select s from statement_fixture),(select l from statement_fixture));
+select is((select organization_id::text from public.platform_provider_cost_lines where statement_id='synthetic-cost-source' and line_key='known'),'93000000-0000-4000-8000-000000000002','deleted asset keeps exact supplier cost attribution');
+select ok((select organization_id is null from public.platform_provider_cost_lines where statement_id='synthetic-cost-source' and line_key='unknown'),'client-provided school cannot assign an unknown Mux asset');
+select is((select paid_cents::integer from public.platform_provider_statements where id='synthetic-cost-source'),0,'actual account credits reconcile independently to paid zero');
+select is((select sum(amount_micro_units)::integer from public.platform_provider_cost_lines where statement_id='synthetic-cost-source'),400000,'gross costs retain precision without distributing shared credits');
+select public.record_platform_provider_statement('93000000-0000-4000-8000-000000000001',(select s from statement_fixture),(select l from statement_fixture));
+select is((select count(*)::integer from public.platform_provider_cost_lines where statement_id='synthetic-cost-source'),2,'reimport replaces source rows without duplicate costs');
+select is((select count(*)::integer from public.platform_provider_cost_revisions where statement_id='synthetic-cost-source'),1,'correction retains earlier audited source');
+select throws_ok($$select public.record_platform_provider_statement('93000000-0000-4000-8000-000000000001',(select jsonb_set(s,'{paidCents}','1') from statement_fixture),'[]')$$,'23514',null,'inconsistent account totals rejected atomically');
+select is((select paid_cents::integer from public.platform_provider_statements where id='synthetic-cost-source'),0,'bad correction preserves last reliable account evidence');
+select public.grant_platform_capacity_exception('93000000-0000-4000-8000-000000000099','93000000-0000-4000-8000-000000000001','93000000-0000-4000-8000-000000000002','delivery',600,'Synthetic incident',now()+interval '1 day');
+select public.grant_platform_capacity_exception('93000000-0000-4000-8000-000000000099','93000000-0000-4000-8000-000000000001','93000000-0000-4000-8000-000000000002','delivery',600,'Synthetic incident',now()+interval '1 day');
+select is((select count(*)::integer from public.platform_delivery_packs where source_id='exception:93000000-0000-4000-8000-000000000099'),1,'audited free delivery grant is not renewed by retry');
+select ok((select paid_cents is null and granted_by is not null and reason='Synthetic incident' and expires_at>starts_at from public.platform_delivery_packs where source_id='exception:93000000-0000-4000-8000-000000000099'),'free grant retains actor quantity reason expiry instead of invented revenue');
+select is((select quota_mode from public.organization_billing where organization_id='93000000-0000-4000-8000-000000000012'),'observe','economics and exceptions do not enroll legacy school B');
+select * from finish();
+rollback;

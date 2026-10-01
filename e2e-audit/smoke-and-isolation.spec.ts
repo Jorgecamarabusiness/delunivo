@@ -48,7 +48,7 @@ test("una alumna invitada sin compra puede abrir el aula, mientras el editor exi
   await login(page, "studentInvited");
   // No solicitar medios reales de Mux: la autorización se comprueba abajo por HTTP.
   testInfo.annotations.push({ type: "expected-http-409", description: `http://localhost:3217/api/video/${ids.assetA}/playback` });
-  await page.route(`**/api/video/${ids.assetA}/playback`, (route) => route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ status: "processing" }) }));
+  await page.route(`**/api/video/${ids.assetA}/playback*`, (route) => route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ status: "processing" }) }));
   await page.goto(`/o/audit-org-a/cursos/${ids.courseA}/aprender?lesson=${ids.lessonA}`);
   await expect(page.getByRole("heading", { name: "Lección de vídeo" })).toBeVisible();
   await expect(page.getByText("El vídeo todavía se está procesando…")).toBeVisible();

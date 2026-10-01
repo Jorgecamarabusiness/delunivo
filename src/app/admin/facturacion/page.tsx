@@ -44,7 +44,7 @@ export default async function FacturacionPage({
         .order("created_at", { ascending: true })
     : { data: [] };
   const ownerOrganizationIds = (ownerMemberships ?? []).map(
-    (membership) => membership.organization_id
+    (membership) => membership.organization_id,
   );
 
   if (ownerOrganizationIds.length === 0) {
@@ -76,7 +76,7 @@ export default async function FacturacionPage({
     .in("id", ownerOrganizationIds)
     .order("name", { ascending: true });
   const selectedOrganization = ownerOrganizations?.find(
-    (organization) => organization.id === selectedOrganizationId
+    (organization) => organization.id === selectedOrganizationId,
   );
 
   const admin = createAdminClient();
@@ -89,7 +89,7 @@ export default async function FacturacionPage({
     admin
       .from("organization_billing")
       .select(
-        "offer_version, plan_key, platform_subscription_status, platform_stripe_customer_id, platform_subscription_id, access_mode, access_expires_at, discount_percent, discount_duration, effective_discount_percent, affiliate_discount_cap_percent, referral_welcome_remaining_payments"
+        "pending_offer_snapshot, trial_initialization_status, offer_version, plan_key, platform_subscription_status, platform_stripe_customer_id, platform_subscription_id, access_mode, access_expires_at, discount_percent, discount_duration, effective_discount_percent, affiliate_discount_cap_percent, referral_welcome_remaining_payments",
       )
       .eq("organization_id", selectedOrganizationId)
       .maybeSingle(),
@@ -106,10 +106,10 @@ export default async function FacturacionPage({
       .eq("referrer_organization_id", selectedOrganizationId),
   ]);
   const activeReferrals = (referrals ?? []).filter(
-    (referral) => referral.status === "active"
+    (referral) => referral.status === "active",
   ).length;
   const pendingReferrals = (referrals ?? []).filter(
-    (referral) => referral.status === "pending"
+    (referral) => referral.status === "pending",
   ).length;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const referralUrl = referralCode?.code
@@ -132,15 +132,19 @@ export default async function FacturacionPage({
   const canManage = Boolean(
     status !== "canceled" &&
       billing?.platform_stripe_customer_id &&
-      billing.platform_subscription_id
+      billing.platform_subscription_id,
   );
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-bold tracking-tight">Facturación</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        {selectedOrganization?.name ?? "Tu empresa"} · Suscripción a {PLATFORM_NAME}{" "}
-        — {formatPlatformPrice(getPlan(billing?.plan_key)?.priceCents ?? priceCents)}/mes antes de descuentos.
+        {selectedOrganization?.name ?? "Tu empresa"} · Suscripción a{" "}
+        {PLATFORM_NAME} —{" "}
+        {formatPlatformPrice(
+          getPlan(billing?.plan_key)?.priceCents ?? priceCents,
+        )}
+        /mes antes de descuentos.
       </p>
 
       {ownerOrganizationIds.length > 1 ? (
@@ -162,10 +166,7 @@ export default async function FacturacionPage({
               ))}
             </select>
           </label>
-          <button
-            type="submit"
-            className={buttonClassName("outline", "md")}
-          >
+          <button type="submit" className={buttonClassName("outline", "md")}>
             Ver facturación
           </button>
         </form>
@@ -173,7 +174,8 @@ export default async function FacturacionPage({
 
       {checkout === "success" ? (
         <Alert variant="success" className="mt-6">
-          Hemos vuelto de Stripe. La capacidad se actualizará cuando el servidor confirme el pago; esta pantalla no confirma el cobro.
+          Hemos vuelto de Stripe. La capacidad se actualizará cuando el servidor
+          confirme el pago; esta pantalla no confirma el cobro.
         </Alert>
       ) : null}
       {checkout === "cancelled" ? (
@@ -187,7 +189,7 @@ export default async function FacturacionPage({
         <p className="mt-1 text-lg font-semibold">
           {complimentary
             ? "Acceso gratuito por invitación"
-            : STATUS_LABEL[status] ?? status}
+            : (STATUS_LABEL[status] ?? status)}
         </p>
 
         {billing?.access_expires_at &&
@@ -196,7 +198,7 @@ export default async function FacturacionPage({
           <p className="mt-2 text-sm text-muted-foreground">
             Válido hasta el{" "}
             {new Intl.DateTimeFormat("es-ES", { dateStyle: "long" }).format(
-              new Date(billing.access_expires_at)
+              new Date(billing.access_expires_at),
             )}
             .
           </p>
@@ -224,15 +226,19 @@ export default async function FacturacionPage({
           </p>
         ) : null}
 
-        {!billing?.offer_version ? <BillingActions
-          organizationId={selectedOrganizationId}
-          canManage={canManage}
-          status={status}
-          complimentaryWithoutStripe={complimentary && !canManage}
-        /> : null}
+        {!billing?.offer_version && !billing?.pending_offer_snapshot ? (
+          <BillingActions
+            organizationId={selectedOrganizationId}
+            canManage={canManage}
+            status={status}
+            complimentaryWithoutStripe={complimentary && !canManage}
+          />
+        ) : null}
       </div>
 
-      <div className="mt-8"><SchoolUsagePanel organizationId={selectedOrganizationId} controls /></div>
+      <div className="mt-8">
+        <SchoolUsagePanel organizationId={selectedOrganizationId} controls />
+      </div>
 
       <AffiliatePanel
         organizationId={selectedOrganizationId}

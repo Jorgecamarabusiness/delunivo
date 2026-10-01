@@ -1,0 +1,23 @@
+-- Test-only compatibility schemas on native PostgreSQL. Full Supabase is verified in CI.
+create role anon nologin;
+create role authenticated nologin;
+create role service_role nologin bypassrls;
+create role authenticator login noinherit;
+grant anon,authenticated,service_role to authenticator;
+create schema auth;
+create schema storage;
+create schema extensions;
+create extension pgcrypto with schema extensions;
+create table auth.users(id uuid primary key,aud text,role text,email text,encrypted_password text,email_confirmed_at timestamptz,raw_app_meta_data jsonb default '{}',raw_user_meta_data jsonb default '{}',created_at timestamptz default now(),updated_at timestamptz default now());
+create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),created_at timestamptz default now(),updated_at timestamptz default now(),not_after timestamptz);
+create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}'::jsonb) $$;
+create function auth.uid() returns uuid language sql stable as $$ select (auth.jwt()->>'sub')::uuid $$;
+create table storage.buckets(id text primary key,name text not null,owner uuid,public boolean default false,file_size_limit bigint,allowed_mime_types text[],created_at timestamptz default now(),updated_at timestamptz default now());
+create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text references storage.buckets(id),name text,owner uuid,owner_id text,metadata jsonb default '{}',created_at timestamptz default now(),updated_at timestamptz default now());
+alter table storage.objects enable row level security;
+create function storage.foldername(text) returns text[] language sql immutable as $$ select string_to_array($1,'/') $$;
+grant usage on schema auth,storage,public to anon,authenticated,service_role;
+grant all on all tables in schema auth,storage to service_role;
+grant select,insert,update,delete on storage.objects to authenticated;
+alter default privileges in schema public grant all on tables to service_role;
+alter default privileges in schema public grant all on sequences to service_role;

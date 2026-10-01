@@ -1,6 +1,9 @@
 -- Compatible rollout: legacy contracts have NULL offer_version and observe mode.
 -- All monetary values are integer cents; durations are seconds (numeric precision).
 alter table public.organization_billing
+  add column pending_offer_snapshot jsonb,
+  add column pending_offer_at timestamptz,
+  add column trial_initialization_status text check(trial_initialization_status in ('pending','active','used')),
   add column offer_version text,
   add column plan_key text check (plan_key in ('inicio','crece','academia','trial','custom')),
   add column accepted_offer jsonb,
@@ -23,6 +26,7 @@ create table public.platform_capacity_cycles (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete restrict,
   starts_at timestamptz not null, ends_at timestamptz not null,
+  rights_start_at timestamptz,
   subscription_id text, plan_key text not null, offer_snapshot jsonb not null,
   base_seconds numeric not null check (base_seconds>=0),
   grace_seconds numeric not null check (grace_seconds>=0),
@@ -43,7 +47,7 @@ create table public.platform_delivery_packs (
   id uuid primary key default gen_random_uuid(), organization_id uuid not null references public.organizations(id) on delete restrict,
   source_id text not null unique, starts_at timestamptz not null, expires_at timestamptz not null,
   granted_seconds numeric not null check(granted_seconds>0), used_seconds numeric not null default 0,
-  paid_cents integer, refunded_at timestamptz, granted_by uuid references public.profiles(id) on delete set null,
+  paid_cents integer, refunded_at timestamptz, granted_by uuid,
   reason text, offer_snapshot jsonb not null, check(expires_at>starts_at),
   check(paid_cents is not null or (granted_by is not null and length(reason)>0))
 );
@@ -61,7 +65,7 @@ create table public.platform_invoice_ledger (
 );
 create table public.platform_billing_operations (
   id uuid primary key default gen_random_uuid(), organization_id uuid not null references public.organizations(id) on delete restrict,
-  actor_id uuid references public.profiles(id) on delete set null,
+  actor_id uuid,
   kind text not null check(kind in ('subscribe','upgrade','downgrade','library','delivery_pack','cancel','resume')),
   status text not null default 'quoted' check(status in ('quoted','processing','pending_payment','scheduled','completed','expired','failed')),
   quote jsonb not null, offer_snapshot jsonb not null,
@@ -147,7 +151,7 @@ create table public.platform_custom_requests (
 );
 create table public.platform_quota_exceptions (
   id uuid primary key default gen_random_uuid(), organization_id uuid not null references public.organizations(id) on delete restrict,
-  actor_id uuid not null references public.profiles(id) on delete restrict,
+  actor_id uuid not null,
   resource text not null check(resource in ('delivery','library','admission')),
   quantity_seconds numeric not null check(quantity_seconds>=0), reason text not null check(length(reason)>0),
   starts_at timestamptz not null default now(), expires_at timestamptz not null, check(expires_at>starts_at)
@@ -195,7 +199,7 @@ create or replace function public.platform_library_usage(p_organization_id uuid)
  'reserved_seconds',coalesce((select sum(reserved_duration_seconds) from video_assets where organization_id=p_organization_id and status in ('waiting_for_upload','processing') and reservation_expires_at>now() and duration_seconds is null),0),
  'committed_seconds',coalesce((select sum(duration_seconds) from mux_asset_ledger where organization_id=p_organization_id and deletion_confirmed_at is not null and minimum_storage_until>now()),0),
  'release_at',(select min(minimum_storage_until) from mux_asset_ledger where organization_id=p_organization_id and deletion_confirmed_at is not null and minimum_storage_until>now()),
- 'unconfirmed_assets',(select count(*) from mux_asset_ledger where organization_id=p_organization_id and mux_asset_id is not null and duration_seconds is null));
+ 'unconfirmed_assets',(select count(*) from mux_asset_ledger where organization_id=p_organization_id and mux_asset_id is not null and duration_seconds is null and (deletion_confirmed_at is null or minimum_storage_until>now())));
 $$;
 revoke all on function public.platform_library_usage(uuid) from public,anon,authenticated;
 grant execute on function public.platform_library_usage(uuid) to service_role;
@@ -232,7 +236,7 @@ begin
  update public.platform_capacity_cycles set base_used_seconds=0,grace_used_seconds=0,excess_seconds=0 where organization_id=p_organization_id;
  update public.platform_delivery_packs set used_seconds=0 where organization_id=p_organization_id;
  for r in select * from public.mux_usage_hours where organization_id=p_organization_id order by starts_at,environment,mux_asset_id loop
-  select * into c from public.platform_capacity_cycles where organization_id=p_organization_id and starts_at<=r.starts_at and ends_at>r.starts_at order by starts_at desc limit 1;
+  select * into c from public.platform_capacity_cycles where organization_id=p_organization_id and starts_at<=r.starts_at and coalesce(rights_start_at,starts_at)<=r.starts_at and ends_at>r.starts_at order by starts_at desc limit 1;
   rest:=r.delivered_seconds; bs:=0; gs:=0; pa:='[]'::jsonb;
   if c.id is not null then
    select c.base_seconds+coalesce(sum(base_seconds),0),c.grace_seconds+coalesce(sum(grace_seconds),0) into base_limit,grace_limit from public.platform_capacity_increases where cycle_id=c.id and effective_at<=r.starts_at;
@@ -312,9 +316,10 @@ begin
    if c.id is null then
     if exists(select 1 from public.platform_capacity_cycles where organization_id=o.organization_id and starts_at<p_cycle_end and ends_at>p_cycle_start and plan_key<>'trial') then raise exception 'overlapping_capacity_period'; end if;
     -- End the manual trial when the explicit paid period starts.
-    update public.platform_capacity_cycles set ends_at=p_cycle_start where organization_id=o.organization_id and plan_key='trial' and starts_at<p_cycle_start and ends_at>p_cycle_start;
-    insert into public.platform_capacity_cycles(organization_id,starts_at,ends_at,subscription_id,plan_key,offer_snapshot,base_seconds,grace_seconds)
-    values(o.organization_id,p_cycle_start,p_cycle_end,p_subscription_id,s->>'planKey',s,(s->>'deliverySeconds')::numeric,(s->>'graceSeconds')::numeric);
+    if o.kind='upgrade' then raise exception 'original_paid_cycle_reconciliation_required'; end if;
+    update public.platform_capacity_cycles set ends_at=p_confirmed_at where organization_id=o.organization_id and plan_key='trial' and starts_at<p_confirmed_at and ends_at>p_confirmed_at;
+    insert into public.platform_capacity_cycles(organization_id,starts_at,ends_at,rights_start_at,subscription_id,plan_key,offer_snapshot,base_seconds,grace_seconds)
+    values(o.organization_id,p_cycle_start,p_cycle_end,greatest(p_cycle_start,p_confirmed_at),p_subscription_id,s->>'planKey',s,(s->>'deliverySeconds')::numeric,(s->>'graceSeconds')::numeric);
    elsif o.kind='upgrade' then
     ratio:=greatest(0,least(1,extract(epoch from (p_cycle_end-(o.quote->>'prorationAt')::timestamptz))/extract(epoch from (p_cycle_end-p_cycle_start))));
     delta:=floor(greatest(0,(s->>'deliverySeconds')::numeric-(b.accepted_offer->>'deliverySeconds')::numeric)*ratio);
@@ -322,12 +327,12 @@ begin
     insert into public.platform_capacity_increases(id,organization_id,cycle_id,effective_at,base_seconds,grace_seconds,offer_snapshot)
     values(p_source_id,o.organization_id,c.id,p_confirmed_at,delta,grace_delta,s) on conflict(id) do nothing;
    end if;
-   update public.organization_billing set plan_key=s->>'planKey',offer_version=s->>'version',accepted_offer=s,accepted_at=coalesce(accepted_at,o.created_at),accepted_by=o.actor_id,quota_mode='enforce',
+   update public.organization_billing set plan_key=s->>'planKey',offer_version=s->>'version',accepted_offer=s,accepted_at=coalesce(accepted_at,o.created_at),accepted_by=case when exists(select 1 from public.profiles where id=o.actor_id) then o.actor_id end,quota_mode='enforce',
    retention_policy_version=s->>'retentionPolicyVersion',effective_ended_at=null,retention_until=null,
    library_extension_quantity=coalesce((o.quote->>'libraryQuantity')::integer,library_extension_quantity),
    library_limit_seconds=(s->>'librarySeconds')::numeric+coalesce((o.quote->>'libraryQuantity')::integer,library_extension_quantity)*36000,
    economic_limit_seconds=(s->>'economicSeconds')::numeric+coalesce((o.quote->>'libraryQuantity')::integer,library_extension_quantity)*43200,
-   access_mode='standard',commercial_last_synced_at=p_confirmed_at where organization_id=o.organization_id;
+   access_mode='standard',commercial_last_synced_at=p_confirmed_at,pending_offer_snapshot=null,pending_offer_at=null where organization_id=o.organization_id;
   elsif o.kind='library' then
    quantity:=(o.quote->>'libraryQuantity')::integer;
    update public.organization_billing set library_extension_quantity=quantity,
@@ -375,12 +380,16 @@ declare b public.organization_billing; fingerprint text; trial_start timestamptz
 begin
  select * into b from public.organization_billing where organization_id=p_organization_id for update;
  if b.offer_version is not null or b.access_mode<>'standard' or b.platform_subscription_id is not null then return false; end if;
- if not exists(select 1 from public.organizations where id=p_organization_id and created_at>now()-interval '15 minutes') then return false; end if;
+ if not exists(select 1 from public.organizations where id=p_organization_id and (created_at>now()-interval '15 minutes' or b.pending_offer_snapshot->>'version'='2026-10-01' and b.pending_offer_at between created_at and created_at+interval '15 minutes')) then return false; end if;
+ trial_start:=coalesce(b.pending_offer_at,trial_start);
  select encode(extensions.digest(lower(p.email),'sha256'),'hex') into fingerprint from public.organizations o join public.profiles p on p.id=o.owner_id where o.id=p_organization_id;
  insert into public.platform_trial_claims(owner_fingerprint,organization_id) values(fingerprint,p_organization_id) on conflict do nothing;
- if not found then return false; end if;
+ if not found then
+  update public.organization_billing set offer_version='2026-10-01',accepted_offer=p_offer,accepted_at=trial_start,accepted_by=(select owner_id from public.organizations where id=p_organization_id),quota_mode='enforce',plan_key='trial',trial_initialization_status='used',pending_offer_snapshot=null,pending_offer_at=null,library_limit_seconds=0,economic_limit_seconds=0 where organization_id=p_organization_id;
+  return false;
+ end if;
  update public.organization_billing set plan_key='trial',offer_version='2026-10-01',accepted_offer=p_offer,accepted_at=trial_start,accepted_by=(select owner_id from public.organizations where id=p_organization_id),quota_mode='enforce',
- retention_policy_version='2026-10-01',access_mode='trial',access_expires_at=trial_start+interval '14 days',library_limit_seconds=7200,economic_limit_seconds=8640 where organization_id=p_organization_id;
+ retention_policy_version='2026-10-01',access_mode='trial',access_expires_at=trial_start+interval '14 days',library_limit_seconds=7200,economic_limit_seconds=8640,trial_initialization_status='active',pending_offer_snapshot=null,pending_offer_at=null where organization_id=p_organization_id;
  insert into public.platform_capacity_cycles(organization_id,starts_at,ends_at,plan_key,offer_snapshot,base_seconds,grace_seconds)
  values(p_organization_id,trial_start,trial_start+interval '14 days','trial',p_offer,18000,0);
  return true;
@@ -500,7 +509,7 @@ begin
   end if;
  end if;
  u:=public.platform_library_usage(p_organization_id);
- update public.organization_billing set library_excess_since=case when (u->>'active_seconds')::numeric>library_limit_seconds then coalesce(library_excess_since,now()) else null end where organization_id=p_organization_id and offer_version is not null;
+ update public.organization_billing set library_excess_since=case when (u->>'active_seconds')::numeric>library_limit_seconds+coalesce((select sum(quantity_seconds) from public.platform_quota_exceptions where organization_id=p_organization_id and resource='library' and starts_at<=now() and expires_at>now()),0) then coalesce(library_excess_since,now()) else null end where organization_id=p_organization_id and offer_version is not null;
 end $$;
 revoke all on function public.reconcile_platform_retention(uuid,timestamptz) from public,anon,authenticated;
 grant execute on function public.reconcile_platform_retention(uuid,timestamptz) to service_role;

@@ -73,3 +73,18 @@ test("concurrent resume checks are deduplicated and disposal ignores late respon
   await flush();
   assert.equal(states.length, 0);
 });
+
+test("quota pauses a new session only after the existing grant expires", async (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: 1000 });
+  const states: PlaybackState[] = []; let calls=0;
+  const session=startPlaybackSession({ request:async (renew)=>{
+    calls++;
+    return renew && calls>1 ? response(402,{reason:"delivery_paused"}) : response(200,renew ? {playbackId:"signed",token:"existing",expiresAt:Date.now()+960000} : {authorized:true});
+  },onState:s=>states.push(s)});
+  await flush();
+  for(let i=0;i<3;i++){t.mock.timers.tick(300000);await flush();}
+  assert.equal(states.at(-1)?.kind,"ready","renewal rejection preserves an existing admitted token");
+  t.mock.timers.tick(60000);await flush();
+  assert.equal(states.at(-1)?.kind,"error","a session cannot be extended indefinitely through a rejected renewal");
+  session.dispose();
+});

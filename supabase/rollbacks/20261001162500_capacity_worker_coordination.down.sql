@@ -1,0 +1,4 @@
+-- Preserve provider claims: reverting their schema during an in-flight removal
+-- would reopen the restore race. Disable the worker and deletion flags, retain
+-- these additive tables/functions/triggers, and reconcile each processing job
+-- against Storage before clearing a barrier. No automatic destructive rollback.

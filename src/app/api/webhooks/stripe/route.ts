@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
   }
 
   const configuredForLiveMode = process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_");
+  if (event.account) return NextResponse.json({ received: true, ignored: "connect_account_on_platform_endpoint" });
   if (event.livemode !== configuredForLiveMode) {
     return NextResponse.json({ received: true, ignored: "stripe_mode_mismatch" });
   }

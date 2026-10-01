@@ -1,0 +1,20 @@
+{
+  "startedAt": "2026-10-01T16:23:07.678Z",
+  "environment": "Stripe TEST + PostgreSQL native / application services",
+  "organizationId": "4d74eda8-17e5-4ae8-b16e-01c0865c6ef9",
+  "checks": [
+    "Signed webhook route accepts payment once, rejects invalid signatures and ignores Connect account",
+    "Actual hosted checkout, inclusive synthetic 7% tax, once discount, duplicate fulfilment",
+    "Recurring library activation, exact provider quote paid once, upgrade deduplicated",
+    "Declined payment grants nothing; confirmed retry restores pending upgrade once",
+    "Expired checkout unlocks next purchase; actual pack paid and granted once",
+    "Actual Test Clock renewal applies downgrade and library cancellation once; pack retained across cycles",
+    "Scheduled downgrade, schedule release/resume, cancel retains paid access"
+  ],
+  "resources": {
+    "customer": "cus_VMVm8XmIbr2Zpv",
+    "clock": "clock_1ULmlCQtWyL7dVrGOegjI5UA",
+    "subscription": "sub_1ULmlKQtWyL7dVrGBR6COiTP"
+  },
+  "completedAt": "2026-10-01T16:24:29.196Z"
+}

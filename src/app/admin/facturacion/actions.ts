@@ -14,28 +14,45 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // que el formulario pueda pintar el error en pantalla en vez de reventar.
 export async function subscribeAction(
   _prevState: ActionResult,
-  formData: FormData
+  formData: FormData,
 ): Promise<ActionResult> {
   const organizationId = String(formData.get("organizationId") ?? "");
-  const auth = await requireOwnerContext({ allowInactive: true, organizationId });
+  const auth = await requireOwnerContext({
+    allowInactive: true,
+    organizationId,
+  });
   if (!auth.ok) return { error: auth.error };
   const { context } = auth;
 
-  const offer = await createAdminClient().from("organization_billing").select("offer_version").eq("organization_id", context.organizationId).single();
-  if (offer.error || offer.data?.offer_version) return { error: "Utiliza las ofertas versionadas del panel para contratar este plan." };
+  const offer = await createAdminClient()
+    .from("organization_billing")
+    .select("offer_version,pending_offer_snapshot")
+    .eq("organization_id", context.organizationId)
+    .single();
+  if (
+    offer.error ||
+    offer.data?.offer_version ||
+    offer.data?.pending_offer_snapshot
+  )
+    return {
+      error:
+        "Utiliza las ofertas versionadas del panel para contratar este plan.",
+    };
 
   let checkoutUrl: string | null;
   try {
     checkoutUrl = await createPlatformSubscriptionCheckoutUrl(
       context.organizationId,
-      context.userId
+      context.userId,
     );
   } catch (stripeError) {
     return { error: describeStripeError(stripeError) };
   }
 
   if (!checkoutUrl) {
-    return { error: "No se pudo iniciar el pago con Stripe. Inténtalo de nuevo." };
+    return {
+      error: "No se pudo iniciar el pago con Stripe. Inténtalo de nuevo.",
+    };
   }
 
   // Fuera del try: redirect() lanza NEXT_REDIRECT a propósito y no debe
@@ -45,10 +62,13 @@ export async function subscribeAction(
 
 export async function openBillingPortalAction(
   _prevState: ActionResult,
-  formData: FormData
+  formData: FormData,
 ): Promise<ActionResult> {
   const organizationId = String(formData.get("organizationId") ?? "");
-  const auth = await requireOwnerContext({ allowInactive: true, organizationId });
+  const auth = await requireOwnerContext({
+    allowInactive: true,
+    organizationId,
+  });
   if (!auth.ok) return { error: auth.error };
   const { context } = auth;
 
@@ -71,7 +91,11 @@ export async function openBillingPortalAction(
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  if (billing.offer_version) return { error: "Gestiona cambios y cancelación desde el panel de capacidad para confirmar sus importes y fechas." };
+  if (billing.offer_version)
+    return {
+      error:
+        "Gestiona cambios y cancelación desde el panel de capacidad para confirmar sus importes y fechas.",
+    };
 
   let portalUrl: string;
   try {
@@ -88,9 +112,12 @@ export async function openBillingPortalAction(
 }
 
 export async function ensureReferralCodeAction(
-  organizationId: string
+  organizationId: string,
 ): Promise<ActionResult> {
-  const auth = await requireOwnerContext({ allowInactive: true, organizationId });
+  const auth = await requireOwnerContext({
+    allowInactive: true,
+    organizationId,
+  });
   if (!auth.ok) return { error: auth.error };
 
   const admin = createAdminClient();

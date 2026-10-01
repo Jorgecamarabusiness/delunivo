@@ -29,11 +29,38 @@ Encargo: prompt maestro de Jorge del 2026-10-01, leído completo. Rama:
   worker de conservación añadidos. Ejecución/envíos siguen desactivados por defecto.
 - Exportación segura propia con manifiesto, Storage verificable y HLS procesado;
   originales Mux no prometidos. Cleanup Storage persiste y excluye referencias ajenas.
-- TypeScript pasa tras el lote integrado de workers/exportación (15:10 aprox. UTC).
+- TypeScript pasa tras el lote integrado de workers/exportación.
 - PostgreSQL/PostgREST portables descargados a TEMP para probar Stripe TEST con
   SQL local además de Supabase completo en CI; no instalación de servicio global.
+- CI 36879502597 / commit 751e287: 92 tests pgTAP/RLS (9 archivos) y 5 E2E
+  de aplicación/Supabase aislado pasan. Aún anterior a las últimas ampliaciones.
+- Concurrencia nativa real pasa: dos escuelas, doble reserva, huérfana vencida,
+  duración falsa, importación paralela, pausa y avisos sin duplicados.
+- Stripe TEST integrado pasa 6 grupos con checkout hospedado real, tarifa
+  inclusiva sintética 7%, descuento once, ampliación, upgrade a mitad de ciclo,
+  rechazo/recuperación, bolsa/reembolso, downgrade y renovación Test Clock,
+  cancelación al final de periodo. Se detectó y corrigió la restricción Stripe
+  from_subscription + metadata. Recursos de cada reloj sintético eliminados.
+- Segunda migración de costes/evidencia y concesiones auditadas añadida; falta
+  repetir CI con ella. Snapshot económico separa coste bruto/créditos/cambio,
+  impuestos desconocidos y Storage, sin presentar beneficio neto.
+- Pendiente: sesión/read-only Mux y fiscal LIVE; cobertura/telemetría sin solapar;
+  recuperación/cancelación de checkout UI; piloto; verificación visual/E2E nuevo;
+  revisiones finales y documentación/lanzamiento. No publicar ni activar LIVE.
 
 ## Invariantes
+
+Actualización 16:35 UTC: 127 unitarios, lint/TS y build pasan. Stripe TEST
+repetido: 7 grupos incluyendo handler firmado/duplicados/firma falsa/Connect
+rechazado y reembolso previo a concesión. Último cambio temporal (inicio efectivo
+pagado y activación de bolsa) requiere repetición. UI paneles/exportación pasan;
+12 E2E de auditoría en repetición después de corregir selector de miles y URL
+de playback con query. Revisiones UI/calidad realizadas; hallazgos corregidos,
+con nuevas defensas de concurrencia Storage/importación y pruebas SQL010.
+El navegador Mux sí tiene sesión: 30 assets/2 páginas, 5.311 s redondeados;
+factura 0,35 USD bruto/0 pagado. Importador API sigue pendiente por credencial401;
+Stripe LIVE muestra login (paso de acceso pedido). Falta CI de las 3 migraciones,
+ensayo final Stripe/SQL, documentación y revisión final de capturas restantes.
 
 - Precio final inclusivo, catálogo versionado; preservación de contratos legacy.
 - Duraciones en segundos precisos, ciclos UTC [inicio, fin); packs por caducidad.

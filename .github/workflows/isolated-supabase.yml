@@ -71,6 +71,8 @@ jobs:
         run: supabase test db --local supabase/tests
       - name: Exercise atomic OTP limits over local PostgREST
         run: node scripts/isolated-otp-concurrency.mjs
+      - name: Exercise video capacity concurrency over real Postgres and REST
+        run: node scripts/isolated-capacity-concurrency.mjs
       - name: Exercise Auth refresh-token revocation baseline
         run: node scripts/isolated-auth-revocation-baseline.mjs
       - name: Exercise Storage authorization with synthetic users

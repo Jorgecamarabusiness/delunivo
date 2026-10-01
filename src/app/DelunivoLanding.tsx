@@ -46,10 +46,12 @@ const STEPS = [
  */
 export function DelunivoLanding({
   isAdmin,
+  priceCents,
 }: {
   isAdmin: boolean;
   priceCents: number;
 }) {
+  const newPlans=process.env.PLATFORM_PLANS_ENABLED==='true';
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">
       <Header />
@@ -100,7 +102,7 @@ export function DelunivoLanding({
             </div>
 
             <p className="mt-6 text-sm text-muted-foreground">
-              Desde {formatPlatformPrice(PLANS[0].priceCents)} al mes, impuestos incluidos.
+              Desde {formatPlatformPrice(newPlans ? PLANS[0].priceCents : priceCents)} al mes{newPlans ? ', impuestos incluidos' : ''}.
             </p>
           </Container>
         </section>
@@ -150,7 +152,7 @@ export function DelunivoLanding({
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
               Elige la capacidad de tu escuela
             </h2>
-            <div className="mt-8"><PricingPlans isAdmin={isAdmin} /></div>
+            <div className="mt-8">{newPlans ? <PricingPlans isAdmin={isAdmin} /> : <div className="mx-auto max-w-lg rounded-lg border border-border p-6"><p className="text-3xl font-semibold">{formatPlatformPrice(priceCents)}/mes</p><p className="mt-3 text-muted-foreground">Crea y vende tus cursos con tu marca. 0 % de comisión Delunivo por venta; las tarifas del procesador son independientes.</p><Link href={isAdmin ? '/admin/facturacion' : '/crear-empresa'} className={buttonClassName('primary','md','mt-6')}>{isAdmin ? 'Gestionar suscripción' : 'Crear mi escuela'}</Link></div>}</div>
           </Container>
         </section>
       </main>
