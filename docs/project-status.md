@@ -6,7 +6,7 @@
 
 El bucle por Run as caducado se resolvió y publicó por PR4. www/login y la sesión real funcionan; detalle en [incidente](incidents/2026-10-02-run-as-redirects.md). Jorge autorizó el lanzamiento y confirmó piloto solo Iván Orgánico (organización Grow Organic), Península y Baleares con 21 % de IVA incluido.
 
-Especificación aceptada: [prompt](plans-consumption-spec.md). Estado reanudable y operaciones: [progreso](plans-implementation-progress.md) y [runbook](plans-launch-runbook.md). PR5–9 publicados; main c1527e4, Production READY dpl_Hot2rhTvupRVNbu78gDf4zSbhsrA. Cierre fiscal verificado localmente, pendiente de integrar/publicar antes de encender ventas.
+Especificación aceptada: [prompt](plans-consumption-spec.md). Estado reanudable y operaciones: [progreso](plans-implementation-progress.md) y [runbook](plans-launch-runbook.md). PR5–10 integrados; código fiscal main 6cab2738a7194ded3ebc23ce3c8f00e3a00563d7. Piloto activado a14:34:36 UTC, Production READY dpl_4CMMZrHfS2W5DscEXAvTxFp4VJJt con ese SHA. Runtime14:37 verifica catálogo/tarifa LIVE y flags efectivos; ventas disponibles únicamente para la escuela indicada, fuera del piloto cerradas.
 
 Tres migraciones atómicas 12:11 UTC tras backup cifrado de 64 tablas/1.758 filas con hash y descifrado comprobados. 33 recibos, 23 tablas nuevas RLS/grants service-only, ocho contratos legacy observe sin oferta/retención nueva. Sin WARN nuevos. No se restauró completamente este snapshot ni se hizo otro backup de bytes multimedia.
 
@@ -18,7 +18,9 @@ Stripe LIVE acct_1TwKtKJD1wCl42uL verificado desde servidor/dashboard, pagos y p
 
 Mux real tkrqi3/3cnmn5, nombre Production/tipo API development, permisos vídeo read/write. Worker/import true. SQL 14:21 UTC: 73 ventanas completas, ninguna fallida, filas proveedor cero en las ventanas importadas. Pagina hasta vacío explícito cuando count no existe; regresión demostrada. Historia 90 días progresiva y retraso de 12 h explícito. 27 ledger atribuibles, tres assets desconocidos separados. Esto no demuestra demanda real ni coste observado por cliente.
 
-Final local: 158 unitarios, lint, TypeScript, build y 24 E2E aislados pasan; revisiones UI/calidad sin hallazgos materiales. Stripe TEST real final: siete grupos, IVA ES inclusivo 21 %, descuento, domicilio frente a tarjeta FR, cambios/recuperación/refund y Test Clock. Última CI publicada: general 37016026356 y Supabase 37016004456 verdes, 128 pgTAP, concurrencia y Auth/Storage/consumidores reales. Fiscal nuevo requiere su CI antes del merge.
+Final local: 158 unitarios, lint, TypeScript, build y 24 E2E aislados pasan; revisiones UI/calidad sin hallazgos materiales. Stripe TEST real final: siete grupos, IVA ES inclusivo 21 %, descuento, domicilio frente a tarjeta FR, cambios/recuperación/refund y Test Clock. CI fiscal: general 37019803058 y Supabase 37019775267 verdes, 128 pgTAP, concurrencia y Auth/Storage/consumidores reales; main 37020294486 verde.
+
+Destino: formulario fiscal real de Iván comprobado sin enviar; fuera del piloto no hay compra nueva; salir de soporte recupera sesión original. www/login/condiciones200 y apex308 único awww200 a14:38:59. Consolas y logs error/fatal consultados sin entradas. SQL14:40:17 confirma ocho legacy observe y cero intentos/ciclos/jobs nuevos, sin alterar gratuidad anterior de Iván.
 
 Avisos reales false, retención sin activar y Mux deletion off. No se ha probado entrega real, compra LIVE ni subida real 12 h/20 GiB. Observación del piloto 14 días y dos ciclos todavía futura. El owner real debe aceptar oferta y elegir plan; no migrar automáticamente legacy.
 

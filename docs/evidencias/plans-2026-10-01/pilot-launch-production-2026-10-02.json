@@ -1,0 +1,58 @@
+{
+  "codeSHA": "6cab2738a7194ded3ebc23ce3c8f00e3a00563d7",
+  "deployment": "dpl_4CMMZrHfS2W5DscEXAvTxFp4VJJt",
+  "readyAt": "2026-10-02T14:34:36.423Z",
+  "pilotOrganization": "7125f160-3c4b-4225-a6b9-f6756c317930",
+  "pilotOwnerAllowlist": "One verified owner, configured as Production Secret; email omitted",
+  "scope": "Spain mainland and Balearic Islands, inclusive VAT 21%",
+  "providerCheckedAt": "2026-10-02T14:37:28.080Z",
+  "controls": {
+    "plans": true,
+    "worker": true,
+    "usageImport": true,
+    "capacityNotices": false,
+    "retentionExecution": false,
+    "muxDeletionDisabled": true,
+    "taxLiveApproved": true
+  },
+  "consumerChecks": {
+    "pilotFiscalFormVisible": true,
+    "outsidePilotNewPurchaseClosed": true,
+    "originalSessionRecoveredAfterSupport": true,
+    "browserErrors": 0,
+    "livePurchasesPerformed": 0,
+    "offerAcceptedOnOwnersBehalf": false
+  },
+  "databaseCheckedAt": "2026-10-02T14:40:17.491484Z",
+  "legacy": {
+    "total": 8,
+    "observe": 8,
+    "newOffers": 0,
+    "newRetentionPolicies": 0
+  },
+  "capacityAttempts": 0,
+  "newCycles": 0,
+  "retentionJobs": 0,
+  "runtimeErrors": {
+    "deployment": "dpl_4CMMZrHfS2W5DscEXAvTxFp4VJJt",
+    "since": "2026-10-02T14:34:36Z",
+    "groupedLevels": [
+      "error",
+      "fatal"
+    ],
+    "entriesReturned": 0
+  },
+  "ci": {
+    "generalPR": 37019803058,
+    "supabase": 37019775267,
+    "generalMain": 37020294486,
+    "conclusion": "success"
+  },
+  "pending": [
+    "Real owner acceptance and voluntary plan choice",
+    "At least 14 days and two complete real commercial cycles of observation",
+    "Real 12-hour/20-GiB upload",
+    "Real email delivery and retention activation remain disabled",
+    "Progressive 90-day Mux history and attribution of three historic orphan assets"
+  ]
+}

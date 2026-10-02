@@ -51,7 +51,7 @@ No ejecutar E2E normales con `.env.local` de producción.
 El workflow `Isolated Supabase` crea Postgres17/Auth/REST/Storage temporales,
 aplica todas las migraciones y ejecuta pgTAP, concurrencia, OTP, lifecycle y
 `playwright.isolated.config.ts`; no contiene pasos de despliegue.
-[CI final](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/37016004456):
+[CI final](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/37019775267):
 128 aserciones SQL en11 archivos y seis E2E reales pasan.
 
 En Windows, el harness portable utiliza PostgreSQL17.11 y PostgREST16.4 oficiales
@@ -64,6 +64,6 @@ misma base y un transporte capturado. `.env*.local` queda ignorado; ningún secr
 se publica. Auth/Storage portables sólo son schemas compatibles: su prueba real
 corresponde al workflow completo. Los relojes Stripe sintéticos se eliminan al final.
 
-Estado 02/10: proveedores LIVE verificados desde runtime; catálogo y tarifa manual ES21 inclusiva configurados. Mux real importa ventanas completas (73, ninguna fallida a14:21UTC), con histórico progresivo90d y cero filas proveedor en esas ventanas. Cierre fiscal local:158 unitarios, lint, TS, build y24E2E; Stripe TEST real final siete grupos. Integración/publicación/activación exacta en el registro de progreso.
+Estado 02/10: proveedores LIVE verificados desde runtime; catálogo y tarifa manual ES21 inclusiva configurados. Mux real importa ventanas completas (73, ninguna fallida a14:21UTC), con histórico progresivo90d y cero filas proveedor en esas ventanas. Cierre fiscal local:158 unitarios, lint, TS, build y24E2E; Stripe TEST real final siete grupos. PR10 integrado6cab273 y piloto activo Production READY dpl_4CMMZrHfS2W5DscEXAvTxFp4VJJt; formulario real de Iván comprobado, ventas fuera del piloto cerradas, acceso/salida de soporte sin bucles. Evidencia runtime/publica y registro exacto en progreso.
 
 Owner real debe aceptar nueva oferta. Piloto14d/dos ciclos es observación futura. Avisos y borrado reales siguen apagados; no aplicar conservación nueva a legacy. No se ha probado compra LIVE, entrega real ni subida12h/20GiB.
