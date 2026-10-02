@@ -16,53 +16,52 @@ después portada con sesión de Jorge, sin errores de consola/runtime consultado
 No activa los planes ni requiere migraciones. Detalle:
 [`incidente`](incidents/2026-10-02-run-as-redirects.md).
 
-## Planes y consumo: implementación en rama, sin activar producción
+## Planes y consumo: código publicado, activación comercial pendiente
 
-Rama `codex/plans-consumption-20261001`, especificación aceptada en
-[`plans-consumption-spec.md`](plans-consumption-spec.md), progreso y evidencias en
-[`plans-implementation-progress.md`](plans-implementation-progress.md).
-El despliegue automático de esta rama está deshabilitado. Jorge autorizó el
-lanzamiento el 02/10. Las tres migraciones se aplicaron atómicamente a las
-12:11 UTC con backup previo cifrado (64 tablas/1.758 filas), hash/descifrado
-verificados y comprobación de contratos íntegros. Ledger remoto33 entradas,
-incluido recibo API `20261002121113`. Las ocho escuelas siguen observe sin nueva
-oferta/conservación; 27 assets atribuidos, cero ciclos/jobs nuevos. Código aún
-pendiente de publicar; ventas, workers, avisos y borrado preparados apagados.
+Especificación aceptada: [plans-consumption-spec.md](plans-consumption-spec.md).
+[Progreso](plans-implementation-progress.md) y [runbook](plans-launch-runbook.md).
+Jorge autorizó producción el 02/10 y reiteró la autorización. PR5 publicó todo
+el código de planes; PR6 publicó diagnóstico privado de proveedores. Main
+`a7991d4`, Vercel `dpl_8pqgsd5ZWQ3fUrnKgj3kH3qkGPuz` READY en
+www.delunivo.com. Acceso y login 200, apex 308 único; sesión real y consola correctos.
+
+Tres migraciones aplicadas atómicamente 12:11 UTC tras backup cifrado 64 tablas/
+1.758 filas, hash/descifrado comprobados. 33 recibos incluyendo 20261002121113.
+Los ocho contratos legacy están íntegros en observe sin aceptación/retención nueva;
+27 assets/ledger y cero ciclos/jobs nuevos. 23 tablas nuevas RLS/grants service-only.
 
 Catálogo Inicio/Crece/Academia 30/69/149 EUR inclusivos; biblioteca 20/50/100 h,
-entrega 3.000/8.000/20.000 min y gracia 300/800/2.000 por ciclo. Ampliaciones
-10 h por 8 EUR mensuales junto al plan y bolsa 5.000 min/20 EUR/90 días.
-Nueva prueba 14 días/2 h/300 min sin autorrenovación y sin repetir identidad.
-Las ofertas anteriores permanecen en observación, con condiciones y excepciones
-conservadas. La política de conservación 30 días exige aceptación versionada.
+entrega 3.000/8.000/20.000 min y gracia 300/800/2.000 por ciclo. Ampliaciones 10 h/
+8 EUR mensuales alineados y bolsa 5.000 min/20 EUR/90 días; prueba 14 d/2 h/300 min
+sin autorrenovación. Contratos anteriores conservan condiciones/excepciones.
+Conservación 30 d sólo tras aceptación versionada. Checkout/cambios, cuotas,
+reservas, ledger/importador Mux, playback acotado, avisos, paneles, A medida,
+exportación y conservación implementados. Mux retrasado y tokens emitidos
+impiden garantizar un gasto instantáneo; permisos revisados cada cinco minutos.
 
-Implementados checkout y cambios con previsualización Stripe, concesión tras pago,
-recuperación, refund, afiliados/descuentos de base, ledger Mux persistente,
-importación/correcciones, reservas atómicas, sesiones limitadas, avisos/outbox,
-paneles, solicitud A medida, exportación propia y colas de conservación.
-Las cuotas comerciales no garantizan un gasto instantáneo: Mux publica tarde y
-un token emitido sigue vigente hasta caducar; permisos se revisan cada cinco minutos.
+Final local: 146 unitarios, lint, TypeScript, build y 23 E2E aislados pasan.
+CI PR6 general 37008387979 y Supabase 37008361193 pasan; 128 pgTAP/11 archivos,
+concurrencia real, Auth/Storage/OTP/lifecycle y seis E2E de aplicación. Stripe TEST
+real, siete grupos, y avisos con transporte Resend capturado anteriores pasan.
+No son pruebas de compra LIVE, entrega real ni vídeo real 12 h/20 GiB.
 
-Pruebas finales: 136 unitarios, lint, TypeScript, build, 23 E2E con servicios
-sintéticos y siete grupos de Stripe TEST real sobre PostgreSQL nativo. CI anterior
-`36896822192` pasó 128 pgTAP/RLS, concurrencia, Auth/Storage/OTP/lifecycle y seis
-E2E reales de aplicación aislada, incluido el consumidor de cuota/playback/export.
-Avisos SQL/SDK con destinatarios
-sintéticos y transporte interceptado pasan, sin entregas reales.
-No confundir estas evidencias con producción.
+Lectura autenticada desde runtime 12:48 UTC: Stripe LIVE acct_1TwKtKJD1wCl42uL,
+pagos/payouts habilitados, coincide con dashboard; tarifas/registros fiscales y
+catálogo nuevos vacíos. Webhooks principales y Connect habilitados; principal
+requiere ampliar eventos. Mux token real verificado, organización tkrqi3,
+entorno 3cnmn5 llamado Production, tipo API development, permisos video read/write.
+Vercel Production tiene guardados MUX_ENVIRONMENT_ID=3cnmn5 y worker/
+importador true; aplicarán al siguiente deploy. Planes/avisos/borrado apagados.
 
-Mux UI autenticada confirma 30 assets y la factura histórica. La exportación
-local contiene valores sensibles ocultos por Vercel: su401 no prueba fallo de
-claves de producción. Se prepara comprobación de lectura desde servidor privado.
-Stripe LIVE tiene sesión y pagos/payouts activos en dashboard; tratamiento fiscal
-y coincidencia con la cuenta del servidor todavía pendientes de verificar;
-activación LIVE impedida. La tarifa TEST inclusiva 7% es sintética y no establece
-una política fiscal. Procedimiento y pendientes:
-[`plans-launch-runbook.md`](plans-launch-runbook.md).
+Se prepara acción superadmin para crear exactamente cinco precios LIVE inclusivos
+versionados con IDs deterministas/idempotencia, sin clientes ni cargos, y
+validación canónica de economía. Revisiones UI/calidad cerradas tras corregir
+pending y verificación por key, lookup, LIVE, moneda, importe e intervalo.
 
-Piloto preparado para hasta cinco escuelas, al menos 14 días y dos ciclos
-comerciales de observación posterior. No se afirma que haya comenzado ni que sus
-resultados estén disponibles.
+Jorge limita ventas iniciales a España. Faltan regiones/IVA y lista explícita de
+máximo cinco escuelas; la autorización general no sustituye esas decisiones.
+No activar nuevos cobros, avisos ni borrado hasta resolver sus requisitos.
+Piloto 14 días y dos ciclos posteriores no realizado; no afirmar resultados.
 
 ## Cierre de auditoría y funciones: desplegado
 

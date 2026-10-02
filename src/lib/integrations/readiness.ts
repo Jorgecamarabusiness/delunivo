@@ -4,6 +4,8 @@ import { requireSuperAdmin } from "@/lib/auth/requireOrgAdmin";
 import { rejectSensitiveActionDuringImpersonation } from "@/lib/auth/impersonation";
 import { createStripeApiClient } from "@/lib/stripe/config";
 import { createMuxApiClient } from "@/lib/mux/config";
+import { PLANS } from "../billing/catalog.ts";
+import { assertCapacityPrice, type CapacityPriceKey } from "../stripe/capacityPriceValidation.ts";
 
 
 // Fixed, read-only provider calls with explicit projections. Never return SDK
@@ -51,8 +53,16 @@ export async function readIntegrationReadiness() {
     }),
     probe(async () => {
       const r = await stripe().prices.list({ active: true, limit: 100, expand: ["data.product"] });
-      return { truncated: r.has_more, prices: r.data.filter(p => typeof p.product !== "string" &&
-        !p.product.deleted && p.product.metadata.offer_version === "2026-10-01").map(p => ({
+      const versioned = r.data.filter(p => typeof p.product !== "string" &&
+        !p.product.deleted && p.product.metadata.offer_version === "2026-10-01");
+      const keys: CapacityPriceKey[] = [...PLANS.map(p => p.key), "library", "delivery_pack"];
+      const catalogueVerified = !r.has_more && versioned.length === keys.length && keys.every(key => {
+        const matches = versioned.filter(p => typeof p.product !== "string" && !p.product.deleted &&
+          p.product.metadata.capacity_key === key && p.lookup_key === `delunivo_${key}_20261001`);
+        if (matches.length !== 1 || !matches[0].livemode) return false;
+        try { assertCapacityPrice(matches[0], key); return true; } catch { return false; }
+      });
+      return { truncated: r.has_more, catalogueVerified, prices: versioned.map(p => ({
         id: p.id, currency: p.currency, amount: p.unit_amount, taxBehavior: p.tax_behavior,
         interval: p.recurring?.interval ?? null, live: p.livemode,
         capacityKey: typeof p.product === "string" || p.product.deleted ? null : p.product.metadata.capacity_key,
