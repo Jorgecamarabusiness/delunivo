@@ -1,20 +1,20 @@
 {
-  "startedAt": "2026-10-01T16:54:42.385Z",
+  "startedAt": "2026-10-02T14:12:42.619Z",
   "environment": "Stripe TEST + PostgreSQL native / application services",
-  "organizationId": "2c9f4547-16a5-4c1a-9ba9-e85bae33a4b8",
+  "organizationId": "57af320b-f136-406e-82bd-59bf419be7ff",
   "checks": [
     "Signed webhook route accepts payment once, rejects invalid signatures and ignores Connect account",
-    "Actual hosted checkout, inclusive synthetic 7% tax, once discount, duplicate fulfilment",
+    "Hosted checkout: 21% inclusive TEST VAT, once discount, foreign card address preserves Spanish fiscal invoice, duplicate fulfilment",
     "Recurring library activation, exact provider quote paid once, upgrade deduplicated",
     "Declined payment grants nothing; confirmed retry restores pending upgrade once",
-    "Expired checkout unlocks next purchase; actual pack paid and granted once",
+    "Invalid fiscal domicile blocks changes and recovery, expires open Checkout; safe next pack paid and granted once",
     "Actual Test Clock renewal applies downgrade and library cancellation once; pack retained across cycles",
     "Scheduled downgrade, schedule release/resume, cancel retains paid access"
   ],
   "resources": {
-    "customer": "cus_VMWIfZ2tSn40vg",
-    "clock": "clock_1ULnFlQtWyL7dVrGrY5s9RRi",
-    "subscription": "sub_1ULnFrQtWyL7dVrGUa0AAHXg"
+    "customer": "cus_VMquxY6FRhHlTC",
+    "clock": "clock_1UM7CWQtWyL7dVrGrJ1YzDdJ",
+    "subscription": "sub_1UM7CeQtWyL7dVrGSoRTtfAY"
   },
-  "completedAt": "2026-10-01T16:56:00.086Z"
+  "completedAt": "2026-10-02T14:14:14.727Z"
 }

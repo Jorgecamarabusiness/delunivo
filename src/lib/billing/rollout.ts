@@ -9,16 +9,19 @@ const list = (value: string | undefined) => [
 export function plansEnabledForSchool(organizationId: string) {
   if (process.env.PLATFORM_PLANS_ENABLED !== "true") return false;
   const schools = list(process.env.PLATFORM_PLANS_PILOT_ORGANIZATION_IDS);
+  const owners = list(process.env.PLATFORM_PLANS_PILOT_OWNER_EMAILS);
   return (
-    schools.length <= 5 && (!schools.length || schools.includes(organizationId))
+    schools.length > 0 && schools.length <= 5 && owners.length > 0 && owners.length <= 5 && schools.includes(organizationId)
   );
 }
 export function plansSignupAllowed(email: string) {
+  if (process.env.PLATFORM_PLANS_ENABLED !== "true") return false;
+  const schools = list(process.env.PLATFORM_PLANS_PILOT_ORGANIZATION_IDS);
   const owners = list(process.env.PLATFORM_PLANS_PILOT_OWNER_EMAILS).map((s) =>
     s.toLowerCase(),
   );
   return (
-    owners.length <= 5 &&
-    (!owners.length || owners.includes(email.toLowerCase()))
+    schools.length > 0 && schools.length <= 5 && owners.length > 0 && owners.length <= 5 &&
+    owners.includes(email.trim().toLowerCase())
   );
 }

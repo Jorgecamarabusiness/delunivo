@@ -1,5 +1,9 @@
 /** Immutable commercial offer. All public copy and server prices use this file. */
 export const OFFER_VERSION = "2026-10-01";
+export const PILOT_TAX_POLICY = {
+  version: `${OFFER_VERSION}-es-peninsula-baleares`,
+  country: "ES", scope: "peninsula-baleares", percentage: 21, inclusive: true,
+} as const;
 export const RETENTION_POLICY_VERSION = "2026-10-01";
 export const PLANS = [
   {
@@ -68,6 +72,7 @@ export function offerSnapshot(key: PlanKey, discountPercent = 0) {
     priceCents: plan.priceCents,
     currency: "eur",
     taxBehavior: "inclusive",
+    taxPolicy: PILOT_TAX_POLICY,
     interval: "month",
     discountPercent,
     librarySeconds: plan.libraryHours * 3600,

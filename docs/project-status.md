@@ -1,67 +1,26 @@
 # Delunivo: estado y decisiones vigentes
 
-Ultima actualizacion: 2026-10-02.
+Última actualización: 2026-10-02.
 
-## Incidente de acceso: Run as caducado
+## Acceso recuperado y lanzamiento de planes
 
-El 02/10 se confirmó en Chrome y lectura de Vercel/Supabase el bucle de salida
-de una sesión de soporte caducada con credencial original purgada. El parche
-`a3eac45` está integrado en esta rama y separado sobre main en
-`codex/run-as-recovery-20261002`. Lint, 130 unitarios, TypeScript, build y
-20 E2E aislados pasan aquí; el parche de main pasa 117 unitarios y 16 E2E.
-Revisión independiente de calidad sin bloqueos tras corregir orden de revocación.
-Autorizado el 02/10 y publicado por PR4: main `97af585`, Vercel
-`dpl_EwQjnR6saJvX9L7d8yUG7pYwAgfd` READY. Pestaña real recuperada: login y
-después portada con sesión de Jorge, sin errores de consola/runtime consultados.
-No activa los planes ni requiere migraciones. Detalle:
-[`incidente`](incidents/2026-10-02-run-as-redirects.md).
+El bucle por Run as caducado se resolvió y publicó por PR4. www/login y la sesión real funcionan; detalle en [incidente](incidents/2026-10-02-run-as-redirects.md). Jorge autorizó el lanzamiento y confirmó piloto solo Iván Orgánico (organización Grow Organic), Península y Baleares con 21 % de IVA incluido.
 
-## Planes y consumo: código publicado, activación comercial pendiente
+Especificación aceptada: [prompt](plans-consumption-spec.md). Estado reanudable y operaciones: [progreso](plans-implementation-progress.md) y [runbook](plans-launch-runbook.md). PR5–9 publicados; main c1527e4, Production READY dpl_Hot2rhTvupRVNbu78gDf4zSbhsrA. Cierre fiscal verificado localmente, pendiente de integrar/publicar antes de encender ventas.
 
-Especificación aceptada: [plans-consumption-spec.md](plans-consumption-spec.md).
-[Progreso](plans-implementation-progress.md) y [runbook](plans-launch-runbook.md).
-Jorge autorizó producción el 02/10 y reiteró la autorización. PR5 publicó todo
-el código de planes; PR6 publicó diagnóstico privado de proveedores. Main
-`a7991d4`, Vercel `dpl_8pqgsd5ZWQ3fUrnKgj3kH3qkGPuz` READY en
-www.delunivo.com. Acceso y login 200, apex 308 único; sesión real y consola correctos.
+Tres migraciones atómicas 12:11 UTC tras backup cifrado de 64 tablas/1.758 filas con hash y descifrado comprobados. 33 recibos, 23 tablas nuevas RLS/grants service-only, ocho contratos legacy observe sin oferta/retención nueva. Sin WARN nuevos. No se restauró completamente este snapshot ni se hizo otro backup de bytes multimedia.
 
-Tres migraciones aplicadas atómicamente 12:11 UTC tras backup cifrado 64 tablas/
-1.758 filas, hash/descifrado comprobados. 33 recibos incluyendo 20261002121113.
-Los ocho contratos legacy están íntegros en observe sin aceptación/retención nueva;
-27 assets/ledger y cero ciclos/jobs nuevos. 23 tablas nuevas RLS/grants service-only.
+Oferta versión 2026-10-01: Inicio/Crece/Academia 30/69/149 EUR; biblioteca 20/50/100 h, entrega 3.000/8.000/20.000 min y gracia 300/800/2.000 min por ciclo. Ampliación 10 h/8 EUR mensual alineada, bolsa 5.000 min/20 EUR/90 días, prueba 14 días/2 h/300 min sin autorrenovación. Contratos antiguos conservan condiciones. Conservación nueva 30 días solo tras aceptación versionada. Checkout/cambios, reservas, ledger/importador, playback acotado, paneles, avisos, A medida y exportación implementados.
 
-Catálogo Inicio/Crece/Academia 30/69/149 EUR inclusivos; biblioteca 20/50/100 h,
-entrega 3.000/8.000/20.000 min y gracia 300/800/2.000 por ciclo. Ampliaciones 10 h/
-8 EUR mensuales alineados y bolsa 5.000 min/20 EUR/90 días; prueba 14 d/2 h/300 min
-sin autorrenovación. Contratos anteriores conservan condiciones/excepciones.
-Conservación 30 d sólo tras aceptación versionada. Checkout/cambios, cuotas,
-reservas, ledger/importador Mux, playback acotado, avisos, paneles, A medida,
-exportación y conservación implementados. Mux retrasado y tokens emitidos
-impiden garantizar un gasto instantáneo; permisos revisados cada cinco minutos.
+Fiscal final: Customer Stripe exclusivo por organización y domicilio canónico, ES/código postal permitido, consentimiento y snapshot de política; tarjeta extranjera no reemplaza domicilio. Guard compartido cubre creación, recovery y worker; IVA inicial y recurrente. Listas de escuela y owner obligatorias, no vacías y máximo cinco; fuera del piloto ventas cerradas. Run as no puede aceptar/comprar.
 
-Final local: 146 unitarios, lint, TypeScript, build y 23 E2E aislados pasan.
-CI PR6 general 37008387979 y Supabase 37008361193 pasan; 128 pgTAP/11 archivos,
-concurrencia real, Auth/Storage/OTP/lifecycle y seis E2E de aplicación. Stripe TEST
-real, siete grupos, y avisos con transporte Resend capturado anteriores pasan.
-No son pruebas de compra LIVE, entrega real ni vídeo real 12 h/20 GiB.
+Stripe LIVE acct_1TwKtKJD1wCl42uL verificado desde servidor/dashboard, pagos y payouts activos. Cinco precios inclusivos versionados configurados; tarifa manual activa txr_1UM6nLJD1wCl42uLPf3zp9dl, VAT ES 21 % inclusive. Sin Stripe Tax de pago. Principal tiene nueve eventos y Connect permanece separado e intacto. No se realizaron cargos LIVE ni clientes/subscripciones de prueba en producción.
 
-Lectura autenticada desde runtime 12:48 UTC: Stripe LIVE acct_1TwKtKJD1wCl42uL,
-pagos/payouts habilitados, coincide con dashboard; tarifas/registros fiscales y
-catálogo nuevos vacíos. Webhooks principales y Connect habilitados; principal
-requiere ampliar eventos. Mux token real verificado, organización tkrqi3,
-entorno 3cnmn5 llamado Production, tipo API development, permisos video read/write.
-Vercel Production tiene guardados MUX_ENVIRONMENT_ID=3cnmn5 y worker/
-importador true; aplicarán al siguiente deploy. Planes/avisos/borrado apagados.
+Mux real tkrqi3/3cnmn5, nombre Production/tipo API development, permisos vídeo read/write. Worker/import true. SQL 14:21 UTC: 73 ventanas completas, ninguna fallida, filas proveedor cero en las ventanas importadas. Pagina hasta vacío explícito cuando count no existe; regresión demostrada. Historia 90 días progresiva y retraso de 12 h explícito. 27 ledger atribuibles, tres assets desconocidos separados. Esto no demuestra demanda real ni coste observado por cliente.
 
-Se prepara acción superadmin para crear exactamente cinco precios LIVE inclusivos
-versionados con IDs deterministas/idempotencia, sin clientes ni cargos, y
-validación canónica de economía. Revisiones UI/calidad cerradas tras corregir
-pending y verificación por key, lookup, LIVE, moneda, importe e intervalo.
+Final local: 158 unitarios, lint, TypeScript, build y 24 E2E aislados pasan; revisiones UI/calidad sin hallazgos materiales. Stripe TEST real final: siete grupos, IVA ES inclusivo 21 %, descuento, domicilio frente a tarjeta FR, cambios/recuperación/refund y Test Clock. Última CI publicada: general 37016026356 y Supabase 37016004456 verdes, 128 pgTAP, concurrencia y Auth/Storage/consumidores reales. Fiscal nuevo requiere su CI antes del merge.
 
-Jorge limita ventas iniciales a España. Faltan regiones/IVA y lista explícita de
-máximo cinco escuelas; la autorización general no sustituye esas decisiones.
-No activar nuevos cobros, avisos ni borrado hasta resolver sus requisitos.
-Piloto 14 días y dos ciclos posteriores no realizado; no afirmar resultados.
+Avisos reales false, retención sin activar y Mux deletion off. No se ha probado entrega real, compra LIVE ni subida real 12 h/20 GiB. Observación del piloto 14 días y dos ciclos todavía futura. El owner real debe aceptar oferta y elegir plan; no migrar automáticamente legacy.
 
 ## Cierre de auditoría y funciones: desplegado
 

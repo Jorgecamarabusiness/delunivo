@@ -24,6 +24,7 @@ de prueba/conservación/exceso son336/720/168h, sin desfase DST del servidor.
 | Requisito | Implementación y comprobación |
 |---|---|
 | Oferta y A medida | Portada/condiciones/catálogo canónico; solicitud auditada sin contrato automático. UI375/768/1440 y acción real con Supabase aislado. |
+| Fiscal del piloto | Domicilio canónico Stripe, vínculo exclusivo, consentimiento/política versionada y guard compartido de creación/recovery/worker; ES Península/Baleares, IVA21 inclusivo inicial/recurrente. TEST real con tarjeta FR y rechazo de código postal35001; listas vacías cierran ventas. |
 | Compra y ampliación | Checkout Stripe TEST hospedado real, precio inclusivo, descuento once sólo base, biblioteca recurrente y bolsa única. |
 | Cambios | Quote exacta Stripe, upgrade medio ciclo añade150.000s y15.000s de gracia, no reset; downgrade y cantidad biblioteca a cero en renovación Test Clock. |
 | Recuperación | Firma/Connect/duplicados, checkout completado sin grant, rechazo→pago→conciliación, expiración explícita del checkout, refund previo al grant atómico. |
@@ -50,7 +51,7 @@ No ejecutar E2E normales con `.env.local` de producción.
 El workflow `Isolated Supabase` crea Postgres17/Auth/REST/Storage temporales,
 aplica todas las migraciones y ejecuta pgTAP, concurrencia, OTP, lifecycle y
 `playwright.isolated.config.ts`; no contiene pasos de despliegue.
-[CI final](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/36896822192):
+[CI final](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/37016004456):
 128 aserciones SQL en11 archivos y seis E2E reales pasan.
 
 En Windows, el harness portable utiliza PostgreSQL17.11 y PostgREST16.4 oficiales
@@ -63,8 +64,6 @@ misma base y un transporte capturado. `.env*.local` queda ignorado; ningún secr
 se publica. Auth/Storage portables sólo son schemas compatibles: su prueba real
 corresponde al workflow completo. Los relojes Stripe sintéticos se eliminan al final.
 
-Pendientes en destino: credencial API Mux vigente (la antigua responde401),
-verificación fiscal LIVE por jurisdicciones tras acceder a la cuenta y activación
-expresamente autorizada. El piloto de hasta cinco escuelas/14 días/dos ciclos es
-observación futura. Borrado/envíos reales siguen desactivados y no se aplica la
-política nueva a contratos anteriores. No se ha probado subida12h/20GiB.
+Estado 02/10: proveedores LIVE verificados desde runtime; catálogo y tarifa manual ES21 inclusiva configurados. Mux real importa ventanas completas (73, ninguna fallida a14:21UTC), con histórico progresivo90d y cero filas proveedor en esas ventanas. Cierre fiscal local:158 unitarios, lint, TS, build y24E2E; Stripe TEST real final siete grupos. Integración/publicación/activación exacta en el registro de progreso.
+
+Owner real debe aceptar nueva oferta. Piloto14d/dos ciclos es observación futura. Avisos y borrado reales siguen apagados; no aplicar conservación nueva a legacy. No se ha probado compra LIVE, entrega real ni subida12h/20GiB.

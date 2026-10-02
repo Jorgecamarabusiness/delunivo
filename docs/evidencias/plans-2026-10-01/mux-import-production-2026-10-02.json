@@ -1,0 +1,18 @@
+{
+  "checkedAt": "2026-10-02T14:21:14.518774Z",
+  "environment": "3cnmn5",
+  "windowsComplete": 73,
+  "windowsFailed": 0,
+  "providerRows": 0,
+  "firstImportedStart": "2026-07-04T15:00:00Z",
+  "latestImportedEnd": "2026-10-02T02:00:00Z",
+  "repairedHour": {
+    "start": "2026-10-01T01:00:00Z",
+    "status": "complete",
+    "revision": 2
+  },
+  "historyCursorRestored": "2026-07-06T15:00:00Z",
+  "restoreCheckedAt": "2026-10-02T14:21:24.107762Z",
+  "restoreCASRows": 1,
+  "limit": "Zero provider rows in these windows does not prove real customer demand or complete 90-day coverage."
+}
