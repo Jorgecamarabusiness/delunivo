@@ -9,15 +9,18 @@ import { createCompanyAction, type CreateCompanyState } from "./actions";
 import { formatPlatformPrice } from "@/lib/billing/access";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/passwordPolicy";
 import Link from "next/link";
+import { OFFER_VERSION } from "@/lib/billing/catalog";
 
 const INITIAL: CreateCompanyState = { error: null };
 
 export function CreateCompanyForm({
   priceCents,
   referralStatus = null,
+  newPlans = false,
 }: {
   priceCents: number;
   referralStatus?: "valid" | "invalid" | null;
+  newPlans?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     createCompanyAction,
@@ -26,6 +29,7 @@ export function CreateCompanyForm({
 
   return (
     <form action={formAction} className="mt-8 flex flex-col gap-5">
+      {newPlans ? <><input type="hidden" name="offerVersion" value={OFFER_VERSION} /><Alert variant="info">Prueba 14 días: 2 horas de biblioteca y 300 minutos de reproducción total. No hay cobro automático al terminar.</Alert></> : null}
       {referralStatus === "valid" ? (
         <Alert variant="success">
           Enlace de invitación aplicado: tendrás un 10% de descuento durante tus
@@ -114,6 +118,7 @@ export function CreateCompanyForm({
           <Link href="/privacidad" className="font-medium text-foreground underline">
             política de privacidad
           </Link>
+          {newPlans ? <> y las <Link href="/condiciones-planes" className="font-medium text-foreground underline">condiciones de planes y conservación durante 30 días</Link> (versión {OFFER_VERSION})</> : null}
           .
         </span>
       </label>
@@ -125,7 +130,7 @@ export function CreateCompanyForm({
       </Button>
 
       <p className="text-center text-xs text-muted-foreground">
-        {formatPlatformPrice(priceCents)}/mes. Cancela cuando quieras.
+        {newPlans ? "Al terminar la prueba eliges y pagas expresamente un plan. Desde " : ""}{formatPlatformPrice(priceCents)}/mes, impuestos incluidos.
       </p>
     </form>
   );

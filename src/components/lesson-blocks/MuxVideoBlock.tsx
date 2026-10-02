@@ -21,8 +21,29 @@ function AuthorizedVideo({ videoAssetId, title }: Props) {
   const lastToken = useRef<string | null>(null);
 
   useEffect(() => {
+    let serverSessionId: string | null = null;
+    let observedAt = Date.now();
+    const estimateTimer = setInterval(() => {
+      const now = Date.now();
+      const elapsed = Math.min(30, (now - observedAt) / 1000);
+      observedAt = now;
+      if (!serverSessionId || !player.current || player.current.paused || player.current.ended || document.visibilityState !== "visible") return;
+      // Playback telemetry is an estimate, never a billable or quota authority.
+      void fetch(`/api/video/${videoAssetId}/estimate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessionId: serverSessionId, seconds: elapsed }) }).catch(() => {});
+    }, 30_000);
     const session = startPlaybackSession({
-      request: (renew, signal) => fetch(`/api/video/${videoAssetId}/playback${renew ? "" : "?check=1"}`, { cache: "no-store", signal }),
+      async request(renew, signal) {
+        const query = new URLSearchParams();
+        if (!renew) query.set("check", "1");
+        // A renewal admits a new bounded session; it never extends the old one.
+        if (renew) serverSessionId = null;
+        if (serverSessionId) query.set("session", serverSessionId);
+        const response = await fetch(`/api/video/${videoAssetId}/playback?${query}`, { cache: "no-store", signal });
+        const data = await response.json();
+        if (typeof data.sessionId === "string") serverSessionId = data.sessionId;
+        if (response.status === 410) serverSessionId = null;
+        return { ok: response.ok, status: response.status, json: async () => data };
+      },
       onState(next) {
         if (player.current && (next.kind !== "ready" || next.token !== lastToken.current)) {
           resume.current = { time: player.current.currentTime, paused: player.current.paused, rate: player.current.playbackRate };
@@ -39,6 +60,7 @@ function AuthorizedVideo({ videoAssetId, title }: Props) {
     window.addEventListener("online", onOnline);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
+      clearInterval(estimateTimer);
       session.dispose();
       window.removeEventListener("online", onOnline);
       document.removeEventListener("visibilitychange", onVisible);

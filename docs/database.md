@@ -691,3 +691,70 @@ técnica de compatibilidad. Delunivo usa rutas `/o/<slug>`. Los
 identificadores internos estables de Supabase, buckets, tablas e integraciones
 no se renombran: no son identidad visible y cambiarlos pondría datos o enlaces
 en riesgo.
+
+## Planes, medición y economía — lote local 2026-10-01
+
+Las migraciones `20261001132712`, `20261001151159` y `20261001162500` son
+aditivas y se aplicaron atómicamente en producción el02/10/2026 a12:11UTC,
+con backup cifrado previo y verificación de contratos legacy preservados. El
+recibo API `20261002121113_platform_plans_verified_bundle` es no-op local;
+el ledger remoto suma33 entradas. Se reutilizan
+`organization_billing`, memberships, checkouts y colas Mux; Connect sigue aparte.
+
+- `organization_billing`: versión/oferta aceptada, plan, techos activo/económico,
+  cantidad mensual de biblioteca, modo observe/enforce, cambio programado,
+  fin efectivo, fecha de conservación y exceso. La aceptación pendiente de una
+  prueba conserva snapshot/fecha original para recuperar un fallo de inicialización.
+- `platform_capacity_cycles`/`platform_capacity_increases`: periodos Stripe UTC
+  y aumentos proporcionales. `rights_start_at` separa el comienzo del periodo
+  de la primera confirmación de pago; el consumo anterior no se carga a derechos
+  aún no activados. Redondeo de incrementos hacia abajo a segundos enteros.
+- `platform_delivery_packs`/`platform_pack_refunds`: vigencia desde la primera
+  verificación servidor de pago, saldo reconstruible y refunds por ID. Pago y
+  refunds ya confirmados se aplican en una sola transacción. Bolsa entre ciclos;
+  base → bolsas por vencimiento/ID → gracia, sin reinicios comerciales.
+  Plazos nuevos expresados en horas exactas UTC (14/30/90/7 días), independientes
+  de la zona de sesión Postgres y del cambio de horario; regresión DST probada.
+- `platform_billing_operations`/`platform_invoice_ledger`: oferta/quote/actor
+  inmutables, operación única pendiente por escuela, provider IDs, cobros reales
+  y snapshots fiscales. La recuperación consulta recursos enlazados de Stripe.
+- `mux_asset_ledger`: tombstone asset/vídeo/escuela/entorno, duración autoritativa,
+  borrado solicitado/confirmado y mínimo 30 días. Las reservas de `video_assets`
+  expiran a 25 h; un asset rechazado continúa contabilizando exposición económica.
+- `mux_usage_hours`/`mux_usage_imports`/`mux_usage_revisions` y
+  `platform_usage_allocations`: fuente oficial por hora, cobertura completa,
+  correcciones conservadas y agregados reconstruidos por escuela. Frontera:
+  bucket UTC se asigna por su inicio; nunca se inventa consumo intrahorario.
+  `mux_import_workers` serializa la consulta con lease renovada por página;
+  persistir atribución y cobertura exige token vigente dentro de una transacción.
+- `platform_playback_sessions`/`platform_playback_estimates`: sesión ligada a
+  usuario/escuela/asset, duración +900 s, estimaciones limitadas por reloj servidor.
+  Estimado sólo donde aún no hay importación completa del entorno del asset.
+- `platform_resource_notices`/`platform_retention_jobs`/
+  `platform_storage_deletion_jobs`: outbox 70/90, trabajos reclamados y limpieza
+  persistente. La reclamación Storage mantiene barrera de restauración hasta
+  confirmar el efecto externo; resultados inciertos se reintentan con fencing.
+  No se borra por exceso de biblioteca. Compras/facturas/identidades de cursos
+  sobreviven a la eliminación del contenido educativo sintético.
+- `platform_trial_claims`, `platform_quota_exceptions`,
+  `platform_custom_requests`: no repetición por identidad normalizada, excepciones
+  con autor/motivo/cantidad/vencimiento y contactos con límite atómico.
+- `platform_provider_statements`/`platform_provider_cost_lines`/
+  `platform_provider_cost_revisions`: extractos brutos/descuentos/créditos/impuestos/
+  pago en céntimos y costes detallados en micro-unidades monetarias. Mux se atribuye
+  sólo por asset+entorno exactos; sin vínculo queda sin atribución. Conversión de
+  moneda sólo con tasa/fecha/fuente explícitas. Créditos de cuenta no se reparten
+  por suposición. Storage se inventaría separado; no se inventa su coste monetario.
+
+Todos los ledgers nuevos tienen RLS y acceso exclusivo service_role; el servidor
+comprueba owner o superadmin antes de exponerlos. No se concede a authenticated
+capacidad de importar, cambiar precios, activar cuotas o borrar. Los IDs de
+autoría financiera/auditoría se conservan sin FK que impida borrar perfiles;
+`accepted_by` pasa a null, sesiones/contactos propios a cascade.
+RPC de exportación verifica referencias exclusivas a Storage y escuela; manifiesto
+propio sin compras privadas. HLS es copia procesada, no original Mux garantizado.
+
+Rollback operativo: desactivar workers/ventas/ejecución de borrado y poner cuotas
+en observe según `supabase/rollbacks/20261001*.down.sql`. Conservar todos los
+ledgers y conciliar pagos/claims antes de restaurar. Ningún rollback destructivo
+se ejecuta automáticamente.

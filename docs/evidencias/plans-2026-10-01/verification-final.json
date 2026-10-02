@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-10-01T17:12:00Z",
+  "branch": "codex/plans-consumption-20261001",
+  "applicationCommit": "aed0cfb4a67b6c7e2af6e2010c71382997774410",
+  "local": {"unitPassed": 127, "lint": "pass", "typescript": "pass", "isolatedBuild": "pass", "auditE2EPassed": 13, "viewports": [375,768,1440], "externalNetwork": "blocked in UI audit"},
+  "isolatedSupabase": {"runId": 36896822192, "jobId": 110485776860, "url": "https://github.com/Jorgecamarabusiness/delunivo/actions/runs/36896822192", "conclusion": "success", "sqlFiles": 11, "sqlAssertionsPassed": 128, "appE2EPassed": 6, "appE2EDurationSeconds": 54, "concurrency": "pass", "authStorageOtpLifecycle": "pass", "privateRestore": "skipped"},
+  "stripeTest": {"integratedGroupsPassed": 7, "realHostedCheckout": true, "syntheticInclusiveTaxPercent": 7, "liveFiscalEvidence": false, "report": "stripe-test-journey.json"},
+  "notices": {"sqlAndSdk": "pass", "transport": "intercepted", "actualDelivery": false, "report": "notices-synthetic-journey.json"},
+  "independentReviews": {"quality": "closed without material blockers", "ui": "closed, pending operation controls fixed and responsive captures reviewed", "reviewerExecutedTests": false},
+  "regressionsDetected": ["legacy zero duration", "numeric to integer conversion", "Stripe schedule from_subscription metadata restriction", "UTC validity crossing Madrid daylight saving added one hour", "wrong pending UI condition exposed new operations"],
+  "production": {"deployed": false, "migrationsApplied": false, "livePricesActivated": false, "customerNoticesSent": false, "customerContentDeleted": false},
+  "pendingDestination": ["Current Mux API credentials and environment verification; old credentials HTTP 401", "Stripe LIVE authenticated fiscal configuration by jurisdiction", "Authorized launch and verification in destination", "14-day pilot and two commercial cycles", "No actual 12-hour 20-GiB upload or 12-hour playback"]
+}

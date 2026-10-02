@@ -2,21 +2,67 @@
 
 Ultima actualizacion: 2026-10-02.
 
-## Incidente de acceso: parche preparado, pendiente de publicación
+## Incidente de acceso: Run as caducado
 
-Producción consultada el 02/10: `dpl_3EcBRjSvcNJ5Ba9bdpA8czJfzAaC`, commit
-`25130eb`. El bucle observado en Chrome se debe a Run as caducado cuya credencial
-original ya fue purgada; HTTP anónimo raíz/login responde correctamente.
-El parche en `codex/run-as-recovery-20261002`, basado sólo en main, permite volver
-al login si no se puede restaurar al actor. Revocación y auditoría preceden el
-cambio de identidad; la revocación fallida conserva el guarda sensible manual.
-
-Estado final local del parche: lint, 117 unitarios, TypeScript, build aislado y
-16 E2E Chromium pasan. Antes del cambio se reprodujo el bucle y las tres nuevas
-regresiones manuales fallaron. Revisión independiente de calidad sin bloqueos.
-No se ha publicado; la rama deshabilita despliegues automáticos. No requiere
-migraciones ni modifica los planes/precios. Evidencia y publicación pendiente:
+El 02/10 se confirmó en Chrome y lectura de Vercel/Supabase el bucle de salida
+de una sesión de soporte caducada con credencial original purgada. El parche
+`a3eac45` está integrado en esta rama y separado sobre main en
+`codex/run-as-recovery-20261002`. Lint, 130 unitarios, TypeScript, build y
+20 E2E aislados pasan aquí; el parche de main pasa 117 unitarios y 16 E2E.
+Revisión independiente de calidad sin bloqueos tras corregir orden de revocación.
+Autorizado el 02/10 y publicado por PR4: main `97af585`, Vercel
+`dpl_EwQjnR6saJvX9L7d8yUG7pYwAgfd` READY. Pestaña real recuperada: login y
+después portada con sesión de Jorge, sin errores de consola/runtime consultados.
+No activa los planes ni requiere migraciones. Detalle:
 [`incidente`](incidents/2026-10-02-run-as-redirects.md).
+
+## Planes y consumo: implementación en rama, sin activar producción
+
+Rama `codex/plans-consumption-20261001`, especificación aceptada en
+[`plans-consumption-spec.md`](plans-consumption-spec.md), progreso y evidencias en
+[`plans-implementation-progress.md`](plans-implementation-progress.md).
+El despliegue automático de esta rama está deshabilitado. Jorge autorizó el
+lanzamiento el 02/10. Las tres migraciones se aplicaron atómicamente a las
+12:11 UTC con backup previo cifrado (64 tablas/1.758 filas), hash/descifrado
+verificados y comprobación de contratos íntegros. Ledger remoto33 entradas,
+incluido recibo API `20261002121113`. Las ocho escuelas siguen observe sin nueva
+oferta/conservación; 27 assets atribuidos, cero ciclos/jobs nuevos. Código aún
+pendiente de publicar; ventas, workers, avisos y borrado preparados apagados.
+
+Catálogo Inicio/Crece/Academia 30/69/149 EUR inclusivos; biblioteca 20/50/100 h,
+entrega 3.000/8.000/20.000 min y gracia 300/800/2.000 por ciclo. Ampliaciones
+10 h por 8 EUR mensuales junto al plan y bolsa 5.000 min/20 EUR/90 días.
+Nueva prueba 14 días/2 h/300 min sin autorrenovación y sin repetir identidad.
+Las ofertas anteriores permanecen en observación, con condiciones y excepciones
+conservadas. La política de conservación 30 días exige aceptación versionada.
+
+Implementados checkout y cambios con previsualización Stripe, concesión tras pago,
+recuperación, refund, afiliados/descuentos de base, ledger Mux persistente,
+importación/correcciones, reservas atómicas, sesiones limitadas, avisos/outbox,
+paneles, solicitud A medida, exportación propia y colas de conservación.
+Las cuotas comerciales no garantizan un gasto instantáneo: Mux publica tarde y
+un token emitido sigue vigente hasta caducar; permisos se revisan cada cinco minutos.
+
+Pruebas locales: 127 unitarios, lint, TypeScript, build, 13 E2E con servicios
+sintéticos y siete grupos de Stripe TEST real sobre PostgreSQL nativo. CI anterior
+`36896822192` pasó 128 pgTAP/RLS, concurrencia, Auth/Storage/OTP/lifecycle y seis
+E2E reales de aplicación aislada, incluido el consumidor de cuota/playback/export.
+Avisos SQL/SDK con destinatarios
+sintéticos y transporte interceptado pasan, sin entregas reales.
+No confundir estas evidencias con producción.
+
+Mux UI autenticada confirma 30 assets y la factura histórica. La exportación
+local contiene valores sensibles ocultos por Vercel: su401 no prueba fallo de
+claves de producción. Se prepara comprobación de lectura desde servidor privado.
+Stripe LIVE tiene sesión y pagos/payouts activos en dashboard; tratamiento fiscal
+y coincidencia con la cuenta del servidor todavía pendientes de verificar;
+activación LIVE impedida. La tarifa TEST inclusiva 7% es sintética y no establece
+una política fiscal. Procedimiento y pendientes:
+[`plans-launch-runbook.md`](plans-launch-runbook.md).
+
+Piloto preparado para hasta cinco escuelas, al menos 14 días y dos ciclos
+comerciales de observación posterior. No se afirma que haya comenzado ni que sus
+resultados estén disponibles.
 
 ## Cierre de auditoría y funciones: desplegado
 

@@ -23,8 +23,8 @@ export function AdminBillingGate({
         <h1 className="text-2xl font-bold tracking-tight">Cuenta suspendida</h1>
         <p className="max-w-md text-sm text-muted-foreground">
           Tu suscripción a {PLATFORM_NAME} se ha cancelado. Reactívala para volver a
-          acceder a tu panel de administración — tus alumnos que ya compraron
-          un curso mantienen su acceso mientras tanto.
+          acceder a tu panel de administración. Las compras y el progreso se conservan;
+          revisa en facturación el acceso y el plazo de conservación aplicables a tu oferta.
         </p>
         <Link href="/admin/facturacion" className={buttonClassName("primary", "md")}>
           Ir a facturación

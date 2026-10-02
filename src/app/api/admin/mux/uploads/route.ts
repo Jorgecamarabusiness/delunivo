@@ -15,6 +15,7 @@ type UploadRequest = {
   blockId?: unknown;
   fileSize?: unknown;
   mimeType?: unknown;
+  durationSeconds?: unknown;
 };
 
 export async function POST(request: NextRequest) {
@@ -42,6 +43,9 @@ export async function POST(request: NextRequest) {
   });
   if (fileValidationError) {
     return NextResponse.json({ error: fileValidationError }, { status: 400 });
+  }
+  if (body.durationSeconds !== undefined && (typeof body.durationSeconds !== "number" || !Number.isFinite(body.durationSeconds) || body.durationSeconds <= 0 || body.durationSeconds > 43200)) {
+    return NextResponse.json({ error: "La duración estimada del vídeo debe ser de hasta 12 horas." }, { status: 400 });
   }
 
   const origin = resolveAllowedUploadOrigin(
@@ -123,9 +127,12 @@ export async function POST(request: NextRequest) {
     id: videoAssetId, organization_id: course.organization_id, course_id: course.id,
     lesson_id: lesson.id, block_id: body.blockId, created_by: user.id,
     status: "waiting_for_upload", is_current: false, declared_size_bytes: body.fileSize,
+    reserved_duration_seconds: body.durationSeconds ?? null,
+    mux_environment: process.env.MUX_ENVIRONMENT_ID ?? "legacy-unverified",
   });
   if (reserved.error) {
-    return NextResponse.json({ error: "No se pudo reservar otra carga. Espera a que terminen las cargas abiertas e inténtalo de nuevo." }, { status: 429 });
+    const quotaExceeded = reserved.error.message.includes("library_capacity_exceeded");
+    return NextResponse.json({ error: quotaExceeded ? "La biblioteca o la capacidad pendiente de liberar no admiten este vídeo. Consulta Consumo y facturación para ampliar capacidad o ver la fecha de liberación." : "No se pudo reservar otra carga. Espera a que terminen las cargas abiertas e inténtalo de nuevo." }, { status: 429 });
   }
 
   let upload: Awaited<ReturnType<typeof mux.video.uploads.create>>;

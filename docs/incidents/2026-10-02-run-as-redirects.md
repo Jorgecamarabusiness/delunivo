@@ -46,19 +46,17 @@ cleanup queda después de cambiar al actor.
   final. Se observaron mensajes RSC de stream cerrado al navegar concurrentemente;
   ningún error de consola de navegador ni tráfico externo permitido en los tests.
 
-## Publicación pendiente
+## Publicación verificada
 
-Verificación independiente del parche sobre main: lint, 117 unitarios,
-TypeScript, build aislado y 16 E2E Chromium pasan. Únicamente dos archivos de
-runtime cambian; las demás modificaciones son defensas de prueba/documentación
-y desactivar publicación automática de la rama hasta autorización.
-
-Parche sobre `origin/main`, separado de `codex/plans-consumption-20261001`.
-No necesita migraciones ni cambios de precios, DNS o secretos. Antes de publicar:
-autorizar el despliegue del parche, comprobar el commit final y luego recargar
-la pestaña afectada para verificar login accesible y ausencia del bucle en destino.
+Autorización expresa de Jorge el 02/10. PR4 integrado en main mediante
+`97af585`, CI117 unitarios/16 E2E correcta. Vercel Production
+`dpl_EwQjnR6saJvX9L7d8yUG7pYwAgfd` READY. La pestaña real antes bloqueada
+mostró login tras recargar y luego portada con sesión iniciada por Jorge.
+Sin errores de consola ni errores/fatales de runtime en la ventana consultada.
+El parche no necesitó migraciones ni cambios de precios, DNS o secretos.
 
 Los nuevos planes conservan los pendientes de
 [`plans-launch-runbook.md`](https://github.com/Jorgecamarabusiness/delunivo/blob/codex/plans-consumption-20261001/docs/plans-launch-runbook.md): acceso Stripe LIVE y
 tratamiento fiscal por jurisdicción, API Mux vigente, migraciones, configuración
-LIVE y activación gradual autorizadas. No se han activado con este incidente.
+LIVE y activación gradual autorizadas. El lanzamiento posterior queda registrado
+en el runbook; estos pasos no forman parte del parche de acceso.

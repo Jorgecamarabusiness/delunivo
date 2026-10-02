@@ -1,0 +1,4 @@
+-- Production API receipt, 2026-10-02. The verified transaction applied the three
+-- canonical migrations 20261001132712 / 20261001151159 / 20261001162500 and wrote
+-- their original versions/statements. They already reconstruct the local schema.
+-- This receipt performs no SQL mutation and must not apply the bundle twice.

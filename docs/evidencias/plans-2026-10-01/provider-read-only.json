@@ -1,0 +1,25 @@
+{
+  "inspectedAt": "2026-10-02T12:24:16.797Z",
+  "test": {
+    "available": true,
+    "keyMode": "test",
+    "taxRates": [
+      {
+        "inclusive": true,
+        "percentage": 7,
+        "country": "ES",
+        "jurisdiction": "Synthetic test only",
+        "livemode": false
+      }
+    ],
+    "hasMore": false
+  },
+  "production-read-only": {
+    "available": false,
+    "reason": "redacted_environment_export"
+  },
+  "mux": {
+    "available": false,
+    "reason": "missing_or_redacted_environment_export"
+  }
+}

@@ -11,7 +11,7 @@ export const test = base.extend({
     page.on("console", (message) => {
       if (message.type() !== "error") return;
       const expectedProcessing = message.text() === "Failed to load resource: the server responded with a status of 409 (Conflict)" &&
-        testInfo.annotations.some((annotation) => annotation.type === "expected-http-409" && annotation.description === message.location().url);
+        testInfo.annotations.some((annotation) => annotation.type === "expected-http-409" && annotation.description?.split("?")[0] === message.location().url.split("?")[0]);
       if (!expectedProcessing) failures.push(`console: ${message.text()}`);
     });
     await page.route("**/*", async (route) => {
@@ -45,7 +45,7 @@ export async function login(page: Page, role: keyof typeof accounts & string) {
 export async function captureResponsive(page: Page, testInfo: TestInfo, name = "landing") {
   for (const width of [375, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    const evidencePath = `docs/evidencias/2026-09-06/${name}-${width}.png`;
+    const evidencePath = `docs/evidencias/plans-2026-10-01/${name}-${width}.png`;
     const image = await page.screenshot({ fullPage: true, path: evidencePath });
     await testInfo.attach(`${name}-${width}.png`, { body: image, contentType: "image/png" });
   }

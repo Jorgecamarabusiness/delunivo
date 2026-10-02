@@ -1,0 +1,6 @@
+-- Non-destructive operational rollback. Never discard audited cost evidence or
+-- financial grants. Disable PLATFORM_CAPACITY_WORKER_ENABLED and
+-- PLATFORM_RETENTION_EXECUTE in the authorized deployment, and roll application
+-- code back together with quota_mode=observe (132712 recovery procedure).
+-- No SQL mutation is required for cost ledgers. Future reactivation reconciles
+-- persisted claims/payments first; this file deliberately drops no tables.

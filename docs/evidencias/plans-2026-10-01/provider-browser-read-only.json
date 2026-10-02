@@ -1,0 +1,25 @@
+{
+  "checkedAt": "2026-10-01T16:19:00Z",
+  "method": "Authenticated Chrome UI, read only; complete assets pagination",
+  "mux": {
+    "organization": "tkrqi3",
+    "environmentLabel": "Production",
+    "environmentDashboardId": "3cnmn5",
+    "assets": 30,
+    "assetPages": 2,
+    "durationSecondsRoundedByDashboard": 5311,
+    "durationPrecision": "UI displays whole seconds; not an authoritative precise API duration",
+    "billingPeriodLabel": "Aug 30 - Sep 30",
+    "grossUsd": 0.35,
+    "afterDeliveryAllowanceUsd": 0.22,
+    "planCreditsAppliedUsd": 0.22,
+    "paidUsd": 0,
+    "productionMutations": 0,
+    "apiImporterVerification": "Blocked: old local API credentials return HTTP 401; browser inventory is not proof of an API import"
+  },
+  "stripeLive": {
+    "page": "https://dashboard.stripe.com/settings/tax",
+    "observed": "Login form; user asked to authenticate outside chat",
+    "fiscalConfiguration": "Not verified; LIVE activation remains blocked"
+  }
+}

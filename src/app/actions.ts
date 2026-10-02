@@ -15,6 +15,8 @@ import {
   REFERRAL_COOKIE,
 } from "@/lib/referrals/constants";
 import { passwordPolicyError } from "@/lib/auth/passwordPolicy";
+import { OFFER_VERSION, trialOfferSnapshot } from "@/lib/billing/catalog";
+import { plansSignupAllowed } from "@/lib/billing/rollout";
 
 export type CreateCompanyState = {
   error: string | null;
@@ -24,11 +26,13 @@ const MAX_SLUG_ATTEMPTS = 20;
 
 async function resolveUniqueSlug(
   admin: ReturnType<typeof createAdminClient>,
-  baseSlug: string
+  baseSlug: string,
 ): Promise<string | null> {
   for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
     const candidate =
-      attempt === 0 && !isReservedSlug(baseSlug) ? baseSlug : `${baseSlug}-${attempt + 1}`;
+      attempt === 0 && !isReservedSlug(baseSlug)
+        ? baseSlug
+        : `${baseSlug}-${attempt + 1}`;
 
     const { data } = await admin
       .from("organizations")
@@ -44,7 +48,7 @@ async function resolveUniqueSlug(
 
 export async function createCompanyAction(
   _prevState: CreateCompanyState,
-  formData: FormData
+  formData: FormData,
 ): Promise<CreateCompanyState> {
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
@@ -57,8 +61,21 @@ export async function createCompanyAction(
     return { error: "Completa todos los campos." };
   }
   if (!acceptedTerms) {
-    return { error: "Debes aceptar las condiciones y la política de privacidad." };
+    return {
+      error: "Debes aceptar las condiciones y la política de privacidad.",
+    };
   }
+  const newPlans = process.env.PLATFORM_PLANS_ENABLED === "true";
+  if (newPlans && !plansSignupAllowed(email))
+    return {
+      error:
+        "El piloto de nuevos planes está limitado a las escuelas invitadas. Tu cuenta no se ha creado.",
+    };
+  if (newPlans && formData.get("offerVersion") !== OFFER_VERSION)
+    return {
+      error:
+        "Las condiciones han cambiado. Actualiza el formulario antes de aceptar.",
+    };
   if (password !== confirmPassword) {
     return { error: "Las contraseñas no coinciden." };
   }
@@ -126,6 +143,13 @@ export async function createCompanyAction(
       organization_id: organization.id,
       platform_subscription_status: "canceled",
       access_mode: "standard",
+      ...(newPlans
+        ? {
+            pending_offer_snapshot: trialOfferSnapshot(),
+            pending_offer_at: new Date().toISOString(),
+            trial_initialization_status: "pending",
+          }
+        : {}),
     }),
     admin.from("organization_admins").insert({
       organization_id: organization.id,
@@ -157,7 +181,7 @@ export async function createCompanyAction(
         p_code: referralCode,
         p_referred_organization_id: organization.id,
         p_referred_owner_id: userId,
-      }
+      },
     );
 
     if (referralError) {
@@ -179,12 +203,23 @@ export async function createCompanyAction(
   }
   cookieStore.delete(REFERRAL_COOKIE);
 
+  if (newPlans) {
+    const trial = await admin.rpc("start_platform_trial", {
+      p_organization_id: organization.id,
+      p_offer: trialOfferSnapshot(),
+    });
+    if (trial.error) console.error("platform_trial_initialization_pending");
+  }
+
   // La fila en "profiles" la crea el trigger on_auth_user_created.
 
-  const { code, error: codeError } = await issueVerificationCode(email, "signup");
+  const { code, error: codeError } = await issueVerificationCode(
+    email,
+    "signup",
+  );
   if (codeError) {
     redirect(
-      `/verificar?email=${encodeURIComponent(email)}&next=${encodeURIComponent("/admin/facturacion")}&delivery=retry`
+      `/verificar?email=${encodeURIComponent(email)}&next=${encodeURIComponent("/admin/facturacion")}&delivery=retry`,
     );
   }
 
@@ -195,13 +230,13 @@ export async function createCompanyAction(
   });
   if (emailError) {
     redirect(
-      `/verificar?email=${encodeURIComponent(email)}&next=${encodeURIComponent("/admin/facturacion")}&delivery=retry`
+      `/verificar?email=${encodeURIComponent(email)}&next=${encodeURIComponent("/admin/facturacion")}&delivery=retry`,
     );
   }
 
   // Tras verificar el correo entra directo al panel; el cobro de la suscripción
   // se ofrece ahí (/admin/facturacion), con la empresa aún sin acceso.
   redirect(
-    `/verificar?email=${encodeURIComponent(email)}&next=${encodeURIComponent("/admin/facturacion")}`
+    `/verificar?email=${encodeURIComponent(email)}&next=${encodeURIComponent("/admin/facturacion")}`,
   );
 }

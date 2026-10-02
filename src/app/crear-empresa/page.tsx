@@ -5,6 +5,7 @@ import { getCurrentOrganization } from "@/lib/organizations/getCurrentOrganizati
 import { createClient } from "@/lib/supabase/server";
 import { CreateCompanyForm } from "../CreateCompanyForm";
 import { getPlatformPriceCents } from "@/lib/billing/platform";
+import { PLANS } from "@/lib/billing/catalog";
 
 export default async function CrearEmpresaPage({
   searchParams,
@@ -22,7 +23,7 @@ export default async function CrearEmpresaPage({
     redirect("/");
   }
 
-  const priceCents = await getPlatformPriceCents();
+  const priceCents = process.env.PLATFORM_PLANS_ENABLED === "true" ? PLANS[0].priceCents : await getPlatformPriceCents();
   const referralStatus = (await searchParams).referido;
 
   return (
@@ -39,6 +40,7 @@ export default async function CrearEmpresaPage({
       }
     >
       <CreateCompanyForm
+        newPlans={process.env.PLATFORM_PLANS_ENABLED === "true"}
         priceCents={priceCents}
         referralStatus={
           referralStatus === "1"
