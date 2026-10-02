@@ -48,6 +48,11 @@ cleanup queda después de cambiar al actor.
 
 ## Publicación pendiente
 
+Verificación independiente del parche sobre main: lint, 117 unitarios,
+TypeScript, build aislado y 16 E2E Chromium pasan. Únicamente dos archivos de
+runtime cambian; las demás modificaciones son defensas de prueba/documentación
+y desactivar publicación automática de la rama hasta autorización.
+
 Parche sobre `origin/main`, separado de `codex/plans-consumption-20261001`.
 No necesita migraciones ni cambios de precios, DNS o secretos. Antes de publicar:
 autorizar el despliegue del parche, comprobar el commit final y luego recargar
