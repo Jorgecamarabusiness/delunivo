@@ -1,0 +1,51 @@
+{
+  "checkedAt": "2026-10-02T14:38:59.393Z",
+  "method": "Unauthenticated public GET, manual bounded redirects",
+  "results": [
+    {
+      "original": "https://www.delunivo.com/",
+      "hops": [
+        {
+          "url": "https://www.delunivo.com/",
+          "status": 200,
+          "location": null
+        }
+      ]
+    },
+    {
+      "original": "https://www.delunivo.com/login",
+      "hops": [
+        {
+          "url": "https://www.delunivo.com/login",
+          "status": 200,
+          "location": null
+        }
+      ]
+    },
+    {
+      "original": "https://www.delunivo.com/condiciones-planes",
+      "hops": [
+        {
+          "url": "https://www.delunivo.com/condiciones-planes",
+          "status": 200,
+          "location": null
+        }
+      ]
+    },
+    {
+      "original": "https://delunivo.com/",
+      "hops": [
+        {
+          "url": "https://delunivo.com/",
+          "status": 308,
+          "location": "https://www.delunivo.com/"
+        },
+        {
+          "url": "https://www.delunivo.com/",
+          "status": 200,
+          "location": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,164 @@
+{
+  "inspectedAt": "2026-10-02T14:37:28.080Z",
+  "stripeMode": "live",
+  "account": {
+    "state": "verified",
+    "data": {
+      "id": "acct_1TwKtKJD1wCl42uL",
+      "country": "ES",
+      "chargesEnabled": true,
+      "payoutsEnabled": true,
+      "detailsSubmitted": true,
+      "requirementsDue": [],
+      "disabledReason": null
+    }
+  },
+  "rates": {
+    "state": "verified",
+    "data": {
+      "truncated": false,
+      "pilotTaxVerified": true,
+      "rates": [
+        {
+          "id": "txr_1UM6nLJD1wCl42uLPf3zp9dl",
+          "country": "ES",
+          "state": null,
+          "percentage": 21,
+          "inclusive": true,
+          "live": true
+        }
+      ]
+    }
+  },
+  "registrations": {
+    "state": "verified",
+    "data": {
+      "truncated": false,
+      "registrations": []
+    }
+  },
+  "webhooks": {
+    "state": "verified",
+    "data": {
+      "truncated": false,
+      "endpoints": [
+        {
+          "id": "we_1UAU0dJD1wCl42uLYxU1PJOr",
+          "destinationHost": "www.delunivo.com",
+          "route": "stripe-connect",
+          "status": "enabled",
+          "live": true,
+          "events": [
+            "checkout.session.completed",
+            "account.updated",
+            "charge.dispute.closed",
+            "charge.dispute.created",
+            "charge.dispute.funds_reinstated",
+            "charge.dispute.funds_withdrawn",
+            "charge.dispute.updated",
+            "charge.refunded",
+            "refund.created",
+            "refund.failed",
+            "refund.updated"
+          ]
+        },
+        {
+          "id": "we_1UATriJD1wCl42uLGYHvB69v",
+          "destinationHost": "www.delunivo.com",
+          "route": "stripe",
+          "status": "enabled",
+          "live": true,
+          "events": [
+            "checkout.session.completed",
+            "invoice.paid",
+            "invoice.payment_failed",
+            "customer.subscription.deleted",
+            "checkout.session.expired",
+            "customer.subscription.updated",
+            "customer.subscription.pending_update_applied",
+            "customer.subscription.pending_update_expired",
+            "charge.refunded"
+          ]
+        }
+      ]
+    }
+  },
+  "prices": {
+    "state": "verified",
+    "data": {
+      "truncated": false,
+      "catalogueVerified": true,
+      "prices": [
+        {
+          "id": "price_1UM6NiJD1wCl42uLSVmdy3cH",
+          "currency": "eur",
+          "amount": 2000,
+          "taxBehavior": "inclusive",
+          "interval": null,
+          "live": true,
+          "capacityKey": "delivery_pack"
+        },
+        {
+          "id": "price_1UM6NiJD1wCl42uLY5QYUs0n",
+          "currency": "eur",
+          "amount": 800,
+          "taxBehavior": "inclusive",
+          "interval": "month",
+          "live": true,
+          "capacityKey": "library"
+        },
+        {
+          "id": "price_1UM6NiJD1wCl42uLwGFwxgpQ",
+          "currency": "eur",
+          "amount": 14900,
+          "taxBehavior": "inclusive",
+          "interval": "month",
+          "live": true,
+          "capacityKey": "academia"
+        },
+        {
+          "id": "price_1UM6NhJD1wCl42uLrIYpErCN",
+          "currency": "eur",
+          "amount": 6900,
+          "taxBehavior": "inclusive",
+          "interval": "month",
+          "live": true,
+          "capacityKey": "crece"
+        },
+        {
+          "id": "price_1UM6NhJD1wCl42uL2NPpsJjV",
+          "currency": "eur",
+          "amount": 3000,
+          "taxBehavior": "inclusive",
+          "interval": "month",
+          "live": true,
+          "capacityKey": "inicio"
+        }
+      ]
+    }
+  },
+  "mux": {
+    "state": "verified",
+    "data": {
+      "organizationId": "tkrqi3",
+      "organizationName": "Jorgecamarabusiness",
+      "environmentId": "3cnmn5",
+      "environmentName": "Production",
+      "environmentType": "development",
+      "permissions": [
+        "video:read",
+        "video:write"
+      ],
+      "configuredEnvironmentMatches": true
+    }
+  },
+  "controls": {
+    "plans": true,
+    "worker": true,
+    "usageImport": true,
+    "capacityNotices": false,
+    "retentionExecution": false,
+    "muxDeletionDisabled": true,
+    "taxLiveApproved": true
+  }
+}

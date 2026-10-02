@@ -6,7 +6,7 @@ Jorge autorizó integración y publicación. Alcance fiscal aceptado: solo Pení
 
 158 unitarios, lint, TypeScript, build y 24 E2E Chromium aislados pasan tras el último código fiscal; UI 375/768/1440 y consola comprobados. Los dobles no prueban proveedores ni RLS. Stripe TEST real final utiliza tarifa ES 21 % inclusiva y tarjeta con domicilio FR: factura/domicilio canónico permanecen ES. Checkout/descuento once, biblioteca, cambios/rechazo/recovery/refund/duplicados, Test Clock y cancelación pasan; recursos sintéticos eliminados. [Informe](evidencias/plans-2026-10-01/stripe-test-journey.json).
 
-Última CI publicada PR9: [general](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/37016026356) y [Supabase](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/37016004456) verdes. Supabase temporal completo verifica 128 pgTAP/RLS, concurrencia, Auth/REST/Storage/OTP/lifecycle y consumidores reales. El ensayo Windows solo ofrece PostgreSQL/PostgREST y schemas compatibles; no sustituye servicios Auth/Storage reales. Código fiscal requiere CI nueva antes de integrarse. Revisores independientes read-only calidad/UI cerrados sin hallazgos materiales.
+CI fiscal PR10: [general](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/37019803058) y [Supabase](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/37019775267) verdes; [main](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/37020294486) verde. Supabase temporal completo verifica 128 pgTAP/RLS, concurrencia, Auth/REST/Storage/OTP/lifecycle y consumidores reales. El ensayo Windows solo ofrece PostgreSQL/PostgREST y schemas compatibles; no sustituye servicios Auth/Storage reales. Código fiscal integrado6cab273; piloto Production READY dpl_4CMMZrHfS2W5DscEXAvTxFp4VJJt con ese SHA a14:34:36 UTC. Revisores independientes read-only calidad/UI cerrados sin hallazgos materiales.
 
 Backup cifrado 12:07 UTC: 64 tablas/1.758 filas, hash/descifrado verificados. Tres migraciones atómicas a12:11 UTC, 33 recibos; ocho legacy observe intactos, 23 tablas nuevas RLS/service-only. No hubo restore completo del snapshot ni nuevo backup de bytes multimedia.
 
@@ -16,19 +16,20 @@ Mux tkrqi3/3cnmn5, nombre Production/tipo development. Worker/import encendidos;
 
 Avisos probados con transporte Resend capturado, sin entrega. Subida12h/20GiB no probada. Observación14d/dos ciclos futura.
 
-## Activación y comprobación
+## Activación aplicada y siguientes pasos
 
-1. Integrar fiscal tras CI general y Supabase verdes, verificar Production READY del SHA exacto.
-2. Configurar exclusivamente organización 7125f160-3c4b-4225-a6b9-f6756c317930 y su owner verificado; email privado en variable Secret, no en repositorio. Ambas listas obligatorias y máximo cinco; vacías, ausentes o excesivas cierran ventas. No ampliar piloto silenciosamente.
-3. Verificar desde runtime cinco precios LIVE, tarifa ES21 inclusiva activa, aprobación versión2026-10-01 y listas. Encender PLATFORM_PLANS_ENABLED y desplegar el SHA fiscal verificado; confirmar nueva configuración efectiva.
-4. Comprobar www/login, condiciones y pantallas privadas reales sin aceptar por Iván ni iniciar Checkout LIVE. Run as permite observar y exportación exige owner real; acciones financieras bloqueadas en soporte. Iván acepta nueva oferta, declara domicilio y escoge plan desde su sesión propia. Legacy no migra solo.
-5. Mantener avisos y borrado apagados. Para activarlos después, verificar destinatario/condiciones/fecha/exportación y ejecutar solo el paso expresamente autorizado; nunca probar con contenido de cliente.
+1. PR10 fiscal integrado y Production READY verificado por SHA exacto. Vercel había conservado un diálogo PR9 antiguo: cancelado; redeploy realizado desde PR10. No reusar una ventana obsoleta para activar flags.
+2. Organización exclusiva7125f160-3c4b-4225-a6b9-f6756c317930 y owner verificado configurados. Email privado en variable Secret, no en repositorio. Ambas listas obligatorias y máximo cinco; vacías, ausentes o excesivas cierran ventas. No ampliar piloto silenciosamente.
+3. Runtime14:37:28 UTC verifica cinco precios LIVE, tarifa ES21 inclusiva activa, pilotTaxVerified, aprobación2026-10-01 y planes encendidos. [Informe](evidencias/plans-2026-10-01/provider-readiness-production-2026-10-02.json) y [captura](evidencias/plans-2026-10-01/pilot-production-2026-10-02.png).
+4. Destino comprobado: planes/formulario fiscal de Iván visibles; compras nuevas fuera del piloto cerradas. Soporte auditado cerrado y sesión original recuperada. Ninguna aceptación ni Checkout LIVE. GET público14:38:59: www/login/condiciones200, apex308 único awww200; consolas/logs consultados sin errores. SQL14:40:17 mantiene ocho legacy observe y cero nuevas ofertas/retenciones/intentos/ciclos/jobs.
+5. Owner real puede aceptar nueva oferta, declarar domicilio y escoger plan desde su sesión propia. Gratuidad anterior y legacy permanecen intactos. Run as bloquea acciones sensibles, exportación exige owner propio.
+6. Avisos/borrado apagados. Su activación posterior exige verificar destinatario/condiciones/fecha/exportación y el paso expresamente autorizado; nunca probar con contenido de cliente. Observar14d y dos ciclos reales después del inicio del piloto comercial.
 
 ## Configuración
 
 | Grupo | Estado |
 |---|---|
-| Piloto | PLATFORM_PLANS_ENABLED=false hasta fiscal READY; listas exactas de escuela y owner preparadas |
+| Piloto | PLATFORM_PLANS_ENABLED=true; listas exactas de Iván y owner activas y obligatorias |
 | Oferta LIVE | STRIPE_PRICE_INICIO_20261001, STRIPE_PRICE_CRECE_20261001, STRIPE_PRICE_ACADEMIA_20261001, STRIPE_PRICE_LIBRARY_20261001, STRIPE_PRICE_DELIVERY_PACK_20261001 configurados |
 | Fiscal | PLATFORM_TAX_RATE_ID tarifa manual verificada; PLATFORM_TAX_LIVE_APPROVED=2026-10-01 |
 | Medición | PLATFORM_CAPACITY_WORKER_ENABLED=true, MUX_USAGE_IMPORT_ENABLED=true, MUX_ENVIRONMENT_ID=3cnmn5 |
