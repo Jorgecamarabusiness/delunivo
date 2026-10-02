@@ -1,78 +1,17 @@
-# Planes y consumo — progreso
+﻿# Continuación — 2026-10-02, 13:55 UTC
 
-Actualización: 2026-10-02, 13:10 UTC. Encargo leído entero antes de editar.
-Rama: codex/plans-consumption-20261001. [Especificación](plans-consumption-spec.md).
+Rama codex/plans-consumption-20261001. Maestro único escritor. Especificación completa leída antes de editar; copia plans-consumption-spec.md. Autorización de integración/publicación recibida. Decisión final: piloto solo Iván Orgánico, España/Península y Baleares, IVA 21 % incluido. Sin compras LIVE, mensajes a clientes ni borrado permanente en las comprobaciones.
 
-Avance 13:30 UTC: PR7 integrado en main ea074f5 tras CI 37011855687 y
-Supabase 37011314478 verdes. Vercel dpl_EM5JaV7vCHZMgFeZQ7H4TJWPTSPk READY
-con los cinco Price IDs Production; catálogo LIVE canónico verificado y webhook
-principal ampliado a nueve eventos. Worker/importador activos, planes/avisos/
-conservación/borrado apagados. Ejecución manual del cron: 27 assets conciliados
-al entorno 3cnmn5, pero la primera hora queda failed/provider_window_mismatch.
-Ninguna cobertura cero inventada. Se publica diagnóstico de metadata numérica/
-tipos para resolver el contrato real de la API, sin exponer cuerpos ni secretos.
+PR4 corrige redirecciones de Run as caducado; www funciona con sesión real. PR5 implementa el encargo comercial completo; PR6/7 diagnóstico privado y catálogo LIVE. PR8 integrado 75b6ddf455603974e4a5cf826a40797bd761a972, producción READY dpl_6tGgjRPsdCHNFwYz9dgyUYHk1AKZ. CI 37014132098 y Supabase 37014126064 verdes: 147 unitarios, lint, TS, build, 23 E2E; Supabase 128 pgTAP, concurrencia, Auth/Storage y consumidores reales.
 
-Decisiones recibidas 02/10: piloto sólo Iván Orgánico; ventas sólo Península y
-Baleares, 21 % de IVA incluido. Ya no son decisiones pendientes. Implementar
-control de domicilio fiscal antes de abrir cobros, configurar tarifa inclusiva
-y listas explícitas de escuela/propietario. CI diagnóstico detectó un contador
-global de tests compartido por workers; ahora cada recuperación usa sesión y
-contador sintéticos propios. Build y los 23 E2E concurrentes pasan tras corregirlo.
+Backup privado cifrado: 64 tablas/1.758 filas, 12:07 UTC, SHA256 20568de6d94ef5c8480df9a4e6989d24c0beb8f93515f47febfe94b527b97620. Descifrado/JSON comprobados en memoria. Sin nuevo backup de bytes multimedia ni restore completo de este snapshot. Migraciones atómicas 12:11 UTC: 33 recibos, 23 tablas nuevas RLS/service-only; ocho legacy en observe, sin WARN nuevos.
 
-## Implementado y publicado
+Stripe LIVE acct_1TwKtKJD1wCl42uL: cinco precios inclusivos exactos creados y configurados en Vercel. Webhook principal conserva URL/secreto y tiene nueve eventos verificados; Connect intacto. Tarifa manual creada desde dashboard: txr_1UM6nLJD1wCl42uLPf3zp9dl, VAT/ES/21 %/inclusive/active; captura stripe-tax-production-2026-10-02.png. Stripe TEST real anterior: checkout, descuento, biblioteca, upgrades/decline/recovery/refunds, firmas y Test Clock; impuesto sintético 7 %. Avisos probados con transporte interceptado, sin entrega real.
 
-Catálogo versionado, legacy observe, cuotas/reservas atómicas, importador Mux,
-checkout/cambios/ampliaciones/recuperación, playback limitado, avisos/outbox,
-paneles, A medida, conservación y exportación. [Anexo](plans-implementation.md).
+Mux real tkrqi3/3cnmn5: nombre Production, tipo development. Worker/import habilitados para medición; 27 ledger reconciliados; tres assets del proveedor sin dueño atribuible quedan desconocidos. Importación falló con ventana exacta y count=undefined. Fix: count opcional; recorrer hasta página vacía explícita, mantener rechazo de null/count inválido/cambiante, duplicados, ventana incorrecta y error intermedio. Regresión reprodujo defecto anterior y pasa ahora. Revisión read-only sin hallazgos. Local: 152 unitarios (incluye cuatro fiscales aún en desarrollo), lint, TS y build pasan. Publicar fix y verificar cobertura SQL tras cron.
 
-Autorización expresa de producción. PR4 corrigió el bucle Run as; sesión real
-recuperada a login y portada. PR5 publicó planes; PR6 vista privada de servicios.
-Main a7991d4, Vercel dpl_8pqgsd5ZWQ3fUrnKgj3kH3qkGPuz READY.
-www y login 200; apex 308 único; consola real sin errores.
-Planes, avisos y borrado siguen apagados. Worker/importador true y entorno
-Mux 3cnmn5 guardados/verificados en Vercel, aplicarán al siguiente despliegue.
+Fiscal en desarrollo: revisión detectó recovery/worker y listas vacías fail-open. Implementar domicilio fiscal canónico Stripe, ES/código postal permitido, Customer previo/vinculado, Checkout sin reescritura de domicilio, guards en recuperación/cambios y allowlists obligatorias. Sin duplicar domicilio en Supabase. Iván corresponde a Grow Organic, slug grow-organic, dueño Ivan fernandez; UUID 7125f160-3c4b-4225-a6b9-f6756c317930, legacy cancelado.
 
-Backup cifrado fuera del repo: 64 tablas/1.758 filas, captura 12:07 UTC;
-SHA256 20568de6d94ef5c8480df9a4e6989d24c0beb8f93515f47febfe94b527b97620.
-Descifrado y JSON comprobados en memoria; sin copia nueva de bytes multimedia
-ni restore completo de este snapshot. Migraciones aplicadas atómicamente
-12:11 UTC, 29→33 recibos incluyendo 20261002121113. Ocho contratos anteriores
-íntegros en observe, sin aceptación/retención nueva; 27 assets/ledger, cero ciclos/jobs.
-Las 23 tablas nuevas tienen RLS y grants service-only; sin nuevos WARN de advisors.
+Controles efectivos: plans=false, notices=false, retención sin activar, MUX_DELETION_MODE=off; worker/import=true. Fiscal LIVE/allowlists pendientes tras código/pruebas/revisión. No activar con listas vacías ni aceptar oferta/comprar por el propietario.
 
-## Verificado
-
-- 146 unitarios, lint, TypeScript, build y 23 E2E aislados pasan. Tres E2E finales
-  de servicios enfocados pasan: permisos, unknown, acción deshabilitada,
-  375/768/1440, consola y red. Espera del redirect evita cancelar su stream.
-- CI PR6 general 37008387979 y Supabase 37008361193 verdes: 128 pgTAP/11 archivos,
-  concurrencia real, Auth/Storage/OTP/lifecycle y seis E2E de aplicación.
-  Restauración privada omitida; no afirmar restore de este snapshot.
-- Stripe TEST real, siete grupos previos, con tarifa inclusiva sintética 7%,
-  checkout hospedado, descuentos, librería, upgrades, rechazo/recuperación,
-  refund, firmas/duplicados/Connect y Test Clock. Recursos de relojes eliminados.
-- Avisos SQL real/Resend con transporte interceptado pasan: 70/90 y unicidad/retry;
-  sin entrega real. Revisiones UI/calidad cerradas tras corregir hallazgos.
-- Producción desde panel privado 12:48 UTC: Stripe LIVE acct_1TwKtKJD1wCl42uL,
-  coincide con dashboard, cobros/payouts habilitados; catálogo/fiscal vacíos.
-  Mux token válido, tkrqi3/3cnmn5, nombre Production, tipo development.
-  Exportación local redacted de Vercel no prueba credenciales inválidas.
-
-## Trabajo actual y pendientes
-
-Nueva acción superadmin fuera de Run as prepara sólo cinco productos/precios
-LIVE fijos, inclusivos, versionados, deterministas/idempotentes, con recuperación
-parcial; no clientes, cargos, contratos ni registros fiscales. Stripe UI no
-ofrece tax_behavior sin entrar a Stripe Tax; Workbench LIVE es read-only.
-Validación canónica por key/lookup/LIVE/EUR/importe/intervalo evita false ready.
-16 regresiones enfocadas pasan. SubmitButton muestra pending/aria-busy.
-Ningún producto LIVE creado todavía; publicar acción y ejecutarla.
-
-Ampliar eventos del webhook principal, verificar medición real/atribución/
-cobertura, configurar cinco PriceIDs en Vercel. Jorge limita lanzamiento a España;
-regiones/IVA y lista de máximo cinco escuelas siguen pendientes. Autorización
-para operar reiterada; no equivale a una respuesta de IVA ni lista de escuelas.
-No activar ventas sin fiscal/piloto; no activar avisos/borrado fuera de límites.
-No probado vídeo real 12 h/20 GiB, entrega Resend ni observación 14 d/dos ciclos.
-
-Continuar por [runbook](plans-launch-runbook.md). No detenerse por cierre de fase.
+Siguiente: publicar/verificar Mux; terminar fiscal y TEST real; revisión calidad/UI; configurar solo Iván/tarifa validada; publicar/verificar destino; actualizar estado/runbook. Observación 14 días/dos ciclos posterior a activación. Vídeo real 12 h/20 GiB no probado; límites y reservas sí.
