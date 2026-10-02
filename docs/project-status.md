@@ -10,7 +10,9 @@ de una sesión de soporte caducada con credencial original purgada. El parche
 `codex/run-as-recovery-20261002`. Lint, 130 unitarios, TypeScript, build y
 20 E2E aislados pasan aquí; el parche de main pasa 117 unitarios y 16 E2E.
 Revisión independiente de calidad sin bloqueos tras corregir orden de revocación.
-Pendiente autorizar publicación del parche y verificar la pestaña real.
+Autorizado el 02/10 y publicado por PR4: main `97af585`, Vercel
+`dpl_EwQjnR6saJvX9L7d8yUG7pYwAgfd` READY. Pestaña real recuperada: login y
+después portada con sesión de Jorge, sin errores de consola/runtime consultados.
 No activa los planes ni requiere migraciones. Detalle:
 [`incidente`](incidents/2026-10-02-run-as-redirects.md).
 
@@ -19,10 +21,13 @@ No activa los planes ni requiere migraciones. Detalle:
 Rama `codex/plans-consumption-20261001`, especificación aceptada en
 [`plans-consumption-spec.md`](plans-consumption-spec.md), progreso y evidencias en
 [`plans-implementation-progress.md`](plans-implementation-progress.md).
-El despliegue automático de esta rama está deshabilitado. No se han aplicado
-migraciones reales, creado precios LIVE, enviado avisos a clientes ni borrado
-contenido real. El cierre de septiembre que sigue debajo describe producción;
-esta sección describe el trabajo posterior todavía no publicado.
+El despliegue automático de esta rama está deshabilitado. Jorge autorizó el
+lanzamiento el 02/10. Las tres migraciones se aplicaron atómicamente a las
+12:11 UTC con backup previo cifrado (64 tablas/1.758 filas), hash/descifrado
+verificados y comprobación de contratos íntegros. Ledger remoto33 entradas,
+incluido recibo API `20261002121113`. Las ocho escuelas siguen observe sin nueva
+oferta/conservación; 27 assets atribuidos, cero ciclos/jobs nuevos. Código aún
+pendiente de publicar; ventas, workers, avisos y borrado preparados apagados.
 
 Catálogo Inicio/Crece/Academia 30/69/149 EUR inclusivos; biblioteca 20/50/100 h,
 entrega 3.000/8.000/20.000 min y gracia 300/800/2.000 por ciclo. Ampliaciones
@@ -46,9 +51,11 @@ Avisos SQL/SDK con destinatarios
 sintéticos y transporte interceptado pasan, sin entregas reales.
 No confundir estas evidencias con producción.
 
-Mux UI autenticada confirma 30 assets y la factura histórica; API local antigua
-responde 401 y no permite aún verificar el importador contra la cuenta real.
-Stripe LIVE muestra login: tratamiento fiscal/jurisdicciones sin verificar;
+Mux UI autenticada confirma 30 assets y la factura histórica. La exportación
+local contiene valores sensibles ocultos por Vercel: su401 no prueba fallo de
+claves de producción. Se prepara comprobación de lectura desde servidor privado.
+Stripe LIVE tiene sesión y pagos/payouts activos en dashboard; tratamiento fiscal
+y coincidencia con la cuenta del servidor todavía pendientes de verificar;
 activación LIVE impedida. La tarifa TEST inclusiva 7% es sintética y no establece
 una política fiscal. Procedimiento y pendientes:
 [`plans-launch-runbook.md`](plans-launch-runbook.md).

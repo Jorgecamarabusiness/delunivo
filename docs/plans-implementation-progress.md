@@ -55,12 +55,11 @@ UI conserva exportación y oculta nuevas compras/cambios durante pago pendiente.
 
 ## Bloqueos de lanzamiento comprobados
 
-Mux navegador autenticado confirma 30 assets en dos páginas y 5.311 s redondeados,
-factura histórica 0,35 USD bruto /0 pagado. API local antigua 401: falta credencial
-vigente/entorno API y ensayo real del importador. Stripe LIVE muestra login:
-falta sesión y política fiscal por jurisdicciones verificadas; activación impedida,
-sin copiar tarifa TEST ni fijar21%. Paso de acceso pedido, sin respuesta aún.
-No subida real 12 h/20 GiB ni piloto de14 días/dos ciclos, ni entrega Resend real.
+Mux UI confirma30 assets; la exportaci?n local contiene secretos ocultos por
+Vercel. Su401 no representa una prueba de credenciales de producci?n. Stripe
+LIVE tiene sesi?n y muestra pagos/payouts activos desde02/10. Pendientes lectura
+desde servidor, coincidencia de cuenta, fiscal por jurisdicciones y piloto
+expl?cito. No subida real12h/20GiB, observaci?n14d/dos ciclos ni entrega Resend.
 
 ## Siguiente paso
 
@@ -69,3 +68,27 @@ requiere autorización explícita, accesos/fiscal y comprobaciones del runbook.
 No publicar ni aplicar producción por el push. Procesos portables propios
 detenidos y puertos54397/54398/54399 sin listeners. Datos sintéticos permanecen
 en TEMP, sin servicio global.
+
+
+## Lanzamiento autorizado ? 2026-10-02
+
+- Jorge autoriz? los pasos de producci?n. Hotfix PR4/main97af585 desplegado READY
+  en dpl_EwQjnR6saJvX9L7d8yUG7pYwAgfd; pesta?a real recuperada a login y luego
+  portada con sesi?n propia. Sin errores de consola/runtime en ventana consultada.
+- Backup DB cifrado OpenPGP fuera del repo:64 tablas/1.758 filas, captura12:07UTC;
+  SHA25620568de6d94ef5c8480df9a4e6989d24c0beb8f93515f47febfe94b527b97620,
+  descifrado/JSON comprobados en memoria. Incluye registros Auth/Storage y metadata
+  de schema; no nuevos bytes de medios ni restore completo de este snapshot.
+- Tres migraciones aplicadas at?micamente12:11UTC, baseline29?33 incluyendo
+  recibo API20261002121113. Pre/post verifican datos billing anteriores ?ntegros,
+  ocho legacy observe sin oferta/retenci?n;27 videos/ledger, cero ciclos/jobs.
+  RLS y grants cerrados para clientes; avisos advisors INFO service-only previstos
+  y los mismos nueve WARN de funciones autorizadas anteriores.
+- Vercel Production: planes/worker/importador/avisosfalse, Mux deletionoff,
+  aplicaci?n al pr?ximo deploy. Correos de acceso existentes conservados.
+- origin/main integrado. Nueva lectura de proveedores desde runtime privado
+  s?lo superadmin fuera de Run as, proyecciones sin secretos; seis regresiones
+  unitarias y dos E2E directos. Revisi?n read-only sin bloqueos tras correcciones.
+- Final local:136 unitarios, lint, TypeScript, build y22 E2E pasan. Pendiente
+  push/CI/merge/despliegue del c?digo de planes apagado, lectura real Stripe/Mux,
+  precios/fiscal y lista expl?cita de piloto antes de activaci?n.

@@ -1,3 +1,3 @@
-import Stripe from "stripe";
+import { createStripeApiClient } from "./config";
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { timeout: 20_000, maxNetworkRetries: 2 });
+export const stripe = createStripeApiClient();

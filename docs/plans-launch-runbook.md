@@ -1,8 +1,9 @@
 # Lanzamiento de planes y consumo — 2026-10-01
 
-Este procedimiento prepara un lanzamiento posterior expresamente autorizado.
-El encargo actual no publica, migra producción, activa precios LIVE, envía a
-clientes ni elimina sus medios. La rama tiene `deploymentEnabled=false`.
+Jorge autorizó expresamente el lanzamiento el 02/10, después de revisar el parche
+de acceso y los pendientes de activación. La rama mantiene `deploymentEnabled=false`;
+la publicación se integra en main tras verificaciones. Los envíos a clientes y
+el borrado conservan los límites de autorización separada de la especificación.
 Especificación comercial: [prompt aceptado](plans-consumption-spec.md).
 
 ## Evidencia y límites
@@ -36,9 +37,11 @@ Especificación comercial: [prompt aceptado](plans-consumption-spec.md).
 - Mux UI real en lectura: 30 assets, dos páginas, 5.311 s redondeados por dashboard,
   bruto histórico 0,35 USD y pago 0. Esta muestra no representa uso de clientes.
   [Evidencia](evidencias/plans-2026-10-01/provider-browser-read-only.json).
-  API antigua local 401: pendiente credencial vigente, entorno API real y ensayo
+  Exportación local con secretos ocultos por Vercel; su401 no demuestra fallo en
+  producción. Pendiente comprobar desde servidor entorno API real y ensayo
   de importación atribuido. No se han importado datos ficticios en producción.
-- Stripe LIVE requiere sesión. Faltan verificar vendedor/registros fiscales,
+- Stripe LIVE ya tiene sesión el02/10 y pagos/payouts activos. Faltan verificar
+  coincidencia de cuenta con el servidor, vendedor/registros fiscales,
   países/jurisdicciones que se aceptarán, tipos/exenciones y correspondencia
   inclusiva con la facturación existente. No usar 7% TEST ni 21% universal.
   No habilitar servicios fiscales de pago. `PLATFORM_TAX_LIVE_APPROVED` queda vacío.
@@ -46,6 +49,15 @@ Especificación comercial: [prompt aceptado](plans-consumption-spec.md).
   El piloto 14 días y sus dos ciclos todavía no se han ejecutado.
 
 ## Orden de publicación autorizado
+
+Registro 02/10: acceso recuperado en main97af585; backup cifrado local de64
+tablas/1.758 filas, SHA256 y descifrado comprobados. Las tres migraciones se
+aplicaron a12:11UTC en un bundle atómico con validación de contratos legacy;
+33 recibos remotos incluyendo20261002121113. Ocho escuelas observe con versión
+y conservación null;27 assets/27 ledger, cero ciclos/jobs. Los cinco flags
+Production quedaron configurados off/false; surtirán efecto al nuevo despliegue.
+`EMAIL_DELIVERY_MODE` existente se conserva para no bloquear correos de acceso;
+los avisos de capacidad tienen su propio flagfalse y workerfalse.
 
 1. Verificar proyecto Supabase y cuenta Stripe/Mux mediante lecturas, backup y
    estado actual. No asumir que el catálogo de septiembre siga vigente. Confirmar

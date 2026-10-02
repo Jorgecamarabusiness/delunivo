@@ -695,7 +695,10 @@ en riesgo.
 ## Planes, medición y economía — lote local 2026-10-01
 
 Las migraciones `20261001132712`, `20261001151159` y `20261001162500` son
-aditivas y todavía no están aplicadas en producción. Se reutilizan
+aditivas y se aplicaron atómicamente en producción el02/10/2026 a12:11UTC,
+con backup cifrado previo y verificación de contratos legacy preservados. El
+recibo API `20261002121113_platform_plans_verified_bundle` es no-op local;
+el ledger remoto suma33 entradas. Se reutilizan
 `organization_billing`, memberships, checkouts y colas Mux; Connect sigue aparte.
 
 - `organization_billing`: versión/oferta aceptada, plan, techos activo/económico,

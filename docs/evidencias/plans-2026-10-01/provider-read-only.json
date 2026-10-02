@@ -1,20 +1,25 @@
 {
-  "inspectedAt": "2026-10-01T13:41:36.238Z",
+  "inspectedAt": "2026-10-02T12:24:16.797Z",
   "test": {
     "available": true,
     "keyMode": "test",
-    "taxRates": [],
+    "taxRates": [
+      {
+        "inclusive": true,
+        "percentage": 7,
+        "country": "ES",
+        "jurisdiction": "Synthetic test only",
+        "livemode": false
+      }
+    ],
     "hasMore": false
   },
   "production-read-only": {
     "available": false,
-    "errorType": "StripeAuthenticationError",
-    "status": 401
+    "reason": "redacted_environment_export"
   },
   "mux": {
-    "status": 401,
-    "environmentId": null,
-    "environmentName": null,
-    "tokenType": null
+    "available": false,
+    "reason": "missing_or_redacted_environment_export"
   }
 }
