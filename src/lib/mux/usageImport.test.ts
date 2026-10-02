@@ -1,6 +1,20 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { collectUsageHour } from "./usageImport.ts";
+test("Mux's count-free response is exhausted before coverage becomes complete", async () => {
+  const pages: number[] = [];
+  const rows = await collectUsageHour({ async page(start, end, page) {
+    pages.push(page);
+    return { timeframe: [start, end], data: page <= 2 ? [{ asset_id: `count-free-${page}`, delivered_seconds: page + .25 }] : [] };
+  } }, 3600);
+  assert.deepEqual(pages, [1, 2, 3]);
+  assert.equal(rows.length, 2);
+  assert.deepEqual(await collectUsageHour({ async page(start, end) { return { timeframe: [start, end], data: [] }; } }, 0), []);
+  await assert.rejects(collectUsageHour({ async page(start, end, page) {
+    if (page === 2) throw new Error("provider_unavailable");
+    return { timeframe: [start, end], data: [{ asset_id: "partial", delivered_seconds: 1 }] };
+  } }, 0), /provider_unavailable/);
+});
 test("full pagination includes deleted/unattributed assets and keeps precise seconds", async () => {
   const pages: number[] = [];
   const rows = await collectUsageHour({ async page(start, end, page) {
