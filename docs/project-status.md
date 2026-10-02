@@ -1,6 +1,22 @@
 # Delunivo: estado y decisiones vigentes
 
-Ultima actualizacion: 2026-09-07.
+Ultima actualizacion: 2026-10-02.
+
+## Incidente de acceso: parche preparado, pendiente de publicación
+
+Producción consultada el 02/10: `dpl_3EcBRjSvcNJ5Ba9bdpA8czJfzAaC`, commit
+`25130eb`. El bucle observado en Chrome se debe a Run as caducado cuya credencial
+original ya fue purgada; HTTP anónimo raíz/login responde correctamente.
+El parche en `codex/run-as-recovery-20261002`, basado sólo en main, permite volver
+al login si no se puede restaurar al actor. Revocación y auditoría preceden el
+cambio de identidad; la revocación fallida conserva el guarda sensible manual.
+
+Estado final local del parche: lint, 117 unitarios, TypeScript, build aislado y
+16 E2E Chromium pasan. Antes del cambio se reprodujo el bucle y las tres nuevas
+regresiones manuales fallaron. Revisión independiente de calidad sin bloqueos.
+No se ha publicado; la rama deshabilita despliegues automáticos. No requiere
+migraciones ni modifica los planes/precios. Evidencia y publicación pendiente:
+[`incidente`](incidents/2026-10-02-run-as-redirects.md).
 
 ## Cierre de auditoría y funciones: desplegado
 
