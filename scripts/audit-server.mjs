@@ -8,15 +8,18 @@ import { createCipheriv, createHash, generateKeyPairSync } from "node:crypto";
 import { spawn } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { AUDIT_PORT, AUDIT_SUPABASE_PORT, accounts, accountForEmail, accountForToken, assetA, courseA, ids, lessonA, organizations, runAsFixtures, sectionA, userFor } from "./audit-fixtures.mjs";
+import { AUDIT_PORT, AUDIT_SUPABASE_PORT, accounts, accountForEmail, accountForToken, assetA, courseA, ids, lessonA, organizations, runAsFixtures, runAsActors, sectionA, userFor } from "./audit-fixtures.mjs";
 
 // The real operational cleanup erases the original session after Run as expires.
-const actorCipher = createCipheriv("aes-256-gcm", Buffer.alloc(32,7), Buffer.alloc(12,1));
-actorCipher.setAAD(Buffer.from("delunivo-support-impersonation:v1"));
-const actorEncrypted = Buffer.concat([actorCipher.update(JSON.stringify({accessToken:accounts.superadmin.token,refreshToken:`refresh.${accounts.superadmin.token}`})),actorCipher.final()]);
-const syntheticActorSession = `v1.${Buffer.alloc(12,1).toString("base64url")}.${actorCipher.getAuthTag().toString("base64url")}.${actorEncrypted.toString("base64url")}`;
+const syntheticActorSessions = Object.fromEntries(Object.entries(runAsActors).map(([scenario, actor]) => {
+  const iv = createHash("sha256").update(scenario).digest().subarray(0,12);
+  const actorCipher = createCipheriv("aes-256-gcm", Buffer.alloc(32,7), iv);
+  actorCipher.setAAD(Buffer.from("delunivo-support-impersonation:v1"));
+  const encrypted = Buffer.concat([actorCipher.update(JSON.stringify({accessToken:actor.token,refreshToken:`refresh.${actor.token}`})),actorCipher.final()]);
+  return [scenario, `v1.${iv.toString("base64url")}.${actorCipher.getAuthTag().toString("base64url")}.${encrypted.toString("base64url")}`];
+}));
 const runAsMarkerHash = scenario => createHash("sha256").update(`expired-support-marker-${scenario}`).digest("hex");
-let actorSessionValidations = 0;
+const actorSessionValidations = Object.fromEntries(Object.keys(runAsActors).map(scenario => [scenario,0]));
 
 const json = (response, status, body, headers = {}) => {
   response.writeHead(status, { "content-type": "application/json", "access-control-allow-origin": "http://localhost:" + AUDIT_PORT, "access-control-allow-headers": "authorization, apikey, content-type, x-client-info, x-supabase-api-version", ...headers });
@@ -43,7 +46,7 @@ function rowsFor(table, query, account) {
       const entry = Object.entries(runAsFixtures).find(([,fixture]) => eq("target_auth_session_id") === fixture.sessionId || eq("id") === fixture.id);
       if(!entry) return [];
       const [scenario,fixture] = entry;
-      return [{id:fixture.id,actor_user_id:ids.superadmin,target_user_id:fixture.id,target_auth_session_id:fixture.sessionId,token_hash:runAsMarkerHash(scenario),status:"active",expires_at:new Date(Date.now()-60_000).toISOString(),encrypted_actor_session:["restorable","auditFailure","revocationFailure"].includes(scenario) ? syntheticActorSession : ""}];
+      return [{id:fixture.id,actor_user_id:ids.superadmin,target_user_id:fixture.id,target_auth_session_id:fixture.sessionId,token_hash:runAsMarkerHash(scenario),status:"active",expires_at:new Date(Date.now()-60_000).toISOString(),encrypted_actor_session:syntheticActorSessions[scenario] ?? ""}];
     }
     case "organizations": return eq("slug") === organizations.orgA.slug ? [organizations.orgA] : eq("slug") === organizations.orgB.slug ? [organizations.orgB] : eq("id") === ids.orgA ? [organizations.orgA] : eq("id") === ids.orgB ? [organizations.orgB] : [organizations.orgA,organizations.orgB];
     case "profiles": return Object.values(accounts).filter(Boolean).map(a => ({ id: a.id, name: a.email.split("@")[0], email: a.email, is_super_admin: a.id === ids.superadmin, account_status: "active" })).filter(row => !eq("id") || row.id === eq("id"));
@@ -72,7 +75,10 @@ async function mockSupabase(request, response) {
   const url = new URL(request.url, `http://127.0.0.1:${AUDIT_SUPABASE_PORT}`);
   const account = accountFrom(request);
   if(url.pathname === "/__audit/run-as-effects") return json(response,200,{actorSessionValidations});
-  if(url.pathname === "/auth/v1/user" && account?.id === ids.superadmin) actorSessionValidations++;
+  if(url.pathname === "/auth/v1/user") {
+    const actor = Object.entries(runAsActors).find(([,a]) => tokenFrom(request) === a.token);
+    if(actor) actorSessionValidations[actor[0]]++;
+  }
   if (url.pathname === "/auth/v1/user") return account ? json(response, 200, userFor(account)) : json(response, 401, { message: "invalid JWT" });
   if (url.pathname === "/auth/v1/logout" && account?.id === runAsFixtures.logoutFailure.id) return json(response, 503, {message:"Synthetic Auth outage"});
   if (url.pathname === "/auth/v1/logout" && account?.id === runAsFixtures.revocationFailure.id && request.headers.apikey === "audit-service-role-key") return json(response,503,{message:"Synthetic admin revoke failure"});
@@ -80,7 +86,7 @@ async function mockSupabase(request, response) {
     const body = await readJson(request);
     const isRefresh = url.searchParams.get("grant_type") === "refresh_token";
     const found = isRefresh
-      ? Object.values(accounts).find((candidate) => candidate && body.refresh_token?.includes(candidate.token))
+      ? accountForToken(body.refresh_token)
       : accountForEmail(body.email);
     if (!found || (!isRefresh && found.password !== body.password)) return json(response, 400, { error: "invalid_grant", error_description: "Invalid login credentials" });
     return json(response, 200, { access_token: found.token, refresh_token: `refresh.${found.token}`, token_type: "bearer", expires_in: 3600, user: userFor(found) });

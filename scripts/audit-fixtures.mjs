@@ -40,6 +40,13 @@ for (const [scenario,fixture] of Object.entries(runAsFixtures)) {
   accounts[`support_${scenario}`] = {id:fixture.id,email:`support-${scenario}@example.test`,password:"Audit-support-Aa1",token:auditJwt(fixture.id,fixture.sessionId)};
 }
 
+// Dedicated original sessions prevent unrelated superadmin traffic from
+// contaminating the assertion that a failed recovery never validates its actor.
+export const runAsActors = Object.fromEntries(["restorable", "auditFailure", "revocationFailure"].map(scenario => [scenario, {
+  ...accounts.superadmin,
+  token: auditJwt(ids.superadmin, runAsFixtures[scenario].sessionId.replace("92000000", "93000000")),
+}]));
+
 export const organizations = {
   orgA: { id: ids.orgA, name: "Escuela A sintética", slug: "audit-org-a", owner_id: ids.ownerA, tagline_template: null, hero_subtitle: "Entorno aislado de auditoría", featured_course_id: ids.courseA, logo_url: null, primary_color: "#155e75" },
   orgB: { id: ids.orgB, name: "Escuela B sintética", slug: "audit-org-b", owner_id: ids.ownerB, tagline_template: null, hero_subtitle: "Sin acceso a A", featured_course_id: null, logo_url: null, primary_color: "#155e75" },
@@ -54,7 +61,7 @@ export const sectionA = { id: ids.sectionA, course_id: ids.courseA, title: "Inic
 export const assetA = { id: ids.assetA, organization_id: ids.orgA, course_id: ids.courseA, lesson_id: ids.lessonA, block_id: ids.blockA, mux_playback_id: "audit-playback-id", status: "ready", is_current: true, duration_seconds: 60 };
 
 export function accountForToken(token = "") {
-  return Object.values(accounts).find((account) => account && token.includes(account.token)) ?? null;
+  return [...Object.values(accounts), ...Object.values(runAsActors)].find((account) => account && token.includes(account.token)) ?? null;
 }
 
 export function accountForEmail(email = "") {

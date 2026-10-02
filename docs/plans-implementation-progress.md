@@ -3,6 +3,22 @@
 Actualización: 2026-10-02, 13:10 UTC. Encargo leído entero antes de editar.
 Rama: codex/plans-consumption-20261001. [Especificación](plans-consumption-spec.md).
 
+Avance 13:30 UTC: PR7 integrado en main ea074f5 tras CI 37011855687 y
+Supabase 37011314478 verdes. Vercel dpl_EM5JaV7vCHZMgFeZQ7H4TJWPTSPk READY
+con los cinco Price IDs Production; catálogo LIVE canónico verificado y webhook
+principal ampliado a nueve eventos. Worker/importador activos, planes/avisos/
+conservación/borrado apagados. Ejecución manual del cron: 27 assets conciliados
+al entorno 3cnmn5, pero la primera hora queda failed/provider_window_mismatch.
+Ninguna cobertura cero inventada. Se publica diagnóstico de metadata numérica/
+tipos para resolver el contrato real de la API, sin exponer cuerpos ni secretos.
+
+Decisiones recibidas 02/10: piloto sólo Iván Orgánico; ventas sólo Península y
+Baleares, 21 % de IVA incluido. Ya no son decisiones pendientes. Implementar
+control de domicilio fiscal antes de abrir cobros, configurar tarifa inclusiva
+y listas explícitas de escuela/propietario. CI diagnóstico detectó un contador
+global de tests compartido por workers; ahora cada recuperación usa sesión y
+contador sintéticos propios. Build y los 23 E2E concurrentes pasan tras corregirlo.
+
 ## Implementado y publicado
 
 Catálogo versionado, legacy observe, cuotas/reservas atómicas, importador Mux,

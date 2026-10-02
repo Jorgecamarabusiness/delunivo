@@ -42,7 +42,7 @@ for (const scenario of ["purged", "logoutFailure", "inactive", "restorable", "au
       await expect(page.getByRole("heading",{name:"Inicia sesión en tu cuenta"})).toBeVisible();
       if (["auditFailure","revocationFailure"].includes(scenario)) {
         const effectsAfter = await (await page.request.get(effectsUrl)).json();
-        expect(effectsAfter.actorSessionValidations).toBe(effectsBefore.actorSessionValidations);
+        expect(effectsAfter.actorSessionValidations[scenario]).toBe(effectsBefore.actorSessionValidations[scenario]);
       }
     }
     expect(navigations.filter(path=>path==="/api/support/run-as/exit")).toHaveLength(1);
