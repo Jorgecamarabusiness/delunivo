@@ -2,6 +2,17 @@
 export const AUDIT_PORT = 3217;
 export const AUDIT_SUPABASE_PORT = 55473;
 
+// Stable across the separate mock/server/browser processes; not a signed Auth JWT.
+const auditJwt = (subject, sessionId) => `${Buffer.from(JSON.stringify({alg:"HS256",typ:"JWT"})).toString("base64url")}.${Buffer.from(JSON.stringify({sub:subject,session_id:sessionId,exp:4102444800})).toString("base64url")}.synthetic-signature`;
+export const runAsFixtures = {
+  purged: { id:"91000000-0000-4000-8000-000000000001", sessionId:"92000000-0000-4000-8000-000000000001" },
+  logoutFailure: { id:"91000000-0000-4000-8000-000000000002", sessionId:"92000000-0000-4000-8000-000000000002" },
+  inactive: { id:"91000000-0000-4000-8000-000000000003", sessionId:"92000000-0000-4000-8000-000000000003" },
+  restorable: { id:"91000000-0000-4000-8000-000000000004", sessionId:"92000000-0000-4000-8000-000000000004" },
+  auditFailure: { id:"91000000-0000-4000-8000-000000000006", sessionId:"92000000-0000-4000-8000-000000000006" },
+  revocationFailure: { id:"91000000-0000-4000-8000-000000000007", sessionId:"92000000-0000-4000-8000-000000000007" },
+};
+
 export const ids = {
   orgA: "10000000-0000-4000-8000-000000000001",
   orgB: "10000000-0000-4000-8000-000000000002",
@@ -22,8 +33,12 @@ export const accounts = {
   studentInvited: { id: "20000000-0000-4000-8000-000000000005", email: "invitada-a@example.test", password: "Audit-invited-Aa1", token: "audit.student-invited" },
   ownerA: { id: ids.ownerA, email: "owner-a@example.test", password: "Audit-owner-Aa1", token: "audit.owner-a" },
   ownerB: { id: ids.ownerB, email: "owner-b@example.test", password: "Audit-owner-Bb1", token: "audit.owner-b" },
-  superadmin: { id: ids.superadmin, email: "superadmin@example.test", password: "Audit-superadmin-Sa1", token: "audit.superadmin" },
+  superadmin: { id: ids.superadmin, email: "superadmin@example.test", password: "Audit-superadmin-Sa1", token: auditJwt(ids.superadmin,"92000000-0000-4000-8000-000000000005") },
 };
+
+for (const [scenario,fixture] of Object.entries(runAsFixtures)) {
+  accounts[`support_${scenario}`] = {id:fixture.id,email:`support-${scenario}@example.test`,password:"Audit-support-Aa1",token:auditJwt(fixture.id,fixture.sessionId)};
+}
 
 export const organizations = {
   orgA: { id: ids.orgA, name: "Escuela A sintética", slug: "audit-org-a", owner_id: ids.ownerA, tagline_template: null, hero_subtitle: "Entorno aislado de auditoría", featured_course_id: ids.courseA, logo_url: null, primary_color: "#155e75" },
