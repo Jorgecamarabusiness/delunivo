@@ -9,7 +9,14 @@ export async function collectUsageHour(source: UsageSource, start: number): Prom
   let expected: number | undefined;
   for (let page = 1; page <= 10000; page++) {
     const response = await source.page(start, start + 3600, page);
-    if (!Array.isArray(response.data) || !Array.isArray(response.timeframe) || response.timeframe[0] !== start || response.timeframe[1] !== start + 3600 || !Number.isSafeInteger(response.total_row_count) || response.total_row_count < 0) throw new Error("provider_window_mismatch");
+    if (!Array.isArray(response.data) || !Array.isArray(response.timeframe) || response.timeframe.length !== 2 || response.timeframe[0] !== start || response.timeframe[1] !== start + 3600 || !Number.isSafeInteger(response.total_row_count) || response.total_row_count < 0) {
+      // Keep failed coverage explicit and expose only bounded numeric/type
+      // metadata needed to diagnose provider contract drift, never raw bodies.
+      const scalar = (value: unknown) => Number.isSafeInteger(value) ? String(value) : value === null ? "null" : typeof value;
+      const window = Array.isArray(response.timeframe) ? response.timeframe.slice(0, 2).map(scalar).join(":") : typeof response.timeframe;
+      const length = Array.isArray(response.timeframe) ? Math.min(response.timeframe.length, 99) : "not_array";
+      throw new Error(`provider_window_mismatch requested=${start}:${start + 3600} observed=${window} timeframe_length=${length} count=${scalar(response.total_row_count)} data_array=${Array.isArray(response.data)}`);
+    }
     if (expected !== undefined && expected !== response.total_row_count) throw new Error("provider_pagination_changed");
     expected = response.total_row_count;
     for (const row of response.data) {
