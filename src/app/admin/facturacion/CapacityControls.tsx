@@ -36,18 +36,45 @@ function Acceptance() {
     </>
   );
 }
+function FiscalDomicileFields() {
+  return <fieldset className="space-y-4 rounded-lg border border-border p-4">
+    <legend className="px-1 text-sm font-semibold">Domicilio fiscal de la escuela</legend>
+    <p className="text-sm text-muted-foreground">Piloto en España, solo Península y Baleares. Precios con el 21 % de IVA incluido. Estos datos se guardan en Stripe para la facturación.</p>
+    <input type="hidden" name="fiscalCountry" value="ES" />
+    <div className="grid gap-4 sm:grid-cols-2">
+      <label className="text-sm font-medium sm:col-span-2">Nombre o razón social
+        <input className={`${inputClassName} mt-2`} name="fiscalName" autoComplete="organization" maxLength={200} required />
+      </label>
+      <label className="text-sm font-medium sm:col-span-2">Dirección fiscal
+        <input className={`${inputClassName} mt-2`} name="fiscalLine1" autoComplete="address-line1" maxLength={200} required />
+      </label>
+      <label className="text-sm font-medium">Localidad
+        <input className={`${inputClassName} mt-2`} name="fiscalCity" autoComplete="address-level2" maxLength={100} required />
+      </label>
+      <label className="text-sm font-medium">Código postal
+        <input className={`${inputClassName} mt-2`} name="fiscalPostalCode" autoComplete="postal-code" inputMode="numeric" pattern="[0-9]{5}" maxLength={5} required />
+      </label>
+    </div>
+    <label className="flex items-start gap-3 text-sm">
+      <input className="mt-1 h-5 w-5 shrink-0" type="checkbox" name="acceptFiscalScope" value="yes" required />
+      <span>Confirmo que este es el domicilio fiscal de la escuela y que se encuentra en Península o Baleares, España.</span>
+    </label>
+  </fieldset>;
+}
 export function CapacityControls({
   organizationId,
   planKey,
   libraryQuantity,
   subscriptionActive,
   enabled,
+  fiscalScopeRequired = false,
 }: {
   organizationId: string;
   planKey: string | null;
   libraryQuantity: number;
   subscriptionActive: boolean;
   enabled: boolean;
+  fiscalScopeRequired?: boolean;
 }) {
   const [purchase, buyAction, buying] = useActionState(
     purchaseCapacityAction,
@@ -93,6 +120,7 @@ export function CapacityControls({
             El pago inicia la suscripción mensual con renovación automática. La
             prueba no se convierte automáticamente en una suscripción.
           </p>
+          {fiscalScopeRequired ? <FiscalDomicileFields /> : null}
           <Acceptance />
           <button
             disabled={buying}
@@ -111,6 +139,7 @@ export function CapacityControls({
               Pago único, impuestos incluidos. Vence 90 días después del pago
               confirmado. Sin renovación automática.
             </p>
+            {fiscalScopeRequired ? <p className="text-sm text-muted-foreground">Se utiliza el domicilio fiscal confirmado de la escuela en Península o Baleares, con el 21 % de IVA incluido.</p> : null}
             <Acceptance />
             <button
               disabled={buying}

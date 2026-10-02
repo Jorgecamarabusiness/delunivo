@@ -49,7 +49,7 @@ export async function reconcileCapacitySubscription(
       subscription.metadata.capacity_operation_id,
     );
   const prices = await Promise.all(
-    PLANS.map((plan) => capacityPrice(plan.key)),
+    PLANS.map((plan) => capacityPrice(plan.key, true)),
   );
   const baseIndex = prices.findIndex((price) =>
     subscription.items.data.some((item) => item.price.id === price.id),
@@ -58,7 +58,7 @@ export async function reconcileCapacitySubscription(
   const item = subscription.items.data.find(
     (i) => i.price.id === prices[baseIndex].id,
   )!;
-  const library = await capacityPrice("library");
+  const library = await capacityPrice("library", true);
   const quantity =
     subscription.items.data.find((i) => i.price.id === library.id)?.quantity ??
     0;

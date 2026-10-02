@@ -21,6 +21,8 @@ import { applyPaidAffiliateInvoice } from "./paidAffiliateInvoice";
 import { reconcileCapacitySubscription } from "./capacityEvents";
 import { plansEnabledForSchool } from "@/lib/billing/rollout";
 import { readAllRows } from "@/lib/billing/readAllRows";
+import { assertCapacityFiscalAttempt, assertCapacityFiscalCustomer, prepareCapacityFiscalCustomer } from "./capacityFiscal";
+import { fiscalPolicyRequired, FISCAL_POLICY_VERSION, type FiscalDomicile } from "@/lib/billing/fiscalPolicy";
 
 type ChangeKind = "upgrade" | "downgrade" | "library" | "cancel" | "resume";
 type Quote = {
@@ -75,6 +77,8 @@ function fingerprint(subscription: Stripe.Subscription) {
           i.current_period_end,
         ]),
         discounts: subscription.discounts.map(identifier),
+        taxRates: (subscription.default_tax_rates ?? []).map(identifier),
+        itemTaxRates: subscription.items.data.map(i => (i.tax_rates ?? []).map(identifier)),
         pending: subscription.pending_update,
         schedule: identifier(subscription.schedule),
       }),
@@ -122,6 +126,7 @@ export async function createCapacityCheckout(
   organizationId: string,
   userId: string,
   key: PlanKey | "delivery_pack",
+  fiscalDomicile?: FiscalDomicile,
 ) {
   plansEnabled(organizationId);
   const billing = await billingRow(organizationId);
@@ -145,6 +150,11 @@ export async function createCapacityCheckout(
     throw new Error("Esta escuela ya tiene suscripción. Utiliza Cambiar plan.");
   const price = await capacityPrice(key);
   const rates = await platformTaxRates();
+  const fiscalCustomer = fiscalPolicyRequired()
+    ? fiscalDomicile
+      ? await prepareCapacityFiscalCustomer(organizationId, fiscalDomicile)
+      : await assertCapacityFiscalCustomer(organizationId)
+    : billing.platform_stripe_customer_id;
   const discount = pack
     ? { couponId: null, effectivePercent: 0 }
     : await ensureOrganizationDiscountCoupon(organizationId);
@@ -185,9 +195,10 @@ export async function createCapacityCheckout(
       user_id: userId,
       capacity_operation_id: operation.id,
       offer_version: snapshot.version,
+      ...(fiscalPolicyRequired() ? { fiscal_policy_version: FISCAL_POLICY_VERSION } : {}),
     },
-    ...(billing.platform_stripe_customer_id
-      ? { customer: billing.platform_stripe_customer_id }
+    ...(fiscalCustomer
+      ? { customer: fiscalCustomer, ...(fiscalPolicyRequired() ? { customer_update: { address: "never" as const, name: "never" as const } } : {}) }
       : {}),
     ...(discount.couponId
       ? { discounts: [{ coupon: discount.couponId }] }
@@ -203,6 +214,7 @@ export async function createCapacityCheckout(
         }
       : {
           subscription_data: {
+            ...(rates.length ? { default_tax_rates: rates } : {}),
             metadata: {
               organization_id: organizationId,
               offer_version: snapshot.version,
@@ -260,6 +272,10 @@ export async function quoteCapacityChange(
   const subscription = await stripe.subscriptions.retrieve(
     billing.platform_subscription_id,
   );
+  if (kind !== "cancel") {
+    const customer = await assertCapacityFiscalCustomer(organizationId);
+    if (fiscalPolicyRequired() && identifier(subscription.customer) !== customer) throw new Error("La suscripción no pertenece al cliente fiscal de esta escuela.");
+  }
   if (subscription.status !== "active" || subscription.pending_update)
     throw new Error("Primero resuelve el pago pendiente de la suscripción.");
   if (subscription.schedule && kind !== "cancel" && kind !== "resume")
@@ -303,6 +319,11 @@ export async function quoteCapacityChange(
   const basePrice = await capacityPrice(current.key),
     nextPrice = await capacityPrice(target.key),
     libraryPrice = await capacityPrice("library");
+  const taxRates = await platformTaxRates();
+  if (fiscalPolicyRequired() && kind !== "cancel" && (
+    JSON.stringify((subscription.default_tax_rates ?? []).map(identifier)) !== JSON.stringify(taxRates) ||
+    subscription.items.data.some(i => i.tax_rates?.length && JSON.stringify(i.tax_rates.map(identifier)) !== JSON.stringify(taxRates))
+  )) throw new Error("La configuración fiscal de la suscripción requiere conciliación antes del cambio.");
   const baseItem = subscription.items.data.find(
     (i) => i.price.id === basePrice.id,
   );
@@ -373,7 +394,7 @@ export async function quoteCapacityChange(
       quantity: i.quantity ?? 1,
     })),
     discountIds: subscription.discounts.map((d) => identifier(d)!),
-    taxRates: await platformTaxRates(),
+    taxRates,
   };
   return insertOperation({
     organizationId,
@@ -419,6 +440,12 @@ export async function confirmCapacityChange(
     throw new Error(
       "La suscripción ha cambiado. Solicita una nueva previsualización.",
     );
+  if (op.kind !== "cancel") {
+    const customer = await assertCapacityFiscalCustomer(organizationId);
+    if (fiscalPolicyRequired() && identifier(subscription.customer) !== customer) throw new Error("La suscripción no pertenece al cliente fiscal de esta escuela.");
+    const rates = await platformTaxRates();
+    if (JSON.stringify(rates) !== JSON.stringify(op.quote.taxRates ?? [])) throw new Error("La tarifa fiscal ha cambiado. Solicita una nueva previsualización.");
+  }
   const claimed = await admin
     .from("platform_billing_operations")
     .update({ status: "processing" })
@@ -793,8 +820,11 @@ export async function recoverCapacityPayment(
       throw new Error(
         "El pago está pendiente de recuperar. Utiliza Continuar pago.",
       );
-    if (!attempt.data.stripe_session_id)
+    if (!attempt.data.stripe_session_id) {
+      if (action === "expire") throw new Error("El proveedor aún no ha confirmado si llegó a crear el pago. Requiere conciliación.");
+      plansEnabled(organizationId);
       await getCheckoutUrlForAttempt(attempt.data);
+    }
     const refreshed = await admin
       .from("stripe_checkout_attempts")
       .select("stripe_session_id")
@@ -813,8 +843,11 @@ export async function recoverCapacityPayment(
       }
     }
     await settleCapacityCheckouts(organizationId);
-    if (action === "continue" && session.status === "open")
+    if (action === "continue" && session.status === "open") {
+      plansEnabled(organizationId);
+      await assertCapacityFiscalAttempt(attempt.data);
       return session.url ?? null;
+    }
     if (action === "expire" && session.status === "open")
       throw new Error(
         "El proveedor todavía no ha confirmado el cierre del pago.",
@@ -838,6 +871,8 @@ export async function recoverCapacityPayment(
     current.data.invoice_id &&
     current.data.status === "pending_payment"
   ) {
+    plansEnabled(organizationId);
+    await assertCapacityFiscalCustomer(organizationId);
     const billing = await billingRow(organizationId);
     const invoice = await stripe.invoices.retrieve(current.data.invoice_id);
     if (
@@ -865,9 +900,15 @@ export async function reconcileCapacityOperation(operationId: string) {
   if (op.applied_at || !["processing", "pending_payment"].includes(op.status))
     return;
   if (op.kind === "cancel" || op.kind === "resume") {
+    if (op.kind === "resume") plansEnabled(op.organization_id);
     const subscription = await stripe.subscriptions.retrieve(
       op.quote.subscriptionId,
     );
+    if (op.kind === "resume") {
+      const customer = await assertCapacityFiscalCustomer(op.organization_id);
+      await platformTaxRates();
+      if (fiscalPolicyRequired() && identifier(subscription.customer) !== customer) throw new Error("La suscripción no pertenece al cliente fiscal de esta escuela.");
+    }
     if (subscription.schedule)
       await stripe.subscriptionSchedules.release(
         identifier(subscription.schedule)!,
@@ -902,9 +943,14 @@ export async function reconcileCapacityOperation(operationId: string) {
     return;
   }
   if (op.kind === "downgrade") {
+    plansEnabled(op.organization_id);
+    const customer = await assertCapacityFiscalCustomer(op.organization_id);
+    const rates = await platformTaxRates();
+    if (JSON.stringify(rates) !== JSON.stringify(op.quote.taxRates ?? [])) throw new Error("La tarifa fiscal de la programación requiere conciliación.");
     const subscription = await stripe.subscriptions.retrieve(
       op.quote.subscriptionId,
     );
+    if (fiscalPolicyRequired() && identifier(subscription.customer) !== customer) throw new Error("La suscripción no pertenece al cliente fiscal de esta escuela.");
     const scheduleId = identifier(subscription.schedule);
     const schedule = scheduleId
       ? await stripe.subscriptionSchedules.retrieve(scheduleId)
@@ -1029,7 +1075,7 @@ export async function reconcileCapacityOperation(operationId: string) {
     identifier(invoice.customer) !== identifier(subscription.customer)
   )
     throw new Error("Factura distinta de la previsualización aceptada.");
-  const basePrice = await capacityPrice(op.quote.planKey);
+  const basePrice = await capacityPrice(op.quote.planKey, true);
   const item = subscription.items.data.find((i) => i.price.id === basePrice.id);
   if (
     !item ||

@@ -6,6 +6,7 @@ import { createStripeApiClient } from "@/lib/stripe/config";
 import { createMuxApiClient } from "@/lib/mux/config";
 import { PLANS } from "../billing/catalog.ts";
 import { assertCapacityPrice, type CapacityPriceKey } from "../stripe/capacityPriceValidation.ts";
+import { assertPilotTaxRate } from "../billing/fiscalPolicy.ts";
 
 
 // Fixed, read-only provider calls with explicit projections. Never return SDK
@@ -34,7 +35,12 @@ export async function readIntegrationReadiness() {
     }),
     probe(async () => {
       const r = await stripe().taxRates.list({ active: true, limit: 100 });
-      return { truncated: r.has_more, rates: r.data.map(t => ({ id: t.id, country: t.country,
+      const configured = r.data.find(t => t.id === process.env.PLATFORM_TAX_RATE_ID);
+      let pilotTaxVerified = false;
+      if (configured?.livemode) {
+        try { assertPilotTaxRate(configured); pilotTaxVerified = true; } catch { /* Invalid configuration remains visible as unverified. */ }
+      }
+      return { truncated: r.has_more, pilotTaxVerified, rates: r.data.map(t => ({ id: t.id, country: t.country,
         state: t.state, percentage: t.percentage, inclusive: t.inclusive, live: t.livemode })) };
     }),
     probe(async () => {

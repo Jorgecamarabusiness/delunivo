@@ -60,10 +60,10 @@ function rowsFor(table, query, account) {
     case "video_views": return [];
     case "organization_admins": return account?.id===ids.ownerA || account?.id===ids.superadmin ? [{ id: "80000000-0000-4000-8000-000000000001", organization_id: ids.orgA,role:"owner",user_id:ids.ownerA,created_at:"2026-09-01T00:00:00Z" }] : account?.id===ids.ownerB ? [{organization_id:ids.orgB,role:"owner",user_id:ids.ownerB,created_at:"2026-09-01T00:00:00Z"}] : [];
     case "organization_students": return isStudent(account, ids.orgA) ? [{ organization_id: ids.orgA, user_id: account.id, status: "active" }] : [];
-    case "organization_billing": return [{ organization_id:eq("organization_id") ?? ids.orgA, platform_subscription_status: "active",offer_version:"2026-10-01",plan_key:"crece",quota_mode:"enforce",accepted_offer:{name:"Crece"},library_limit_seconds:180000,economic_limit_seconds:216000,library_extension_quantity:0,platform_subscription_id:"sub_synthetic",platform_stripe_customer_id:"cus_synthetic",access_mode:"standard",effective_discount_percent:20 }];
+    case "organization_billing": return [{ organization_id:eq("organization_id") ?? ids.orgA, platform_subscription_status: eq("organization_id")===ids.orgB?"canceled":"active",offer_version:"2026-10-01",plan_key:"crece",quota_mode:"enforce",accepted_offer:{name:"Crece"},library_limit_seconds:180000,economic_limit_seconds:216000,library_extension_quantity:0,platform_subscription_id:"sub_synthetic",platform_stripe_customer_id:"cus_synthetic",access_mode:"standard",effective_discount_percent:20 }];
     case "platform_capacity_cycles": return [{id:"81000000-0000-4000-8000-000000000001",organization_id:ids.orgA,starts_at:new Date(Date.now()-86400000).toISOString(),ends_at:new Date(Date.now()+29*86400000).toISOString(),base_seconds:480000,grace_seconds:48000,base_used_seconds:12000,grace_used_seconds:0}];
     case "mux_asset_ledger": return [{video_asset_id:ids.assetA,organization_id:ids.orgA,environment:"audit-env",duration_seconds:60}];
-    case "platform_billing_operations": return [{id:"82000000-0000-4000-8000-000000000001",organization_id:ids.orgA,kind:"delivery_pack",status:"pending_payment",created_at:new Date().toISOString(),quote:{},checkout_attempt_id:"synthetic-attempt"}];
+    case "platform_billing_operations": return eq("organization_id")===ids.orgB ? [] : [{id:"82000000-0000-4000-8000-000000000001",organization_id:ids.orgA,kind:"delivery_pack",status:"pending_payment",created_at:new Date().toISOString(),quote:{},checkout_attempt_id:"synthetic-attempt"}];
     case "platform_delivery_packs": return [{id:"83000000-0000-4000-8000-000000000001",organization_id:ids.orgA,granted_seconds:300000,used_seconds:6000,starts_at:new Date().toISOString(),expires_at:new Date(Date.now()+90*86400000).toISOString()}];
     case "platform_settings": return [];
     default: return [];
@@ -159,6 +159,9 @@ const auditEnv = {
   STRIPE_CONNECT_WEBHOOK_SECRET: "",
   CRON_SECRET: "",
   PLATFORM_PLANS_ENABLED:"true",
+  PLATFORM_PLANS_PILOT_ORGANIZATION_IDS:[ids.orgA,ids.orgB].join(","),
+  PLATFORM_PLANS_PILOT_OWNER_EMAILS:accounts.ownerA.email,
+  PLATFORM_TAX_LIVE_APPROVED:"2026-10-01",
   MUX_ENVIRONMENT_ID:"audit-env",
 };
 

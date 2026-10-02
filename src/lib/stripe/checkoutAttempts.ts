@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "./client";
+import { assertCapacityFiscalAttempt } from "./capacityFiscal";
 
 export type CheckoutAttemptKind = "course_purchase" | "platform_subscription" | "platform_delivery_pack";
 export type CheckoutAttemptStatus =
@@ -146,6 +147,7 @@ export async function claimCheckoutAttempt(
 export async function getCheckoutUrlForAttempt(
   attempt: CheckoutAttempt
 ): Promise<string> {
+  await assertCapacityFiscalAttempt(attempt);
   // Even a reusable URL must pass today's account, roster and offer invariants.
   // The database trigger serializes this validation with free grants and deletion.
   const admin = createAdminClient();

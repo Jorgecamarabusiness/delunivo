@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/Alert";
 import { Card } from "@/components/ui/Card";
 import { getSchoolUsageSnapshot } from "@/lib/billing/usageSnapshot";
 import { formatPlatformPrice } from "@/lib/billing/access";
 import { CapacityControls } from "@/app/admin/facturacion/CapacityControls";
 import { plansEnabledForSchool } from "@/lib/billing/rollout";
+import { fiscalPolicyRequired } from "@/lib/billing/fiscalPolicy";
 import { CapacityRecovery } from "@/app/admin/facturacion/CapacityRecovery";
 const hours = (value: unknown) =>
   (Number(value) / 3600).toLocaleString("es-ES", { maximumFractionDigits: 2 });
@@ -213,23 +213,23 @@ export async function SchoolUsagePanel({
         </Card>
       ) : null}
       {controls ? (
-        <Link
+        <a
           href={`/api/admin/content-export?organizationId=${organizationId}`}
           className="inline-block text-sm underline"
         >
           Extraer tus datos y contenido disponible
-        </Link>
+        </a>
       ) : null}
       {b.retention_until ? (
         <Alert variant="info">
           Conservamos tu contenido hasta {date(b.retention_until)}. Puedes
           recuperar la suscripción o{" "}
-          <Link
+          <a
             href={`/api/admin/content-export?organizationId=${organizationId}`}
             className="underline"
           >
             extraer tus datos y contenido disponible
-          </Link>
+          </a>
           . Las facturas se conservan por separado.
         </Alert>
       ) : null}
@@ -245,6 +245,7 @@ export async function SchoolUsagePanel({
               ["active", "past_due"].includes(b.platform_subscription_status),
           )}
           enabled={plansEnabledForSchool(organizationId)}
+          fiscalScopeRequired={fiscalPolicyRequired()}
         />
       ) : null}
     </section>

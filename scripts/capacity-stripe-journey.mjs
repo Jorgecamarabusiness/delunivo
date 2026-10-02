@@ -20,6 +20,13 @@ const {trialOfferSnapshot}=await import('../src/lib/billing/catalog.ts');
 const {handleCapacityRefund,reconcileCapacitySubscription}=await import('../src/lib/stripe/capacityEvents.ts');
 const stripe=new Stripe(configured.STRIPE_SECRET_KEY); const db=createAdminClient();
 const actor=randomUUID(),org=randomUUID(),nonce=Date.now();
+process.env.PLATFORM_PLANS_PILOT_ORGANIZATION_IDS=org;
+process.env.PLATFORM_PLANS_PILOT_OWNER_EMAILS=`capacity-${nonce}@synthetic.invalid`;
+process.env.PLATFORM_TAX_LIVE_APPROVED='2026-10-01';
+const pilotTax=await stripe.taxRates.create({display_name:'IVA piloto sintético TEST',percentage:21,inclusive:true,country:'ES',tax_type:'vat',jurisdiction:'Península y Baleares (TEST)'},{idempotencyKey:'delunivo-capacity-pilot-tax-test-20261001'});
+assert.equal(pilotTax.livemode,false);
+process.env.PLATFORM_TAX_RATE_ID=pilotTax.id;
+const fiscalDomicile={name:'Synthetic Fiscal School',address:{line1:'Calle Fiscal Sintética 1',city:'Madrid',postal_code:'28001',country:'ES'}};
 const sql=`insert into auth.users(id,email,raw_user_meta_data) values('${actor}','capacity-${nonce}@synthetic.invalid','{}'); insert into public.organizations(id,name,slug,owner_id) values('${org}','Stripe synthetic','stripe-synthetic-${nonce}','${actor}'); insert into public.organization_admins(organization_id,user_id,role) values('${org}','${actor}','owner'); insert into public.organization_billing(organization_id,platform_subscription_status,access_mode,discount_percent,discount_duration,manual_discount_remaining_payments) values('${org}','canceled','standard',20,'once',1);`;
 execFileSync(path.join(process.env.TEMP,'delunivo-capacity-tools','postgres','pgsql','bin','psql.exe'),['-h','127.0.0.1','-p','54399','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-c',sql],{stdio:'ignore',windowsHide:true});
 const trial=await db.rpc('start_platform_trial',{p_organization_id:org,p_offer:trialOfferSnapshot()}); assert.equal(trial.error,null);
@@ -36,7 +43,7 @@ async function advanceClock(at){
   for(let i=0;i<90;i++) {if((await stripe.testHelpers.testClocks.retrieve(clock.id)).status==='ready') return; await page.waitForTimeout(1000);}
   throw new Error('Synthetic Stripe clock did not finish advancing');
 }
-async function completeCheckout(url){
+async function completeCheckout(url,foreignCardAddress=false){
   await page.goto(url,{waitUntil:'domcontentloaded'});
   await page.waitForTimeout(1500);
   // Save diagnostics in ignored test output, containing synthetic identities only.
@@ -46,8 +53,8 @@ async function completeCheckout(url){
   await fill('#email',`capacity-${nonce}@example.com`);
   await fill('#cardNumber','4242424242424242'); await fill('#cardExpiry','12/30'); await fill('#cardCvc','123');
   await fill('#billingName','Synthetic Capacity Test');
-  const country=page.locator('#billingCountry');if(await country.count()) await country.selectOption('ES');
-  await fill('#billingAddressLine1','Calle Sintetica 1');await fill('#billingLocality','Madrid');await fill('#billingPostalCode','28001');
+  const country=page.locator('#billingCountry');if(await country.count()) await country.selectOption(foreignCardAddress?'FR':'ES');
+  await fill('#billingAddressLine1',foreignCardAddress?'1 Rue Synthetique':'Calle Sintetica 1');await fill('#billingLocality',foreignCardAddress?'Paris':'Madrid');await fill('#billingPostalCode',foreignCardAddress?'75001':'28001');
   const state=page.locator('#billingAdministrativeArea'); if(await state.count()) {if(await state.evaluate(n=>n.tagName)==='SELECT') await state.selectOption({label:'Madrid'});else await state.fill('Madrid');}
   await page.screenshot({path:'test-results/capacity-stripe/checkout.png',fullPage:true});
   const attempt=(await db.from('stripe_checkout_attempts').select('stripe_session_id').eq('organization_id',org).in('status',['creating','open']).single()).data;
@@ -68,8 +75,9 @@ async function signedEvent(type,object,eventId=`evt_synthetic_${randomUUID()}`,a
 }
 try {
   console.log('Creating and completing the actual Inicio checkout.');
-  const url=await services.createCapacityCheckout(org,actor,'inicio');
-  const initial=await completeCheckout(url);
+  await assert.rejects(services.createCapacityCheckout(org,actor,'inicio'),/domicilio fiscal/);
+  const url=await services.createCapacityCheckout(org,actor,'inicio',fiscalDomicile);
+  const initial=await completeCheckout(url,true);
   await handlePlatformSubscriptionCheckout(initial,new Date());
   // Checkout binding succeeded but its capacity confirmation was lost.
   await services.settleCapacityCheckouts(org);
@@ -87,8 +95,12 @@ try {
   const sub=await stripe.subscriptions.retrieve(subscriptionId,{expand:['latest_invoice']});
   assert.equal(sub.latest_invoice.amount_paid,2400,'20% initial discount retains its amount');
   assert.equal(sub.latest_invoice.total,2400,'inclusive tax does not add to the final price');
+  assert.equal(sub.latest_invoice.customer_address.country,'ES','invoice uses declared fiscal domicile, not foreign card address');
+  assert.equal(sub.latest_invoice.customer_address.postal_code,'28001');
+  assert.equal((await stripe.customers.retrieve(customer.id)).address.postal_code,'28001','Checkout never overwrites canonical fiscal address');
+  assert.ok(sub.latest_invoice.total_taxes.some(t=>t.amount>0 && t.tax_behavior==='inclusive'));
   assert.equal((await db.from('platform_capacity_cycles').select('id').eq('organization_id',org).neq('plan_key','trial')).data.length,1);
-  report.checks.push('Actual hosted checkout, inclusive synthetic 7% tax, once discount, duplicate fulfilment');
+  report.checks.push('Hosted checkout: 21% inclusive TEST VAT, once discount, foreign card address preserves Spanish fiscal invoice, duplicate fulfilment');
   console.log('Testing library purchase and exact upgrade previews.');
   const libraryQuote=await services.quoteCapacityChange(org,actor,'library',undefined,1);
   const libraryResult=await services.confirmCapacityChange(org,libraryQuote.id,actor);
@@ -127,7 +139,12 @@ try {
   console.log('Testing expiring checkout recovery and a paid delivery pack.');
   await services.createCapacityCheckout(org,actor,'delivery_pack');
   const abandonedOperation=(await db.from('platform_billing_operations').select('id').eq('organization_id',org).eq('kind','delivery_pack').eq('status','processing').single()).data;
-  await services.recoverCapacityPayment(org,abandonedOperation.id,'expire');
+  await stripe.customers.update(customer.id,{address:{...fiscalDomicile.address,postal_code:'35001'}});
+  await assert.rejects(services.recoverCapacityPayment(org,abandonedOperation.id,'continue'),/domicilio fiscal/);
+  await assert.rejects(services.quoteCapacityChange(org,actor,'library',undefined,2),/domicilio fiscal/);
+  const abandonedAttempt=(await db.from('stripe_checkout_attempts').select('stripe_session_id').eq('organization_id',org).eq('checkout_kind','platform_delivery_pack').single()).data;
+  assert.equal((await stripe.checkout.sessions.retrieve(abandonedAttempt.stripe_session_id)).status,'expired','unsafe open Checkout expires before returning a URL');
+  await stripe.customers.update(customer.id,{address:fiscalDomicile.address});
   await services.settleCapacityCheckouts(org);
   const pack=await completeCheckout(await services.createCapacityCheckout(org,actor,'delivery_pack'));
   const packIntent=typeof pack.payment_intent==='string' ? pack.payment_intent : pack.payment_intent.id;
@@ -146,7 +163,7 @@ try {
   await handleCapacityRefund(charge);await handleCapacityRefund(charge);
   assert.equal((await db.from('platform_pack_refunds').select('seconds').eq('pack_id',(await db.from('platform_delivery_packs').select('id').eq('organization_id',org).single()).data.id)).data[0].seconds,150000);
   assert.equal((await db.from('platform_pack_refunds').select('refund_id').eq('pack_id',(await db.from('platform_delivery_packs').select('id').eq('organization_id',org).single()).data.id)).data.length,1);
-  report.checks.push('Expired checkout unlocks next purchase; actual pack paid and granted once');
+  report.checks.push('Invalid fiscal domicile blocks changes and recovery, expires open Checkout; safe next pack paid and granted once');
   console.log('Testing scheduled reduction, resume and period-end cancellation.');
   const down=await services.quoteCapacityChange(org,actor,'downgrade','inicio',0);
   assert.equal((await services.confirmCapacityChange(org,down.id,actor)).status,'scheduled');

@@ -10,6 +10,7 @@ import {
   recoverCapacityPayment,
 } from "@/lib/stripe/capacityBilling";
 import { getPlan, OFFER_VERSION } from "@/lib/billing/catalog";
+import { fiscalPolicyRequired, validateFiscalDomicile } from "@/lib/billing/fiscalPolicy";
 
 export type CapacityActionState = {
   error: string | null;
@@ -96,6 +97,11 @@ export async function purchaseCapacityAction(
       auth.context.organizationId,
       auth.context.userId,
       plan?.key ?? "delivery_pack",
+      fiscalPolicyRequired() && plan ? validateFiscalDomicile({
+        name: form.get("fiscalName"), line1: form.get("fiscalLine1"),
+        city: form.get("fiscalCity"), postalCode: form.get("fiscalPostalCode"),
+        country: form.get("fiscalCountry"), accepted: form.get("acceptFiscalScope"),
+      }) : undefined,
     );
   } catch (error) {
     return { error: describe(error) };

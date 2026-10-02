@@ -12,7 +12,7 @@ export const test = base.extend({
       if (message.type() !== "error") return;
       const expectedProcessing = message.text() === "Failed to load resource: the server responded with a status of 409 (Conflict)" &&
         testInfo.annotations.some((annotation) => annotation.type === "expected-http-409" && annotation.description?.split("?")[0] === message.location().url.split("?")[0]);
-      if (!expectedProcessing) failures.push(`console: ${message.text()}`);
+      if (!expectedProcessing) failures.push(`console: ${message.text()} ${message.location().url}`);
     });
     await page.route("**/*", async (route) => {
       const url = new URL(route.request().url());

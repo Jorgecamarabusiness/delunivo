@@ -39,10 +39,12 @@ export async function settleOpenCheckouts(userId: string, courseId?: string) {
         throw new Error("No se pudo verificar la capacidad pagada.");
       if (operation.data.applied_at) continue;
     }
-    if (
-      !attempt.stripe_session_id &&
+    if (!attempt.stripe_session_id && (
+      attempt.checkout_kind !== "course_purchase" ||
       Date.now() - Date.parse(attempt.created_at) >= 23 * 60 * 60 * 1000
-    ) {
+    )) {
+      // Identity deletion must never issue a new chargeable platform Checkout.
+      // Recover an unknown provider creation through the owner's guarded flow.
       throw new Error("provider_reconciliation_required");
     }
     const options: Stripe.RequestOptions = attempt.stripe_account_id
