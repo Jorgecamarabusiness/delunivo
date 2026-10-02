@@ -8,8 +8,8 @@ Especificación comercial: [prompt aceptado](plans-consumption-spec.md).
 
 ## Evidencia y límites
 
-- 127 unitarios, lint, TypeScript y build local aislado.
-- 13 E2E Chromium contra doble local: oferta, paneles, exportación/permisos,
+- 136 unitarios, lint, TypeScript y build local aislado.
+- 23 E2E Chromium contra doble local: oferta, paneles, exportación/permisos,
   editor y aula; consola y red externa controladas. Capturas 375/768/1440.
   Esto no demuestra RLS ni llamadas reales Mux/Stripe.
 - PostgreSQL 17 nativo con todas las migraciones + PostgREST: reservas concurrentes
@@ -21,7 +21,7 @@ Especificación comercial: [prompt aceptado](plans-consumption-spec.md).
   downgrade y renovación Test Clock/cancelación. Recursos del reloj eliminados.
   [Informe](evidencias/plans-2026-10-01/stripe-test-journey.json).
 - Supabase aislado en GitHub: Postgres/Auth/REST/Storage + pgTAP y E2E de aplicación.
-  [CI final 36896822192](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/36896822192)
+  [CI Supabase 37006489165](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/37006489165)
   pasó 128 pgTAP/RLS (11 archivos), concurrencia, Auth/Storage/OTP/lifecycle y
   seis E2E (54 s), incluido consumidor real: sesión12h+900s, cuota, revocación
   y exportación Storage descargada. JWT firmado local; ningún vídeo12h real ni
@@ -80,7 +80,9 @@ los avisos de capacidad tienen su propio flagfalse y workerfalse.
    inclusiva fija sirve para el ensayo TEST; su uso LIVE exige una política válida
    para las jurisdicciones atendidas. Si se requiere más de un tratamiento, ampliar
    el selector fiscal según la decisión verificada y repetir pruebas antes de activar.
-   No basta con establecer una variable para afirmar que se ha validado fiscalmente.
+   Jorge limita inicialmente a Espa?a (02/10); falta confirmar regiones, IVA y
+   selecci?n de escuelas. No basta con establecer una variable para afirmar
+   que se ha validado fiscalmente.
 6. Verificar endpoint principal firmado y sus tipos: checkout.completed/expired,
    invoice.paid/payment_failed, subscription.updated/deleted/pending_update_applied/
    pending_update_expired y charge.refunded. Connect mantiene endpoint y secreto

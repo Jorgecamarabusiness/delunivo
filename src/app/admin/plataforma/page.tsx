@@ -196,9 +196,14 @@ export default async function PlatformAdminPage({
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
         Zona exclusiva de superadministradores para precio, empresas, ofertas y correos de prueba.
       </p>
-      <Link href="/admin/plataforma/cuentas" className={buttonClassName("outline", "sm", "mt-5")}>
-        Gestionar cuentas
-      </Link>
+      <div className="mt-5 flex flex-wrap gap-3">
+        <Link href="/admin/plataforma/cuentas" className={buttonClassName("outline", "sm", "min-h-11")}>
+          Gestionar cuentas
+        </Link>
+        <Link href="/admin/plataforma/servicios" prefetch={false} className={buttonClassName("outline", "sm", "min-h-11")}>
+          Estado de servicios
+        </Link>
+      </div>
 
       <section id="precio" className="mt-10 scroll-mt-6 rounded-lg border border-border p-5 sm:p-6">
         <h2 className="text-xl font-semibold">Precio histórico de suscripciones</h2>

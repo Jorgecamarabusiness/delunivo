@@ -16,6 +16,7 @@ const { registerHooks } = nodeModule as unknown as { registerHooks: (h: {
 const hooks = registerHooks({ resolve(s, c, next) {
   const stub = (source: string) => ({ url: `data:text/javascript,${encodeURIComponent(source)}`, shortCircuit: true });
   const state = `globalThis.${key}`;
+  if (s === "server-only") return stub("export {};");
   if (s === "@/lib/supabase/server") return stub(`export const createClient = async () => ${state}.supabase;`);
   if (s === "@/lib/auth/impersonation") return stub(`export const rejectSensitiveActionDuringImpersonation = async () => ${state}.runAs ? 'blocked' : null;`);
   if (s === "@/lib/stripe/config") return stub(`export const createStripeApiClient = () => { if (${state}.missingStripe) throw Error('private_missing_key'); return ${state}.stripe; };`);
