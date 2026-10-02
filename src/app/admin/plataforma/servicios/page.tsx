@@ -3,15 +3,20 @@ import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Alert } from "@/components/ui/Alert";
 import { buttonClassName } from "@/components/ui/Button";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 import { readIntegrationReadiness } from "@/lib/integrations/readiness";
+import { prepareCatalogueAction } from "./actions";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
-export default async function ServicesPage() {
+export default async function ServicesPage({ searchParams }: { searchParams: Promise<{ catalogue?: string }> }) {
   const result = await readIntegrationReadiness();
   if (!result.ok) redirect("/admin");
   const report = result.report;
+  const { catalogue } = await searchParams;
+  const catalogueVerified = report.prices.state === "verified" && report.prices.data.catalogueVerified;
+  const canPrepare = report.stripeMode === "live" && report.account.state === "verified" && report.account.data.chargesEnabled;
   const controls = [
     ["Nuevos planes", report.controls.plans],
     ["Procesamiento de consumo", report.controls.worker],
@@ -37,6 +42,18 @@ export default async function ServicesPage() {
           }).format(new Date(report.inspectedAt))} (Madrid)</time>
         </p>
       </header>
+
+      {catalogue === "failed" && <Alert variant="warning">La preparación del catálogo sigue pendiente. Revisa los detalles de la comprobación antes de volver a intentarlo.</Alert>}
+
+      <Card className="min-w-0 space-y-4 p-5 sm:p-6">
+        <h2 className="text-xl font-semibold">Catálogo aprobado</h2>
+        <p className="text-sm text-muted-foreground">Inicio 30 €, Crece 69 €, Academia 149 € y biblioteca adicional 8 € al mes; bolsa de entrega 20 € una vez. Impuestos incluidos. Oferta 2026-10-01.</p>
+        <p className="text-sm text-muted-foreground">Prepara los cinco precios en Stripe LIVE. La activación de ventas se controla por separado en el lanzamiento.</p>
+        {catalogueVerified ? <p className="text-sm font-medium">Cinco precios versionados disponibles. Revisa importes y fiscalidad en los detalles.</p> : <form action={prepareCatalogueAction}>
+          <SubmitButton disabled={!canPrepare} pendingLabel="Preparando catálogo LIVE…">Preparar catálogo LIVE</SubmitButton>
+          {!canPrepare && <p className="mt-3 text-sm text-muted-foreground">La preparación requiere verificar la cuenta Stripe LIVE y sus cobros habilitados.</p>}
+        </form>}
+      </Card>
 
       <div className="grid min-w-0 gap-6 md:grid-cols-2">
         <Card className="min-w-0 space-y-4 p-5 sm:p-6">

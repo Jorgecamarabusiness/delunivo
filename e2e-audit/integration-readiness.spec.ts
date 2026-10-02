@@ -14,12 +14,14 @@ test("estado de servicios privado muestra desconocido y controles en todos los t
   await login(page, "ownerA");
   await page.goto("/admin/plataforma/servicios");
   await expect(page).toHaveURL(/\/admin$/);
+  await page.waitForLoadState("networkidle");
   await login(page, "superadmin");
   await page.goto("/admin/plataforma");
   await page.getByRole("link", { name: "Estado de servicios", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Estado de servicios", exact: true })).toBeVisible();
   await expect(page.getByText("Estado de Stripe desconocido.", { exact: false })).toBeVisible();
   await expect(page.getByText("Estado de Mux desconocido.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Preparar catálogo LIVE", exact: true })).toBeDisabled();
   await page.getByText("Detalles de la comprobación", { exact: true }).click();
   await expect(page.locator("details pre")).toContainText('"state": "unknown"');
   await expect(page.locator("details pre")).not.toContainText("sk_test_");
