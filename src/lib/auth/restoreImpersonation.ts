@@ -43,18 +43,17 @@ export async function restoreActorSession(options: {
     throw new Error("La sesión actual no pertenece a este Run as.");
   }
 
+  // Revoke the temporary session and close the audit before switching identity.
+  // A cleanup error must never make the caller sign out an already restored actor.
+  let actorSession: ReturnType<typeof decryptActorSession> | null = null;
   if (user.id === audit.target_user_id) {
-    const actorSession = decryptActorSession(audit.encrypted_actor_session);
+    actorSession = decryptActorSession(audit.encrypted_actor_session);
     const targetAccessToken = currentAuth.session?.access_token ?? null;
-    const { error: restoreError } = await supabase.auth.setSession({
-      access_token: actorSession.accessToken,
-      refresh_token: actorSession.refreshToken,
-    });
-    if (restoreError) {
-      throw new Error("No se pudo restaurar la sesión del superadministrador.");
-    }
     if (targetAccessToken) {
-      await admin.auth.admin.signOut(targetAccessToken, "local");
+      const { error: revokeError } = await admin.auth.admin.signOut(targetAccessToken, "local");
+      if (revokeError && revokeError.status !== 404) {
+        throw new Error("No se pudo cerrar la sesión temporal de soporte.");
+      }
     }
   }
 
@@ -70,6 +69,16 @@ export async function restoreActorSession(options: {
         (status === "expired" ? "La sesión de soporte caducó" : "Salida manual"),
     });
     if (error) throw new Error(error.message);
+  }
+
+  if (actorSession) {
+    const { error: restoreError } = await supabase.auth.setSession({
+      access_token: actorSession.accessToken,
+      refresh_token: actorSession.refreshToken,
+    });
+    if (restoreError) {
+      throw new Error("No se pudo restaurar la sesión del superadministrador.");
+    }
   }
 
   cookieStore.delete(IMPERSONATION_COOKIE);

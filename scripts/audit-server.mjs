@@ -4,11 +4,19 @@
  * Nunca representa una prueba de RLS/Postgres, Mux, Stripe o producción.
  */
 import { createServer } from "node:http";
-import { generateKeyPairSync } from "node:crypto";
+import { createCipheriv, createHash, generateKeyPairSync } from "node:crypto";
 import { spawn } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
-import { AUDIT_PORT, AUDIT_SUPABASE_PORT, accounts, accountForEmail, accountForToken, assetA, courseA, ids, lessonA, organizations, sectionA, userFor } from "./audit-fixtures.mjs";
+import { AUDIT_PORT, AUDIT_SUPABASE_PORT, accounts, accountForEmail, accountForToken, assetA, courseA, ids, lessonA, organizations, runAsFixtures, sectionA, userFor } from "./audit-fixtures.mjs";
+
+// The real operational cleanup erases the original session after Run as expires.
+const actorCipher = createCipheriv("aes-256-gcm", Buffer.alloc(32,7), Buffer.alloc(12,1));
+actorCipher.setAAD(Buffer.from("delunivo-support-impersonation:v1"));
+const actorEncrypted = Buffer.concat([actorCipher.update(JSON.stringify({accessToken:accounts.superadmin.token,refreshToken:`refresh.${accounts.superadmin.token}`})),actorCipher.final()]);
+const syntheticActorSession = `v1.${Buffer.alloc(12,1).toString("base64url")}.${actorCipher.getAuthTag().toString("base64url")}.${actorEncrypted.toString("base64url")}`;
+const runAsMarkerHash = scenario => createHash("sha256").update(`expired-support-marker-${scenario}`).digest("hex");
+let actorSessionValidations = 0;
 
 const json = (response, status, body, headers = {}) => {
   response.writeHead(status, { "content-type": "application/json", "access-control-allow-origin": "http://localhost:" + AUDIT_PORT, "access-control-allow-headers": "authorization, apikey, content-type, x-client-info, x-supabase-api-version", ...headers });
@@ -31,6 +39,12 @@ function rowsFor(table, query, account) {
     return value?.startsWith("eq.") ? value.slice(3) : value;
   };
   switch (table) {
+    case "support_impersonation_sessions": {
+      const entry = Object.entries(runAsFixtures).find(([,fixture]) => eq("target_auth_session_id") === fixture.sessionId || eq("id") === fixture.id);
+      if(!entry) return [];
+      const [scenario,fixture] = entry;
+      return [{id:fixture.id,actor_user_id:ids.superadmin,target_user_id:fixture.id,target_auth_session_id:fixture.sessionId,token_hash:runAsMarkerHash(scenario),status:"active",expires_at:new Date(Date.now()-60_000).toISOString(),encrypted_actor_session:["restorable","auditFailure","revocationFailure"].includes(scenario) ? syntheticActorSession : ""}];
+    }
     case "organizations": return eq("slug") === organizations.orgA.slug ? [organizations.orgA] : eq("slug") === organizations.orgB.slug ? [organizations.orgB] : eq("id") === ids.orgA ? [organizations.orgA] : eq("id") === ids.orgB ? [organizations.orgB] : [];
     case "profiles": return Object.values(accounts).filter(Boolean).map(a => ({ id: a.id, name: a.email.split("@")[0], email: a.email, is_super_admin: a.id === ids.superadmin, account_status: "active" })).filter(row => !eq("id") || row.id === eq("id"));
     case "courses": return (!eq("id") || eq("id") === ids.courseA) ? [courseA] : [];
@@ -53,7 +67,11 @@ async function mockSupabase(request, response) {
   if (request.method === "OPTIONS") return json(response, 204, {});
   const url = new URL(request.url, `http://127.0.0.1:${AUDIT_SUPABASE_PORT}`);
   const account = accountFrom(request);
+  if(url.pathname === "/__audit/run-as-effects") return json(response,200,{actorSessionValidations});
+  if(url.pathname === "/auth/v1/user" && account?.id === ids.superadmin) actorSessionValidations++;
   if (url.pathname === "/auth/v1/user") return account ? json(response, 200, userFor(account)) : json(response, 401, { message: "invalid JWT" });
+  if (url.pathname === "/auth/v1/logout" && account?.id === runAsFixtures.logoutFailure.id) return json(response, 503, {message:"Synthetic Auth outage"});
+  if (url.pathname === "/auth/v1/logout" && account?.id === runAsFixtures.revocationFailure.id && request.headers.apikey === "audit-service-role-key") return json(response,503,{message:"Synthetic admin revoke failure"});
   if (url.pathname === "/auth/v1/token" && request.method === "POST") {
     const body = await readJson(request);
     const isRefresh = url.searchParams.get("grant_type") === "refresh_token";
@@ -67,6 +85,8 @@ async function mockSupabase(request, response) {
   if (url.pathname.startsWith("/rest/v1/rpc/")) {
     const body = await readJson(request);
     const rpc = url.pathname.split("/").pop();
+    if (rpc === "current_account_is_active" && account?.id === runAsFixtures.inactive.id) return json(response,200,false);
+    if (rpc === "close_support_impersonation_audit") return body.p_token_hash === runAsMarkerHash("auditFailure") ? json(response,503,{message:"Synthetic audit failure"}) : json(response,200,true);
     const orgId = body.org_id;
     const result = rpc === "current_account_is_active" ? Boolean(account) : rpc === "is_org_admin" ? isAdmin(account, orgId) : rpc === "is_org_owner" ? Boolean(account && (account.id === ids.superadmin || (account.id === ids.ownerA && orgId === ids.orgA) || (account.id === ids.ownerB && orgId === ids.orgB))) : rpc === "is_org_student" ? isStudent(account, orgId) : rpc === "has_course_access" ? Boolean(account && [ids.studentA, "20000000-0000-4000-8000-000000000005", ids.ownerA, ids.superadmin].includes(account.id) && body.target_course_id === ids.courseA) : rpc === "has_org_platform_access" ? orgId === ids.orgA || orgId === ids.orgB : rpc === "is_super_admin" ? account?.id === ids.superadmin : null;
     return json(response, 200, result);
