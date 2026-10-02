@@ -1,94 +1,62 @@
-# Planes y consumo — progreso
+# Planes y consumo ? progreso
 
-Actualización: 2026-10-01, 17:12 UTC. Encargo completo leído antes de editar.
-Rama `codex/plans-consumption-20261001`, origen Jorgecamarabusiness/delunivo.
-Especificación aceptada: [prompt maestro](plans-consumption-spec.md).
-Despliegue automático de rama deshabilitado; producción sin modificar.
+Actualizaci?n: 2026-10-02. Encargo le?do entero antes de editar.
+Rama: codex/plans-consumption-20261001. [Especificaci?n aceptada](plans-consumption-spec.md).
 
-## Implementación integrada
+## Implementado y publicado
 
-Catálogo versionado, tres migraciones compatibles, contratos anteriores en
-observe, cuotas/reservas atómicas, importador Mux paginado con cobertura,
-correcciones/tombstones, Stripe checkout/cambios/ampliaciones/recuperación,
-sesiones acotadas, avisos/outbox, paneles, A medida, conservación y exportación.
-Borrado/envíos/importación reales apagados por defecto.
-[Esquema](database.md), [anexo técnico](plans-implementation.md),
-[lanzamiento](plans-launch-runbook.md).
+Cat?logo versionado, contratos legacy en observe, cuotas y reservas at?micas,
+importador Mux con cobertura/correcciones, checkout/cambios/ampliaciones,
+recuperaci?n, playback limitado, avisos/outbox, paneles, A medida,
+conservaci?n y exportaci?n. [Anexo](plans-implementation.md).
 
-## Evidencia comprobada
+Jorge autoriz? producci?n. PR4 corrigi? el bucle Run as y su sesi?n real volvi?
+al login y despu?s a la portada. PR5 public? planes: main55408ae, Vercel
+`dpl_FvavXXKp1pLgPiXQZjMMS2xCoUVm` READY, www.delunivo.com.
+Planes, worker, importaci?n, avisos y borrado siguen apagados.
 
-- 127 unitarios; lint sin avisos, TypeScript y build aislado pasan.
-- 13 E2E auditoría finales pasan (23,7 s): UI y permisos con doble local,
-  consola/red controladas, 375/768/1440. Capturas en evidencias/plans-2026-10-01.
-- PostgreSQL17/PostgREST nativo: todas las migraciones desde cero aplicadas;
-  REST verificado. Concurrencia real de dos escuelas/reservas/expiración,
-  duración manipulada, doble importación, pausa y avisos únicos pasa.
-  Auth/Storage nativos son schemas compatibles, no servicios reales.
-- Stripe TEST real: siete grupos integrados pasan, checkout hospedado, tarifa
-  sintética inclusiva 7%, descuento once, biblioteca recurrente, upgrade
-  exacto medio ciclo sin reset, rechazo/recuperación, refund previo al grant,
-  firma/duplicados/Connect, downgrade/renovación Test Clock y cancelación.
-  Recursos de cada reloj eliminados. Informe stripe-test-journey.json.
-- Avisos: worker y outbox SQL real, SDK Resend con transporte capturado,
-  destinatarios synthetic.invalid, 70/90, no duplicación y retry de fallo con
-  misma clave pasan. No hubo entrega real. Informe notices-synthetic-journey.json.
-- [CI final 36896822192](https://github.com/Jorgecamarabusiness/delunivo/actions/runs/36896822192)
-  sobre aed0cfb: tres migraciones, 128 pgTAP (11 archivos), concurrencia,
-  Auth/Storage/OTP/lifecycle y seis E2E de aplicación pasan (54 s).
-  Nuevo consumidor: sesión12h+900s, cuota/recuperación sin nueva compra,
-  revocación periódica y exportación Storage descargada real. Sin API Mux externa.
-  Los fallos anteriores de fixtures (membership, tipo MIME, reserva) corregidos.
-- Revisores read-only UI/calidad: cierre confirmado sin bloqueos materiales.
-  Capturas pricing/conditions/custom éxito/error revisadas sin overflow.
+Backup cifrado fuera del repo: 64 tablas/1.758 filas, captura12:07UTC;
+SHA25620568de6d94ef5c8480df9a4e6989d24c0beb8f93515f47febfe94b527b97620.
+Descifrado y JSON comprobados en memoria; sin nueva copia de bytes multimedia
+ni restauraci?n completa de este snapshot. Migraciones aplicadas at?micamente
+12:11UTC, 29?33 recibos incluyendo20261002121113. Ocho contratos anteriores
+?ntegros en observe sin oferta/retenci?n nueva;27 assets/ledger, cero ciclos/jobs.
+Las23 tablas nuevas tienen RLS y grants service-only; sin nuevos WARN de advisors.
 
-## Defectos detectados y defendidos
+## Verificado
 
-SQL inicial detectó duración legacy cero y numeric→integer; TEST Stripe detectó
-restricción schedule from_subscription+metadata. Revisores detectaron trial
-pending, cuotas nuevas, checkout sin grant, renovación ilimitada de sesiones,
-retención sin job, Storage/restore concurrente y lease de importador.
-Corregidos y probados. Snapshot Mux no degrada ready ni borra duración conocida;
-errored perdido se concilia y sólo desvinculado entra en cleanup.
-La prueba real de caducidad detectó 90 días +1h por DST Madrid; todos los plazos
-nuevos son horas exactas UTC (336/720/2160/168), con SQL SET timezone Madrid.
-UI conserva exportación y oculta nuevas compras/cambios durante pago pendiente.
+- 136 unitarios, lint, TypeScript y build aislado pasan.
+- 23 E2E Chromium aislados: permisos, servicios desconocidos, Run as, paneles,
+  aula y exportaci?n; consola y red controladas;375/768/1440 sin overflow.
+- CI general37006543260 pas? sobre46ad0d9:136 unitarios y22 E2E anteriores.
+- CI Supabase37006489165 pas?:128 pgTAP/11 archivos, concurrencia real,
+  Auth/Storage/OTP/lifecycle y6 E2E de aplicaci?n; restauraci?n privada omitida.
+- Stripe TEST real:7 grupos comerciales pasan, tarifa inclusiva sint?tica7%,
+  checkout hospedado, descuento, librer?a, upgrades, rechazo/recuperaci?n,
+  refund, firmas/duplicados/Connect y Test Clock. Recursos de relojes eliminados.
+- Avisos con SQL real y transporte Resend interceptado pasan:70/90,
+  unicidad/retry; sin entregas reales. Revisiones UI/calidad cerradas.
 
-## Bloqueos de lanzamiento comprobados
+## Trabajo actual y pendientes
 
-Mux UI confirma30 assets; la exportaci?n local contiene secretos ocultos por
-Vercel. Su401 no representa una prueba de credenciales de producci?n. Stripe
-LIVE tiene sesi?n y muestra pagos/payouts activos desde02/10. Pendientes lectura
-desde servidor, coincidencia de cuenta, fiscal por jurisdicciones y piloto
-expl?cito. No subida real12h/20GiB, observaci?n14d/dos ciclos ni entrega Resend.
+Se a?ade /admin/plataforma/servicios: consumidor privado del mismo diagn?stico
+can?nico que la API. Chrome bloque? la navegaci?n a la URL API t?cnica.
+Auth superadmin fuera de Run as, s?lo lecturas/proyecciones sin secretos.
+Revisi?n de seguridad sin bloqueos; revisi?n UI detect? targets36px, corregidos
+con44px y regresi?n. Pendiente publicar esta vista y leer providers en destino.
 
-## Siguiente paso
+Stripe LIVE autenticado muestra cuenta acct_1TwKtKJD1wCl42uL, pagos/payouts
+activos, cat?logo y tarifas fiscales vac?os. Falta comprobar coincidencia con
+la cuenta real del servidor. Exportaci?n Vercel sensible redacted no prueba
+credenciales inv?lidas; no rotarlas por ese resultado.
+Jorge limita el primer lanzamiento a Espa?a. Preguntas pendientes: regiones/IVA
+y escuelas del piloto (m?ximo5). No activar cobros con una pol?tica fiscal supuesta.
 
-Implementación integrada y verificada dentro del alcance aislado. El lanzamiento
-requiere autorización explícita, accesos/fiscal y comprobaciones del runbook.
-No publicar ni aplicar producción por el push. Procesos portables propios
-detenidos y puertos54397/54398/54399 sin listeners. Datos sintéticos permanecen
-en TEMP, sin servicio global.
+Mux UI muestra30 assets. Pendiente lectura API/entorno desde producci?n,
+conciliaci?n/importaci?n real, configuraci?n de precios/webhooks y piloto.
+No probado v?deo real12h/20GiB, entrega Resend ni observaci?n14d/dos ciclos.
+No activar avisos/borrado fuera de l?mites del documento.
 
-
-## Lanzamiento autorizado ? 2026-10-02
-
-- Jorge autoriz? los pasos de producci?n. Hotfix PR4/main97af585 desplegado READY
-  en dpl_EwQjnR6saJvX9L7d8yUG7pYwAgfd; pesta?a real recuperada a login y luego
-  portada con sesi?n propia. Sin errores de consola/runtime en ventana consultada.
-- Backup DB cifrado OpenPGP fuera del repo:64 tablas/1.758 filas, captura12:07UTC;
-  SHA25620568de6d94ef5c8480df9a4e6989d24c0beb8f93515f47febfe94b527b97620,
-  descifrado/JSON comprobados en memoria. Incluye registros Auth/Storage y metadata
-  de schema; no nuevos bytes de medios ni restore completo de este snapshot.
-- Tres migraciones aplicadas at?micamente12:11UTC, baseline29?33 incluyendo
-  recibo API20261002121113. Pre/post verifican datos billing anteriores ?ntegros,
-  ocho legacy observe sin oferta/retenci?n;27 videos/ledger, cero ciclos/jobs.
-  RLS y grants cerrados para clientes; avisos advisors INFO service-only previstos
-  y los mismos nueve WARN de funciones autorizadas anteriores.
-- Vercel Production: planes/worker/importador/avisosfalse, Mux deletionoff,
-  aplicaci?n al pr?ximo deploy. Correos de acceso existentes conservados.
-- origin/main integrado. Nueva lectura de proveedores desde runtime privado
-  s?lo superadmin fuera de Run as, proyecciones sin secretos; seis regresiones
-  unitarias y dos E2E directos. Revisi?n read-only sin bloqueos tras correcciones.
-- Final local:136 unitarios, lint, TypeScript, build y22 E2E pasan. Pendiente
-  push/CI/merge/despliegue del c?digo de planes apagado, lectura real Stripe/Mux,
-  precios/fiscal y lista expl?cita de piloto antes de activaci?n.
+Siguiente: publicar vista privada tras checks finales, comprobar Stripe/Mux y
+resolver pasos independientes del [runbook](plans-launch-runbook.md). No detener
+la implementaci?n por el cierre de una fase. No afirmar piloto/cobros activos.

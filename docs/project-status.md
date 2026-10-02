@@ -43,7 +43,7 @@ paneles, solicitud A medida, exportación propia y colas de conservación.
 Las cuotas comerciales no garantizan un gasto instantáneo: Mux publica tarde y
 un token emitido sigue vigente hasta caducar; permisos se revisan cada cinco minutos.
 
-Pruebas locales: 127 unitarios, lint, TypeScript, build, 13 E2E con servicios
+Pruebas finales: 136 unitarios, lint, TypeScript, build, 23 E2E con servicios
 sintéticos y siete grupos de Stripe TEST real sobre PostgreSQL nativo. CI anterior
 `36896822192` pasó 128 pgTAP/RLS, concurrencia, Auth/Storage/OTP/lifecycle y seis
 E2E reales de aplicación aislada, incluido el consumidor de cuota/playback/export.
