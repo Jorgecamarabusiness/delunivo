@@ -1,6 +1,18 @@
 # Delunivo: estado y decisiones vigentes
 
-Ultima actualizacion: 2026-10-01.
+Ultima actualizacion: 2026-10-02.
+
+## Incidente de acceso: Run as caducado
+
+El 02/10 se confirmó en Chrome y lectura de Vercel/Supabase el bucle de salida
+de una sesión de soporte caducada con credencial original purgada. El parche
+`a3eac45` está integrado en esta rama y separado sobre main en
+`codex/run-as-recovery-20261002`. Lint, 130 unitarios, TypeScript, build y
+20 E2E aislados pasan aquí; el parche de main pasa 117 unitarios y 16 E2E.
+Revisión independiente de calidad sin bloqueos tras corregir orden de revocación.
+Pendiente autorizar publicación del parche y verificar la pestaña real.
+No activa los planes ni requiere migraciones. Detalle:
+[`incidente`](incidents/2026-10-02-run-as-redirects.md).
 
 ## Planes y consumo: implementación en rama, sin activar producción
 

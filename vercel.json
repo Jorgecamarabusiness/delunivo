@@ -12,7 +12,8 @@
   "git": {
     "deploymentEnabled": {
       "codex/audit-close-20260906": false,
-      "codex/plans-consumption-20261001": false
+      "codex/plans-consumption-20261001": false,
+      "codex/run-as-recovery-20261002": false
     }
   }
 }
