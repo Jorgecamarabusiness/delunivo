@@ -2,13 +2,15 @@
 
 Última actualización: 2026-10-26.
 
-## Pausa comercial y preparación para planes gratuitos
+## Pausa comercial y planes gratuitos vigentes
 
 Por decisión de Jorge del 26/10, Delunivo pasa temporalmente a proyecto personal sin nuevas ventas ni altas de escuelas. `PERSONAL_PREVIEW_MODE=true` oculta las ofertas y bloquea también las Server Actions de contratación, compra y continuación de pagos. Conserva Auth, derechos ya concedidos, contenido, webhooks, consulta de facturación, conciliación y exportación. No cancela suscripciones existentes en Stripe. La gestión de cambios comerciales queda pausada; reactivarla exige una decisión posterior y revisar el plan de hosting.
 
 El cron de capacidad se reduce de cada hora a una vez al día, a las 02:10 UTC, compatible con Hobby. Revisa las últimas 26 horas de forma idempotente, conservando el retraso de publicación de Mux y un solape que cubre la imprecisión del cron diario. El consumo y los estados dejan de actualizarse cada hora. Hobby puede ejecutar dentro de la hora programada y no garantiza precisión de minuto. El cleanup diario de las 03:00 UTC conserva sus interruptores existentes; no se activa ningún borrado.
 
-Este apartado describe el código preparado. La publicación y los cambios de plan se verifican por separado antes de declararlos aplicados. Las pruebas del modo personal usan servicios locales sintéticos (`node scripts/audit-server.mjs build --personal-preview` y `npx playwright test --config=playwright.personal-preview.config.ts`), sin acceder a producción.
+Publicado el 26/10/2026: código `a25c5e45821f35a8885ff6c7be215dec1a9cca56`, Production READY `dpl_C2FX5j2mAvw9CnxqfXoGnbK24kGA`, con `PERSONAL_PREVIEW_MODE=true`. El dominio canónico, alta de empresa y A medida muestran la pausa; login responde 200. Supabase de Delunivo y HQ están en Free y el equipo Vercel figura Hobby, comprobado en API y pantalla. Los proyectos y datos siguen activos. Antes de bajar Supabase se guardaron un respaldo privado de la base y las plantillas Auth; no se incorporaron datos a Git.
+
+Validación final: 167 pruebas unitarias, lint, build/TypeScript y tres E2E en 375, 768 y 1440 píxeles; revisión independiente cerrada. Las pruebas del modo personal usan servicios locales sintéticos (`node scripts/audit-server.mjs build --personal-preview` y `npx playwright test --config=playwright.personal-preview.config.ts`), sin acceder a producción. Las guardas compartidas impiden también recrear Checkout durante una conciliación, reactivar suscripciones desde el worker y modificar términos comerciales mientras dura la pausa. Las cancelaciones ya solicitadas y la conciliación de pagos existentes conservan su recorrido.
 
 ## Acceso recuperado y lanzamiento de planes
 
