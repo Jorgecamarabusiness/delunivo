@@ -4,7 +4,7 @@ import {
   importMuxUsage,
   importMuxHistoricalWindow,
 } from "@/lib/mux/importUsage";
-import { latestCompleteHour } from "@/lib/billing/allocation";
+import { dailyMaintenanceUsageWindows } from "@/lib/billing/allocation";
 import {
   settleCapacityCheckouts,
   reconcileCapacityOperation,
@@ -27,10 +27,9 @@ export async function runCapacityMaintenance() {
   if (process.env.MUX_USAGE_IMPORT_ENABLED === "true") {
     try {
       await reconcileMuxAssets();
-      const end = latestCompleteHour(new Date());
-      imported = (
-        await importMuxUsage(new Date(end - 24 * 3600000), new Date(end))
-      ).completed;
+      for (const { start, end } of dailyMaintenanceUsageWindows(new Date())) {
+        imported += (await importMuxUsage(new Date(start), new Date(end))).completed;
+      }
       imported += (await importMuxHistoricalWindow()).completed;
     } catch {
       failures.push("mux_import_failed");

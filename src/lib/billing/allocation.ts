@@ -94,3 +94,12 @@ export function latestCompleteHour(now: Date) {
   // Mux publishes only data ending at least 12 hours ago.
   return Math.floor(now.getTime() / 3600000) * 3600000 - 12 * 3600000;
 }
+
+export function dailyMaintenanceUsageWindows(now: Date) {
+  const end = latestCompleteHour(now);
+  // Daily Hobby invocations can move across an hour boundary. Revisit the
+  // overlap idempotently, retaining both the 12-hour publication delay and
+  // the importer's maximum of 24 hours in each leased batch.
+  const recentStart = end - 24 * 3600000;
+  return [{ start: recentStart, end }, { start: end - 26 * 3600000, end: recentStart }];
+}

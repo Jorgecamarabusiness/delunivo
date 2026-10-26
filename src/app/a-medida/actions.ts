@@ -1,4 +1,5 @@
 "use server";
+import { isPersonalPreviewMode, PERSONAL_PREVIEW_MESSAGE } from "@/lib/personal-preview";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rejectSensitiveActionDuringImpersonation } from "@/lib/auth/impersonation";
@@ -6,6 +7,7 @@ export async function requestCustomPlan(
   _: { error: string | null; success?: boolean },
   form: FormData,
 ): Promise<{ error: string | null; success?: boolean }> {
+  if (isPersonalPreviewMode()) return { error: PERSONAL_PREVIEW_MESSAGE };
   const supabase = await createClient();
   const {
     data: { user },

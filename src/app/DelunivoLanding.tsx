@@ -8,6 +8,7 @@ import { PricingPlans } from "@/components/billing/PricingPlans";
 import { formatPlatformPrice } from "@/lib/billing/access";
 import { PLANS } from "@/lib/billing/catalog";
 import { PlatformLogo } from "@/components/media/PlatformLogo";
+import { isPersonalPreviewMode, PERSONAL_PREVIEW_MESSAGE } from "@/lib/personal-preview";
 
 const FEATURES = [
   {
@@ -51,6 +52,7 @@ export function DelunivoLanding({
   isAdmin: boolean;
   priceCents: number;
 }) {
+  if (isPersonalPreviewMode()) return <div className="flex flex-1 flex-col bg-background text-foreground"><Header /><main id="contenido-principal" className="flex-1"><Container width="md" className="space-y-6 py-20"><PlatformLogo size="lg" priority /><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Delunivo · proyecto personal</h1><p className="text-muted-foreground">{PERSONAL_PREVIEW_MESSAGE}</p><p className="text-sm text-muted-foreground">Las cuentas existentes conservan su acceso y su contenido.</p><Link href={isAdmin ? "/admin" : "/login"} className={buttonClassName("outline", "md")}>{isAdmin ? "Entrar a mi espacio" : "Iniciar sesión"}</Link></Container></main><Footer /></div>;
   const newPlans=process.env.PLATFORM_PLANS_ENABLED==='true';
   return (
     <div className="flex flex-1 flex-col bg-background text-foreground">

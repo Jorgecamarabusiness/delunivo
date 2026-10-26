@@ -10,10 +10,12 @@ export function CapacityRecovery({
   organizationId,
   operationId,
   checkout,
+  allowPayment = true,
 }: {
   organizationId: string;
   operationId: string;
   checkout: boolean;
+  allowPayment?: boolean;
 }) {
   const [state, action, pending] = useActionState(recoverCapacityAction, {
     error: null,
@@ -31,14 +33,14 @@ export function CapacityRecovery({
         >
           {pending ? "Comprobando…" : "Actualizar pago"}
         </button>
-        <button
+        {allowPayment && <button
           disabled={pending}
           name="recoveryAction"
           value="continue"
           className={buttonClassName("outline", "sm", "min-h-11")}
         >
           Continuar pago
-        </button>
+        </button>}
         {checkout ? (
           <button
             disabled={pending}

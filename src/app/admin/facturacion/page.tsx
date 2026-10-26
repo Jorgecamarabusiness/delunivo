@@ -16,6 +16,7 @@ import { AffiliatePanel } from "./AffiliatePanel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SchoolUsagePanel } from "@/components/billing/SchoolUsagePanel";
 import { getPlan } from "@/lib/billing/catalog";
+import { isPersonalPreviewMode, PERSONAL_PREVIEW_MESSAGE } from "@/lib/personal-preview";
 
 const STATUS_LABEL: Record<string, string> = {
   trialing: "En periodo de prueba",
@@ -30,6 +31,7 @@ export default async function FacturacionPage({
   searchParams: Promise<{ checkout?: string; empresa?: string }>;
 }) {
   const { checkout, empresa } = await searchParams;
+  const salesPaused = isPersonalPreviewMode();
   const supabase = await createClient();
   const {
     data: { user },
@@ -138,6 +140,7 @@ export default async function FacturacionPage({
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-bold tracking-tight">Facturación</h1>
+      {salesPaused && <Alert variant="info" className="mt-6">{PERSONAL_PREVIEW_MESSAGE} Puedes consultar los datos ya guardados.</Alert>}
       <p className="mt-2 text-sm text-muted-foreground">
         {selectedOrganization?.name ?? "Tu empresa"} · Suscripción a{" "}
         {PLATFORM_NAME} —{" "}
@@ -226,7 +229,7 @@ export default async function FacturacionPage({
           </p>
         ) : null}
 
-        {!billing?.offer_version && !billing?.pending_offer_snapshot ? (
+        {!salesPaused && !billing?.offer_version && !billing?.pending_offer_snapshot ? (
           <BillingActions
             organizationId={selectedOrganizationId}
             canManage={canManage}
@@ -240,14 +243,14 @@ export default async function FacturacionPage({
         <SchoolUsagePanel organizationId={selectedOrganizationId} controls />
       </div>
 
-      <AffiliatePanel
+      {!salesPaused && <AffiliatePanel
         organizationId={selectedOrganizationId}
         referralUrl={referralUrl}
         activeReferrals={activeReferrals}
         pendingReferrals={pendingReferrals}
         effectiveDiscountPercent={billing?.effective_discount_percent ?? 0}
         discountCapPercent={billing?.affiliate_discount_cap_percent ?? 50}
-      />
+      />}
     </div>
   );
 }

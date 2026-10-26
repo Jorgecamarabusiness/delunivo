@@ -1,7 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { allocateUsage, latestCompleteHour } from "./allocation.ts";
+import { allocateUsage, dailyMaintenanceUsageWindows, latestCompleteHour } from "./allocation.ts";
 import { proratedSeconds, offerSnapshot } from "./catalog.ts";
+
+test("daily maintenance overlaps hourly buckets despite Hobby's scheduling jitter", () => {
+  const first = dailyMaintenanceUsageWindows(new Date("2026-10-01T02:10:00Z"));
+  const next = dailyMaintenanceUsageWindows(new Date("2026-10-02T03:09:00Z"));
+  assert.ok(Math.min(...next.map((window) => window.start)) <= Math.max(...first.map((window) => window.end)), "A delayed daily run must not skip an hourly usage bucket");
+  assert.equal(Math.max(...next.map((window) => window.end)), latestCompleteHour(new Date("2026-10-02T03:09:00Z")));
+  assert.ok(next.every((window) => window.end > window.start && window.end - window.start <= 24 * 3600000), "Every batch must respect the importer's 24-hour validation limit");
+  assert.equal(next[1].end, next[0].start, "The overlap batch must meet the recent batch without a gap");
+});
 
 test("upgrade exact half-cycle grants difference and floors seconds deterministically", () => {
   assert.equal(proratedSeconds(300000, 0, 100, 50), 150000);

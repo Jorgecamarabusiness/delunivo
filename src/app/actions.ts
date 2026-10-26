@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { isPersonalPreviewMode, PERSONAL_PREVIEW_MESSAGE } from "@/lib/personal-preview";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { slugify, isReservedSlug } from "@/lib/organizations/slug";
@@ -50,6 +51,7 @@ export async function createCompanyAction(
   _prevState: CreateCompanyState,
   formData: FormData,
 ): Promise<CreateCompanyState> {
+  if (isPersonalPreviewMode()) return { error: PERSONAL_PREVIEW_MESSAGE };
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");

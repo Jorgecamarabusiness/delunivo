@@ -15,6 +15,7 @@ import { isFreeCoursePrice, parseFiniteCoursePrice } from "@/lib/courses/freeCou
 import { FreeCourseAccessButton } from "./FreeCourseAccessButton";
 import { SellerLegalInfoCard } from "@/components/organizations/SellerLegalInfo";
 import { coursePath, metadataDescription } from "@/lib/seo/publicUrls";
+import { isPersonalPreviewMode, PERSONAL_PREVIEW_MESSAGE } from "@/lib/personal-preview";
 
 export async function generateMetadata({
   params,
@@ -150,6 +151,8 @@ export default async function CursoDetallePage({
         Ir al curso →
       </Link>
     </>
+  ) : !isFree && isPersonalPreviewMode() ? (
+    <p className="text-sm leading-relaxed text-muted-foreground">{PERSONAL_PREVIEW_MESSAGE}</p>
   ) : (
     <>
       <p className="text-sm text-muted-foreground">Precio</p>

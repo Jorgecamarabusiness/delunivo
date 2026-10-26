@@ -23,6 +23,7 @@ import { plansEnabledForSchool } from "@/lib/billing/rollout";
 import { readAllRows } from "@/lib/billing/readAllRows";
 import { assertCapacityFiscalAttempt, assertCapacityFiscalCustomer, prepareCapacityFiscalCustomer } from "./capacityFiscal";
 import { fiscalPolicyRequired, FISCAL_POLICY_VERSION, type FiscalDomicile } from "@/lib/billing/fiscalPolicy";
+import { isPersonalPreviewMode, PERSONAL_PREVIEW_MESSAGE } from "@/lib/personal-preview";
 
 type ChangeKind = "upgrade" | "downgrade" | "library" | "cancel" | "resume";
 type Quote = {
@@ -60,6 +61,7 @@ const identifier = (value: string | { id: string } | null | undefined) =>
   typeof value === "string" ? value : (value?.id ?? null);
 
 function plansEnabled(organizationId: string) {
+  if (isPersonalPreviewMode()) throw new Error(PERSONAL_PREVIEW_MESSAGE);
   if (!plansEnabledForSchool(organizationId))
     throw new Error("Los nuevos planes todavía no están activados.");
 }

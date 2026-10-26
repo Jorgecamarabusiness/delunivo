@@ -1,4 +1,5 @@
 "use server";
+import { isPersonalPreviewMode, PERSONAL_PREVIEW_MESSAGE } from "@/lib/personal-preview";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireOwnerContext } from "@/lib/organizations/requireOwnerContext";
@@ -43,6 +44,7 @@ export async function recoverCapacityAction(
   _: CapacityActionState,
   form: FormData,
 ): Promise<CapacityActionState> {
+  if (isPersonalPreviewMode() && form.get("recoveryAction") === "continue") return { error: PERSONAL_PREVIEW_MESSAGE };
   const auth = await requireOwnerContext({
     allowInactive: true,
     organizationId: String(form.get("organizationId") ?? ""),
@@ -75,6 +77,7 @@ export async function purchaseCapacityAction(
   _: CapacityActionState,
   form: FormData,
 ): Promise<CapacityActionState> {
+  if (isPersonalPreviewMode()) return { error: PERSONAL_PREVIEW_MESSAGE };
   const auth = await requireOwnerContext({
     allowInactive: true,
     organizationId: String(form.get("organizationId") ?? ""),
@@ -112,6 +115,7 @@ export async function previewCapacityAction(
   _: CapacityActionState,
   form: FormData,
 ): Promise<CapacityActionState> {
+  if (isPersonalPreviewMode()) return { error: PERSONAL_PREVIEW_MESSAGE };
   const auth = await requireOwnerContext({
     allowInactive: true,
     organizationId: String(form.get("organizationId") ?? ""),
@@ -152,6 +156,7 @@ export async function confirmCapacityAction(
   _: CapacityActionState,
   form: FormData,
 ): Promise<CapacityActionState> {
+  if (isPersonalPreviewMode()) return { error: PERSONAL_PREVIEW_MESSAGE };
   const auth = await requireOwnerContext({
     allowInactive: true,
     organizationId: String(form.get("organizationId") ?? ""),

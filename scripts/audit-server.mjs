@@ -159,6 +159,7 @@ const auditEnv = {
   STRIPE_CONNECT_WEBHOOK_SECRET: "",
   CRON_SECRET: "",
   PLATFORM_PLANS_ENABLED:"true",
+  PERSONAL_PREVIEW_MODE:process.argv.includes("--personal-preview") ? "true" : "false",
   PLATFORM_PLANS_PILOT_ORGANIZATION_IDS:[ids.orgA,ids.orgB].join(","),
   PLATFORM_PLANS_PILOT_OWNER_EMAILS:accounts.ownerA.email,
   PLATFORM_TAX_LIVE_APPROVED:"2026-10-01",

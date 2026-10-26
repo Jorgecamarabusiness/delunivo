@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { isPersonalPreviewMode, PERSONAL_PREVIEW_MESSAGE } from "@/lib/personal-preview";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { requireOwnerContext } from "@/lib/organizations/requireOwnerContext";
@@ -16,6 +17,7 @@ export async function subscribeAction(
   _prevState: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  if (isPersonalPreviewMode()) return { error: PERSONAL_PREVIEW_MESSAGE };
   const organizationId = String(formData.get("organizationId") ?? "");
   const auth = await requireOwnerContext({
     allowInactive: true,
@@ -64,6 +66,7 @@ export async function openBillingPortalAction(
   _prevState: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  if (isPersonalPreviewMode()) return { error: PERSONAL_PREVIEW_MESSAGE };
   const organizationId = String(formData.get("organizationId") ?? "");
   const auth = await requireOwnerContext({
     allowInactive: true,
@@ -114,6 +117,7 @@ export async function openBillingPortalAction(
 export async function ensureReferralCodeAction(
   organizationId: string,
 ): Promise<ActionResult> {
+  if (isPersonalPreviewMode()) return { error: PERSONAL_PREVIEW_MESSAGE };
   const auth = await requireOwnerContext({
     allowInactive: true,
     organizationId,

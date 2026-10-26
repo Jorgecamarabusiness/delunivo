@@ -21,6 +21,7 @@ const hooks = registerHooks({ resolve(s, context, next) {
     return stub(`export const stripe=new Proxy({}, {get:(_,k)=>globalThis.${key}.stripe[k]});`);
   if (s === "@/lib/billing/fiscalPolicy") return { url: new URL("../billing/fiscalPolicy.ts", import.meta.url).href, shortCircuit: true };
   if (s === "@/lib/billing/catalog") return { url: new URL("../billing/catalog.ts", import.meta.url).href, shortCircuit: true };
+  if (s === "@/lib/personal-preview") return { url: new URL("../personal-preview.ts", import.meta.url).href, shortCircuit: true };
   if (context.parentURL?.endsWith("/settleOpenCheckouts.ts")) {
     if (s === "./client") return stub(`export const stripe=new Proxy({}, {get:(_,k)=>globalThis.${key}.stripe[k]});`);
     if (s === "@/lib/billing/readAllRows") return stub(`export const readAllRows=async()=>({data:globalThis.${key}.settlementAttempts,error:null});`);
@@ -148,4 +149,31 @@ test("identity deletion never recreates an unknown chargeable platform Checkout"
   await assert.rejects(settleOpenCheckouts("owner"), /provider_reconciliation_required/);
   assert.equal(f.calls.createdCheckout, 0);
   assert.equal(f.calls.created, 0);
+});
+
+test("paused free grants and cleanup never recreate an unknown course Checkout", async () => {
+  const previous = process.env.PERSONAL_PREVIEW_MODE;
+  process.env.PERSONAL_PREVIEW_MODE = "true";
+  try {
+    const f = fixture();
+    f.settlementAttempts.push(attempt({ checkout_kind: "course_purchase", status: "creating", stripe_session_id: null, stripe_params: { mode: "payment", metadata: {} } }));
+    await assert.rejects(settleOpenCheckouts("owner"), /provider_reconciliation_required/);
+    assert.equal(f.calls.createdCheckout, 0);
+  } finally {
+    if (previous === undefined) delete process.env.PERSONAL_PREVIEW_MODE; else process.env.PERSONAL_PREVIEW_MODE = previous;
+  }
+});
+
+test("paused cleanup can still expire an existing course Checkout without creating another", async () => {
+  const previous = process.env.PERSONAL_PREVIEW_MODE;
+  process.env.PERSONAL_PREVIEW_MODE = "true";
+  try {
+    const f = fixture();
+    f.settlementAttempts.push(attempt({ checkout_kind: "course_purchase", stripe_params: { mode: "payment", metadata: {} } }));
+    await settleOpenCheckouts("owner");
+    assert.equal(f.calls.expired, 1);
+    assert.equal(f.calls.createdCheckout, 0);
+  } finally {
+    if (previous === undefined) delete process.env.PERSONAL_PREVIEW_MODE; else process.env.PERSONAL_PREVIEW_MODE = previous;
+  }
 });

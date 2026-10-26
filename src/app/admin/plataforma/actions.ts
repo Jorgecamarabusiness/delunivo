@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isPersonalPreviewMode, PERSONAL_PREVIEW_MESSAGE } from "@/lib/personal-preview";
 import type Stripe from "stripe";
 import { requireSuperAdmin } from "@/lib/auth/requireOrgAdmin";
 import type {
@@ -32,6 +33,7 @@ export async function updatePlatformPriceAction(
   _prevState: ActionResult,
   formData: FormData
 ): Promise<ActionResult> {
+  if (isPersonalPreviewMode()) return { error: PERSONAL_PREVIEW_MESSAGE };
   const auth = await requirePlatformAdmin();
   if (auth.error || !auth.user) return { error: auth.error ?? "No autorizado." };
 
@@ -86,6 +88,7 @@ export async function updateOrganizationCommercialTermsAction(
   organizationId: string,
   formData: FormData
 ): Promise<ActionResult> {
+  if (isPersonalPreviewMode()) return { error: PERSONAL_PREVIEW_MESSAGE };
   const auth = await requirePlatformAdmin();
   if (auth.error || !auth.user) return { error: auth.error ?? "No autorizado." };
 

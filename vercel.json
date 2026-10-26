@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/capacity",
-      "schedule": "10 * * * *"
+      "schedule": "10 2 * * *"
     },
     {
       "path": "/api/cron/mux-deletions",

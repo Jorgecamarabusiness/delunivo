@@ -7,6 +7,7 @@ import { handlePlatformSubscriptionCheckout } from "./handlePlatformBilling";
 import type { CheckoutAttempt } from "./checkoutAttempts";
 import { fulfilCapacityCheckout } from "./capacityBilling";
 import { readAllRows } from "@/lib/billing/readAllRows";
+import { isPersonalPreviewMode } from "@/lib/personal-preview";
 
 /** Confirm terminal Stripe state before a free grant or identity deletion. */
 export async function settleOpenCheckouts(userId: string, courseId?: string) {
@@ -40,6 +41,7 @@ export async function settleOpenCheckouts(userId: string, courseId?: string) {
       if (operation.data.applied_at) continue;
     }
     if (!attempt.stripe_session_id && (
+      isPersonalPreviewMode() ||
       attempt.checkout_kind !== "course_purchase" ||
       Date.now() - Date.parse(attempt.created_at) >= 23 * 60 * 60 * 1000
     )) {

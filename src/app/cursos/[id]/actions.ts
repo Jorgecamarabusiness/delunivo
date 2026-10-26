@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { isPersonalPreviewMode, PERSONAL_PREVIEW_MESSAGE } from "@/lib/personal-preview";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getConnectedStripeAccountId } from "@/lib/organizations/integrations";
@@ -98,6 +99,7 @@ export async function createStripeCheckoutAction(
   courseId: string,
   acceptedDigitalContent: boolean
 ): Promise<ActionResult> {
+  if (isPersonalPreviewMode()) return { error: PERSONAL_PREVIEW_MESSAGE };
   if (acceptedDigitalContent !== true) {
     return {
       error:

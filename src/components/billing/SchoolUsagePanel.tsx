@@ -6,6 +6,7 @@ import { CapacityControls } from "@/app/admin/facturacion/CapacityControls";
 import { plansEnabledForSchool } from "@/lib/billing/rollout";
 import { fiscalPolicyRequired } from "@/lib/billing/fiscalPolicy";
 import { CapacityRecovery } from "@/app/admin/facturacion/CapacityRecovery";
+import { isPersonalPreviewMode } from "@/lib/personal-preview";
 const hours = (value: unknown) =>
   (Number(value) / 3600).toLocaleString("es-ES", { maximumFractionDigits: 2 });
 const minutes = (value: unknown) =>
@@ -19,6 +20,7 @@ export async function SchoolUsagePanel({
   organizationId: string;
   controls?: boolean;
 }) {
+  const salesPaused = isPersonalPreviewMode();
   const s = await getSchoolUsageSnapshot(organizationId);
   if (s.kind === "error") return <Alert variant="info">{s.message}</Alert>;
   const b = s.billing,
@@ -206,6 +208,7 @@ export async function SchoolUsagePanel({
                   organizationId={organizationId}
                   operationId={op.id}
                   checkout={Boolean(op.checkout_attempt_id)}
+                  allowPayment={!salesPaused}
                 />
               ) : null}
             </div>
@@ -233,7 +236,7 @@ export async function SchoolUsagePanel({
           . Las facturas se conservan por separado.
         </Alert>
       ) : null}
-      {controls &&
+      {controls && !salesPaused &&
       !hasBlockingOperation &&
       b.trial_initialization_status !== "pending" ? (
         <CapacityControls

@@ -6,12 +6,14 @@ import { createClient } from "@/lib/supabase/server";
 import { CreateCompanyForm } from "../CreateCompanyForm";
 import { getPlatformPriceCents } from "@/lib/billing/platform";
 import { PLANS } from "@/lib/billing/catalog";
+import { isPersonalPreviewMode, PERSONAL_PREVIEW_MESSAGE } from "@/lib/personal-preview";
 
 export default async function CrearEmpresaPage({
   searchParams,
 }: {
   searchParams: Promise<{ referido?: string }>;
 }) {
+  if (isPersonalPreviewMode()) return <AuthShell title="Proyecto personal en pausa" subtitle={PERSONAL_PREVIEW_MESSAGE}><p className="text-sm text-muted-foreground">El alta de nuevas escuelas está cerrada.</p><Link href="/login" className="mt-6 inline-block font-medium underline">Entrar con una cuenta existente</Link></AuthShell>;
   // Crear una empresa es algo del dominio raíz. Dentro del portal de un cliente
   // (/o/<slug>/crear-empresa) no tiene sentido: ahí se va a su propia home.
   const supabase = await createClient();
